@@ -23,6 +23,16 @@ processor:
     customerSales: customer_sales
   consumerGroupId: realtime-flink-processor
   checkpointIntervalMs: 10000
+kafkaUi:
+  enabled: false
+  replicas: 1
+  image:
+    repository: provectuslabs/kafka-ui
+    tag: v0.7.2
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
 kafkaBootstrapServers: kafka:9092
 kafka:
   enabled: false

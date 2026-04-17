@@ -13,6 +13,8 @@ processor:
     tag: 0.1.0
     pullPolicy: Never
   consumerGroupId: realtime-flink-processor-dev
+kafkaUi:
+  enabled: true
 kafka:
   enabled: true
   image:

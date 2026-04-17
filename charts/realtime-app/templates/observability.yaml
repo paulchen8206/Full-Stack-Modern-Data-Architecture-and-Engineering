@@ -1,0 +1,272 @@
+{{- if .Values.observability.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-prometheus-config
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: prometheus
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets:
+              - localhost:9090
+      - job_name: realtime-app-static
+        static_configs:
+          - targets:
+              - {{ include "realtime-app.fullname" . }}-processor:8080
+              - {{ include "realtime-app.fullname" . }}-kafka-ui:8080
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-loki-config
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: loki
+data:
+  loki.yaml: |
+    auth_enabled: false
+    server:
+      http_listen_port: 3100
+    common:
+      instance_addr: 127.0.0.1
+      path_prefix: /loki
+      storage:
+        filesystem:
+          chunks_directory: /loki/chunks
+          rules_directory: /loki/rules
+      replication_factor: 1
+      ring:
+        kvstore:
+          store: inmemory
+    schema_config:
+      configs:
+        - from: "2024-01-01"
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+    storage_config:
+      filesystem:
+        directory: /loki/chunks
+    analytics:
+      reporting_enabled: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-grafana-datasources
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: grafana
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://{{ include "realtime-app.fullname" . }}-prometheus:9090
+        isDefault: true
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://{{ include "realtime-app.fullname" . }}-loki:3100
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-prometheus
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: prometheus
+spec:
+  replicas: {{ .Values.observability.prometheus.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: observability
+      app.kubernetes.io/part: prometheus
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/part: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: {{ .Values.observability.prometheus.image.repository }}:{{ .Values.observability.prometheus.image.tag }}
+          imagePullPolicy: {{ .Values.observability.prometheus.image.pullPolicy }}
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --web.enable-lifecycle
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yml
+            - name: data
+              mountPath: /prometheus
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-prometheus-config
+        - name: data
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-loki
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: loki
+spec:
+  replicas: {{ .Values.observability.loki.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: observability
+      app.kubernetes.io/part: loki
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/part: loki
+    spec:
+      containers:
+        - name: loki
+          image: {{ .Values.observability.loki.image.repository }}:{{ .Values.observability.loki.image.tag }}
+          imagePullPolicy: {{ .Values.observability.loki.image.pullPolicy }}
+          args:
+            - -config.file=/etc/loki/loki.yaml
+          ports:
+            - containerPort: 3100
+          volumeMounts:
+            - name: config
+              mountPath: /etc/loki/loki.yaml
+              subPath: loki.yaml
+            - name: data
+              mountPath: /loki
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-loki-config
+        - name: data
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-grafana
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: grafana
+spec:
+  replicas: {{ .Values.observability.grafana.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: observability
+      app.kubernetes.io/part: grafana
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/part: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: {{ .Values.observability.grafana.image.repository }}:{{ .Values.observability.grafana.image.tag }}
+          imagePullPolicy: {{ .Values.observability.grafana.image.pullPolicy }}
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: {{ .Values.observability.grafana.adminUser | quote }}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: {{ .Values.observability.grafana.adminPassword | quote }}
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+              subPath: datasources.yaml
+      volumes:
+        - name: datasources
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-grafana-datasources
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-prometheus
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: prometheus
+spec:
+  type: {{ .Values.observability.prometheus.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: prometheus
+  ports:
+    - name: http
+      port: {{ .Values.observability.prometheus.service.port }}
+      targetPort: 9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-loki
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: loki
+spec:
+  type: {{ .Values.observability.loki.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: loki
+  ports:
+    - name: http
+      port: {{ .Values.observability.loki.service.port }}
+      targetPort: 3100
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-grafana
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: grafana
+spec:
+  type: {{ .Values.observability.grafana.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: grafana
+  ports:
+    - name: http
+      port: {{ .Values.observability.grafana.service.port }}
+      targetPort: 3000
+{{- end }}

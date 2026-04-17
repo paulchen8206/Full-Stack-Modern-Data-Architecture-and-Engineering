@@ -82,6 +82,7 @@ spec:
       targetPort: 8080
 {{- end }}
 {{- if .Values.processor.enabled }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:

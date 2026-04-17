@@ -15,3 +15,7 @@ processor:
   consumerGroupId: realtime-flink-processor-dev
 kafka:
   enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/kafka
+    tag: 4.0.0-debian-12-r10

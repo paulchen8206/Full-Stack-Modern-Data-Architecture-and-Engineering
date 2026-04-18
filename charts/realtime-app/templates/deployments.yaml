@@ -121,4 +121,23 @@ spec:
               value: {{ .Values.processor.consumerGroupId | quote }}
             - name: APP_CHECKPOINT_INTERVAL_MS
               value: {{ .Values.processor.checkpointIntervalMs | quote }}
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-processor
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: processor
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: processor
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
 {{- end }}

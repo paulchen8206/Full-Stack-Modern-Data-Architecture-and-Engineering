@@ -1,0 +1,15 @@
+name: realtime_analytics
+version: 1.0.0
+config-version: 2
+profile: realtime_analytics
+model-paths: ["models"]
+target-path: target
+clean-targets: ["target", "dbt_packages"]
+models:
+  realtime_analytics:
+    +materialized: view
+    staging:
+      +schema: stage
+    gold:
+      +schema: gold
+      +materialized: table

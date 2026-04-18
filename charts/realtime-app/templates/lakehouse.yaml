@@ -1,0 +1,848 @@
+{{- if or .Values.postgres.enabled .Values.connect.enabled .Values.dbt.enabled .Values.airflow.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-warehouse-config
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: warehouse
+data:
+  init.sql: |
+    create schema if not exists landing;
+    create schema if not exists stage;
+    create schema if not exists gold;
+
+    create table if not exists landing.sales_order (
+      orderid text,
+      ordertimestamp timestamptz,
+      customerid text,
+      customername text,
+      customeremail text,
+      customersegment text,
+      currency text,
+      ordertotal numeric,
+      lineitemcount integer
+    );
+
+    create table if not exists landing.sales_order_line_item (
+      orderid text,
+      ordertimestamp timestamptz,
+      customerid text,
+      customername text,
+      lineitemid text,
+      sku text,
+      productname text,
+      quantity integer,
+      unitprice numeric,
+      linetotal numeric,
+      currency text
+    );
+
+    create table if not exists landing.customer_sales (
+      customerid text,
+      customername text,
+      customeremail text,
+      customersegment text,
+      ordercount bigint,
+      totalspent numeric,
+      lastorderid text,
+      updatedat timestamptz,
+      currency text
+    );
+  dbt_project.yml: |
+    name: realtime_analytics
+    version: 1.0.0
+    config-version: 2
+    profile: realtime_analytics
+    model-paths: ["models"]
+    target-path: target
+    clean-targets: ["target", "dbt_packages"]
+    models:
+      realtime_analytics:
+        +materialized: view
+        staging:
+          +schema: stage
+        gold:
+          +schema: gold
+          +materialized: table
+  profiles.yml: |
+    realtime_analytics:
+      target: dev
+      outputs:
+        dev:
+          type: postgres
+          host: {{ include "realtime-app.fullname" . }}-postgres
+          port: 5432
+          user: {{ .Values.postgres.auth.user }}
+          password: {{ .Values.postgres.auth.password }}
+          dbname: {{ .Values.postgres.auth.database }}
+          schema: public
+          threads: 4
+  stg_sales_order.sql: |
+    select
+      orderid as order_id,
+      ordertimestamp as order_timestamp,
+      customerid as customer_id,
+      customername as customer_name,
+      customeremail as customer_email,
+      customersegment as customer_segment,
+      currency,
+      ordertotal::numeric as order_total,
+      lineitemcount::int as line_item_count
+    from landing.sales_order
+  stg_sales_order_line_item.sql: |
+    select
+      orderid as order_id,
+      ordertimestamp as order_timestamp,
+      customerid as customer_id,
+      customername as customer_name,
+      lineitemid as line_item_id,
+      sku,
+      productname as product_name,
+      quantity::int as quantity,
+      unitprice::numeric as unit_price,
+      linetotal::numeric as line_total,
+      currency
+    from landing.sales_order_line_item
+  stg_customer_sales.sql: |
+    select
+      customerid as customer_id,
+      customername as customer_name,
+      customeremail as customer_email,
+      customersegment as customer_segment,
+      ordercount::bigint as order_count,
+      totalspent::numeric as total_spent,
+      lastorderid as last_order_id,
+      updatedat as updated_at,
+      currency
+    from landing.customer_sales
+  gold_customer_sales_summary.sql: |
+    with sales as (
+      select * from {{ "{{" }} ref('stg_customer_sales') {{ "}}" }}
+    ),
+    orders as (
+      select * from {{ "{{" }} ref('stg_sales_order') {{ "}}" }}
+    ),
+    line_items as (
+      select * from {{ "{{" }} ref('stg_sales_order_line_item') {{ "}}" }}
+    ),
+    line_item_rollup as (
+      select
+        customer_id,
+        sum(line_total) as line_item_total,
+        count(*) as total_line_items,
+        max(order_timestamp) as last_line_item_at
+      from line_items
+      group by customer_id
+    )
+    select
+      s.customer_id,
+      max(s.customer_name) as customer_name,
+      max(s.customer_email) as customer_email,
+      max(s.customer_segment) as customer_segment,
+      max(s.currency) as currency,
+      max(s.order_count) as latest_order_count,
+      max(s.total_spent) as latest_total_spent,
+      coalesce(l.line_item_total, 0) as recomputed_total_from_line_items,
+      coalesce(l.total_line_items, 0) as total_line_items,
+      count(distinct o.order_id) as observed_orders,
+      max(o.order_timestamp) as last_order_timestamp,
+      max(s.updated_at) as projection_updated_at,
+      max(l.last_line_item_at) as last_line_item_timestamp
+    from sales s
+    left join orders o
+      on s.customer_id = o.customer_id
+    left join line_item_rollup l
+      on s.customer_id = l.customer_id
+    group by s.customer_id, l.line_item_total, l.total_line_items
+{{- end }}
+
+{{- if .Values.minio.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-minio-init
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: minio
+data:
+  init-minio.sh: |
+    #!/usr/bin/env sh
+    set -eu
+
+    until mc alias set local http://{{ include "realtime-app.fullname" . }}-minio:9000 {{ .Values.minio.rootUser }} {{ .Values.minio.rootPassword }} >/dev/null 2>&1; do
+      echo "Waiting for MinIO to accept connections..."
+      sleep 2
+    done
+
+    mc mb --ignore-existing local/{{ .Values.minio.bucket }}
+    mc anonymous set private local/{{ .Values.minio.bucket }} >/dev/null 2>&1 || true
+
+    echo "MinIO warehouse bucket ready: {{ .Values.minio.bucket }}"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-minio
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: minio
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: minio
+    spec:
+      containers:
+        - name: minio
+          image: {{ .Values.minio.image.repository }}:{{ .Values.minio.image.tag }}
+          imagePullPolicy: {{ .Values.minio.image.pullPolicy }}
+          args:
+            - server
+            - /data
+            - --console-address
+            - :9001
+          env:
+            - name: MINIO_ROOT_USER
+              value: {{ .Values.minio.rootUser | quote }}
+            - name: MINIO_ROOT_PASSWORD
+              value: {{ .Values.minio.rootPassword | quote }}
+          ports:
+            - containerPort: 9000
+            - containerPort: 9001
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-minio
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: minio
+spec:
+  type: {{ .Values.minio.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: minio
+  ports:
+    - name: api
+      port: {{ .Values.minio.service.apiPort }}
+      targetPort: 9000
+    - name: console
+      port: {{ .Values.minio.service.consolePort }}
+      targetPort: 9001
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-minio-init
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: minio-init
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: minio-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: minio-init
+          image: {{ .Values.minio.mcImage.repository }}:{{ .Values.minio.mcImage.tag }}
+          imagePullPolicy: {{ .Values.minio.mcImage.pullPolicy }}
+          command: ["/bin/sh", "/scripts/init-minio.sh"]
+          volumeMounts:
+            - name: script
+              mountPath: /scripts/init-minio.sh
+              subPath: init-minio.sh
+      volumes:
+        - name: script
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-minio-init
+            defaultMode: 0755
+{{- end }}
+
+{{- if .Values.postgres.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-postgres
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}
+          imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.auth.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.auth.password | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.auth.database | quote }}
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d/init.sql
+              subPath: init.sql
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: init
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-warehouse-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-postgres
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: postgres
+spec:
+  type: {{ .Values.postgres.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: postgres
+  ports:
+    - name: postgres
+      port: {{ .Values.postgres.service.port }}
+      targetPort: 5432
+{{- end }}
+
+{{- if .Values.connect.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-connect-config
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: connect
+data:
+  register-connectors.sh: |
+    #!/usr/bin/env sh
+    set -eu
+
+    CONNECT_URL="${CONNECT_URL:-http://{{ include "realtime-app.fullname" . }}-connect:8083}"
+
+    wait_for_connect() {
+      until curl -sf "${CONNECT_URL}/connectors" >/dev/null; do
+        echo "Waiting for Kafka Connect REST API..."
+        sleep 3
+      done
+    }
+
+    upsert_connector() {
+      name="$1"
+      config_file="$2"
+
+      echo "Applying connector ${name} from ${config_file}"
+
+      if curl -sf "${CONNECT_URL}/connectors/${name}" >/dev/null; then
+        curl -sf -X PUT \
+          -H "Content-Type: application/json" \
+          --data "@${config_file}" \
+          "${CONNECT_URL}/connectors/${name}/config" >/dev/null
+      else
+        curl -sf -X POST \
+          -H "Content-Type: application/json" \
+          --data "{\"name\":\"${name}\",\"config\":$(cat "${config_file}")}" \
+          "${CONNECT_URL}/connectors" >/dev/null
+      fi
+    }
+
+    upsert_connector_best_effort() {
+      name="$1"
+      config_file="$2"
+
+      if ! upsert_connector "${name}" "${config_file}"; then
+        echo "WARN: skipping connector ${name}; plugin may be unavailable in this image"
+      fi
+    }
+
+    wait_for_connect
+    upsert_connector_best_effort "iceberg-sales-order" "/connector-configs/iceberg-sales-order.json"
+    upsert_connector_best_effort "iceberg-sales-order-line-item" "/connector-configs/iceberg-sales-order-line-item.json"
+    upsert_connector_best_effort "iceberg-customer-sales" "/connector-configs/iceberg-customer-sales.json"
+    upsert_connector "jdbc-sales-warehouse" "/connector-configs/jdbc-sales-warehouse.json"
+
+    echo "Kafka Connect connectors are registered."
+  iceberg-sales-order.json: |
+    {
+      "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+      "tasks.max": "1",
+      "topics": "sales_order",
+      "s3.bucket.name": "{{ .Values.minio.bucket }}",
+      "topics.dir": "raw/sales_order",
+      "store.url": "http://{{ include "realtime-app.fullname" . }}-minio:9000",
+      "s3.region": "us-east-1",
+      "aws.access.key.id": "{{ .Values.minio.rootUser }}",
+      "aws.secret.access.key": "{{ .Values.minio.rootPassword }}",
+      "s3.part.size": "5242880",
+      "flush.size": "1",
+      "storage.class": "io.confluent.connect.s3.storage.S3Storage",
+      "format.class": "io.confluent.connect.s3.format.json.JsonFormat",
+      "partitioner.class": "io.confluent.connect.storage.partitioner.DefaultPartitioner",
+      "schema.compatibility": "NONE"
+    }
+  iceberg-sales-order-line-item.json: |
+    {
+      "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+      "tasks.max": "1",
+      "topics": "sales_order_line_item",
+      "s3.bucket.name": "{{ .Values.minio.bucket }}",
+      "topics.dir": "raw/sales_order_line_item",
+      "store.url": "http://{{ include "realtime-app.fullname" . }}-minio:9000",
+      "s3.region": "us-east-1",
+      "aws.access.key.id": "{{ .Values.minio.rootUser }}",
+      "aws.secret.access.key": "{{ .Values.minio.rootPassword }}",
+      "s3.part.size": "5242880",
+      "flush.size": "1",
+      "storage.class": "io.confluent.connect.s3.storage.S3Storage",
+      "format.class": "io.confluent.connect.s3.format.json.JsonFormat",
+      "partitioner.class": "io.confluent.connect.storage.partitioner.DefaultPartitioner",
+      "schema.compatibility": "NONE"
+    }
+  iceberg-customer-sales.json: |
+    {
+      "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+      "tasks.max": "1",
+      "topics": "customer_sales",
+      "s3.bucket.name": "{{ .Values.minio.bucket }}",
+      "topics.dir": "raw/customer_sales",
+      "store.url": "http://{{ include "realtime-app.fullname" . }}-minio:9000",
+      "s3.region": "us-east-1",
+      "aws.access.key.id": "{{ .Values.minio.rootUser }}",
+      "aws.secret.access.key": "{{ .Values.minio.rootPassword }}",
+      "s3.part.size": "5242880",
+      "flush.size": "1",
+      "storage.class": "io.confluent.connect.s3.storage.S3Storage",
+      "format.class": "io.confluent.connect.s3.format.json.JsonFormat",
+      "partitioner.class": "io.confluent.connect.storage.partitioner.DefaultPartitioner",
+      "schema.compatibility": "NONE"
+    }
+  jdbc-sales-warehouse.json: |
+    {
+      "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+      "tasks.max": "1",
+      "topics": "sales_order,sales_order_line_item,customer_sales",
+      "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+      "value.converter.schemas.enable": "true",
+      "connection.url": "jdbc:postgresql://{{ include "realtime-app.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}",
+      "connection.user": "{{ .Values.postgres.auth.user }}",
+      "connection.password": "{{ .Values.postgres.auth.password }}",
+      "table.name.format": "landing.${topic}",
+      "insert.mode": "insert",
+      "auto.create": "true",
+      "auto.evolve": "true",
+      "batch.size": "3000",
+      "delete.enabled": "false",
+      "pk.mode": "none",
+      "errors.tolerance": "all",
+      "errors.log.enable": "true",
+      "errors.log.include.messages": "true",
+      "transforms": "castNumbers",
+      "transforms.castNumbers.type": "org.apache.kafka.connect.transforms.Cast$Value",
+      "transforms.castNumbers.spec": "orderTotal:float64,unitPrice:float64,lineTotal:float64,totalSpent:float64",
+      "consumer.override.auto.offset.reset": "latest",
+      "quote.sql.identifiers": "never"
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-connect
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: connect
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: connect
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: connect
+    spec:
+      containers:
+        - name: connect
+          image: {{ .Values.connect.image.repository }}:{{ .Values.connect.image.tag }}
+          imagePullPolicy: {{ .Values.connect.image.pullPolicy }}
+          ports:
+            - containerPort: 8083
+          env:
+            - name: CONNECT_BOOTSTRAP_SERVERS
+              value: {{ .Values.kafkaBootstrapServers | quote }}
+            - name: CONNECT_REST_ADVERTISED_HOST_NAME
+              value: {{ printf "%s-connect" (include "realtime-app.fullname" .) | quote }}
+            - name: CONNECT_REST_PORT
+              value: "8083"
+            - name: CONNECT_GROUP_ID
+              value: {{ .Values.connect.groupId | quote }}
+            - name: CONNECT_CONFIG_STORAGE_TOPIC
+              value: {{ .Values.connect.configStorageTopic | quote }}
+            - name: CONNECT_OFFSET_STORAGE_TOPIC
+              value: {{ .Values.connect.offsetStorageTopic | quote }}
+            - name: CONNECT_STATUS_STORAGE_TOPIC
+              value: {{ .Values.connect.statusStorageTopic | quote }}
+            - name: CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            - name: CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            - name: CONNECT_STATUS_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            - name: CONNECT_KEY_CONVERTER
+              value: org.apache.kafka.connect.storage.StringConverter
+            - name: CONNECT_VALUE_CONVERTER
+              value: org.apache.kafka.connect.json.JsonConverter
+            - name: CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE
+              value: "false"
+            - name: CONNECT_INTERNAL_KEY_CONVERTER
+              value: org.apache.kafka.connect.json.JsonConverter
+            - name: CONNECT_INTERNAL_VALUE_CONVERTER
+              value: org.apache.kafka.connect.json.JsonConverter
+            - name: CONNECT_PLUGIN_PATH
+              value: /usr/share/java,/usr/share/confluent-hub-components
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-connect
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: connect
+spec:
+  type: {{ .Values.connect.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: connect
+  ports:
+    - name: http
+      port: {{ .Values.connect.service.port }}
+      targetPort: 8083
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-connect-init
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: connect-init
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: connect-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: connect-init
+          image: {{ .Values.connect.curlImage.repository }}:{{ .Values.connect.curlImage.tag }}
+          imagePullPolicy: {{ .Values.connect.curlImage.pullPolicy }}
+          command: ["/bin/sh", "/scripts/register-connectors.sh"]
+          volumeMounts:
+            - name: connect-config
+              mountPath: /scripts/register-connectors.sh
+              subPath: register-connectors.sh
+            - name: connector-configs
+              mountPath: /connector-configs
+      volumes:
+        - name: connect-config
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-connect-config
+            defaultMode: 0755
+            items:
+              - key: register-connectors.sh
+                path: register-connectors.sh
+        - name: connector-configs
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-connect-config
+            items:
+              - key: iceberg-sales-order.json
+                path: iceberg-sales-order.json
+              - key: iceberg-sales-order-line-item.json
+                path: iceberg-sales-order-line-item.json
+              - key: iceberg-customer-sales.json
+                path: iceberg-customer-sales.json
+              - key: jdbc-sales-warehouse.json
+                path: jdbc-sales-warehouse.json
+{{- end }}
+
+{{- if .Values.dbt.enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-dbt
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: dbt
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: dbt
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: dbt
+          image: {{ .Values.dbt.image.repository }}:{{ .Values.dbt.image.tag }}
+          imagePullPolicy: {{ .Values.dbt.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              DBT_TARGET_PATH=/tmp/dbt-target DBT_LOG_PATH=/tmp/dbt-logs dbt run --project-dir /dbt --profiles-dir /dbt
+          volumeMounts:
+            - name: warehouse-config
+              mountPath: /dbt
+              readOnly: true
+      volumes:
+        - name: warehouse-config
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-warehouse-config
+            items:
+              - key: dbt_project.yml
+                path: dbt_project.yml
+              - key: profiles.yml
+                path: profiles.yml
+              - key: stg_sales_order.sql
+                path: models/staging/stg_sales_order.sql
+              - key: stg_sales_order_line_item.sql
+                path: models/staging/stg_sales_order_line_item.sql
+              - key: stg_customer_sales.sql
+                path: models/staging/stg_customer_sales.sql
+              - key: gold_customer_sales_summary.sql
+                path: models/gold/gold_customer_sales_summary.sql
+{{- end }}
+
+{{- if .Values.airflow.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-airflow-config
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: airflow
+data:
+  start-airflow.sh: |
+    #!/usr/bin/env sh
+    set -eu
+
+    airflow db migrate
+
+    airflow users create \
+      --role Admin \
+      --username "${AIRFLOW_ADMIN_USERNAME:-admin}" \
+      --password "${AIRFLOW_ADMIN_PASSWORD:-admin}" \
+      --firstname Local \
+      --lastname Admin \
+      --email admin@example.com || true
+
+    airflow scheduler &
+    exec airflow webserver
+  dbt_warehouse_schedule.py: |
+    from __future__ import annotations
+
+    from datetime import datetime, timedelta
+
+    from airflow import DAG
+    from airflow.operators.bash import BashOperator
+
+
+    with DAG(
+        dag_id="dbt_warehouse_schedule",
+        description="Run dbt models against the local Postgres warehouse on a schedule.",
+        start_date=datetime(2026, 4, 17),
+        schedule="*/5 * * * *",
+        catchup=False,
+        max_active_runs=1,
+        default_args={"retries": 1, "retry_delay": timedelta(minutes=1)},
+        tags=["dbt", "warehouse"],
+    ) as dag:
+        run_dbt = BashOperator(
+            task_id="run_dbt",
+            bash_command=(
+                "cd /opt/airflow/dbt && "
+          "DBT_TARGET_PATH=/tmp/dbt-target DBT_LOG_PATH=/tmp/dbt-logs "
+          "dbt run --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt"
+            ),
+        )
+
+        run_dbt
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-airflow
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: airflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: airflow
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: airflow
+    spec:
+      containers:
+        - name: airflow
+          image: {{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
+          command: ["/bin/sh", "/opt/airflow/scripts/start-airflow.sh"]
+          env:
+            - name: AIRFLOW_HOME
+              value: /opt/airflow
+            - name: AIRFLOW__CORE__EXECUTOR
+              value: SequentialExecutor
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              value: sqlite:////opt/airflow/airflow.db
+            - name: AIRFLOW__CORE__LOAD_EXAMPLES
+              value: "false"
+            - name: AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION
+              value: "false"
+            - name: AIRFLOW__WEBSERVER__SECRET_KEY
+              value: local-airflow-secret
+            - name: AIRFLOW_ADMIN_USERNAME
+              value: {{ .Values.airflow.adminUsername | quote }}
+            - name: AIRFLOW_ADMIN_PASSWORD
+              value: {{ .Values.airflow.adminPassword | quote }}
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: airflow-home
+              mountPath: /opt/airflow
+            - name: airflow-script
+              mountPath: /opt/airflow/scripts/start-airflow.sh
+              subPath: start-airflow.sh
+            - name: airflow-dag
+              mountPath: /opt/airflow/dags/dbt_warehouse_schedule.py
+              subPath: dbt_warehouse_schedule.py
+            - name: warehouse-config
+              mountPath: /opt/airflow/dbt
+              readOnly: true
+      volumes:
+        - name: airflow-home
+          emptyDir: {}
+        - name: airflow-script
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-airflow-config
+            defaultMode: 0755
+            items:
+              - key: start-airflow.sh
+                path: start-airflow.sh
+        - name: airflow-dag
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-airflow-config
+            items:
+              - key: dbt_warehouse_schedule.py
+                path: dbt_warehouse_schedule.py
+        - name: warehouse-config
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-warehouse-config
+            items:
+              - key: dbt_project.yml
+                path: dbt_project.yml
+              - key: profiles.yml
+                path: profiles.yml
+              - key: stg_sales_order.sql
+                path: models/staging/stg_sales_order.sql
+              - key: stg_sales_order_line_item.sql
+                path: models/staging/stg_sales_order_line_item.sql
+              - key: stg_customer_sales.sql
+                path: models/staging/stg_customer_sales.sql
+              - key: gold_customer_sales_summary.sql
+                path: models/gold/gold_customer_sales_summary.sql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-airflow
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: airflow
+spec:
+  type: {{ .Values.airflow.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: airflow
+  ports:
+    - name: http
+      port: {{ .Values.airflow.service.port }}
+      targetPort: 8080
+{{- end }}

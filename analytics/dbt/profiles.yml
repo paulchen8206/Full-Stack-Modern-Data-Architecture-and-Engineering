@@ -1,0 +1,12 @@
+realtime_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: postgres
+      port: 5432
+      user: analytics
+      password: analytics
+      dbname: analytics
+      schema: public
+      threads: 4

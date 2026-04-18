@@ -73,3 +73,121 @@ services:
       APP_CONSUMER_GROUP_ID: realtime-flink-processor-local
       APP_CHECKPOINT_INTERVAL_MS: 10000
     restart: on-failure
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    volumes:
+      - minio-data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: ["/bin/sh", "/scripts/init-minio.sh"]
+    volumes:
+      - ./scripts/init-minio.sh:/scripts/init-minio.sh:ro
+
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: analytics
+      POSTGRES_PASSWORD: analytics
+      POSTGRES_DB: analytics
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./analytics/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  connect:
+    build:
+      context: ./connect
+    depends_on:
+      topic-init:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_started
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:9092
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: connect-cluster-1
+      CONNECT_CONFIG_STORAGE_TOPIC: connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: connect-status
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+
+  connect-init:
+    image: curlimages/curl:8.12.1
+    depends_on:
+      connect:
+        condition: service_started
+    entrypoint: ["/bin/sh", "/scripts/register-connectors.sh"]
+    volumes:
+      - ./scripts/register-connectors.sh:/scripts/register-connectors.sh:ro
+      - ./connect/connector-configs:/connector-configs:ro
+
+  dbt:
+    build:
+      context: ./analytics/dbt
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_started
+      connect-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./analytics/dbt:/dbt
+    command: >-
+      bash -lc "dbt deps --project-dir /dbt --profiles-dir /dbt && dbt run --project-dir /dbt --profiles-dir /dbt"
+
+  airflow:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_started
+      connect-init:
+        condition: service_completed_successfully
+    ports:
+      - "8084:8080"
+    environment:
+      AIRFLOW_HOME: /opt/airflow
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+      AIRFLOW__WEBSERVER__SECRET_KEY: local-airflow-secret
+      AIRFLOW_ADMIN_USERNAME: admin
+      AIRFLOW_ADMIN_PASSWORD: admin
+    volumes:
+      - airflow-data:/opt/airflow
+      - ./airflow/dags:/opt/airflow/dags:ro
+      - ./analytics/dbt:/opt/airflow/dbt
+      - ./scripts/start-airflow.sh:/opt/airflow/scripts/start-airflow.sh:ro
+    entrypoint: ["/bin/sh", "/opt/airflow/scripts/start-airflow.sh"]
+
+volumes:
+  airflow-data:
+  minio-data:
+  postgres-data:

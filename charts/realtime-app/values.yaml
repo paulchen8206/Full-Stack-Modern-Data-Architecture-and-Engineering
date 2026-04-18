@@ -33,6 +33,70 @@ kafkaUi:
   service:
     type: ClusterIP
     port: 8080
+minio:
+  enabled: false
+  image:
+    repository: minio/minio
+    tag: latest
+    pullPolicy: IfNotPresent
+  mcImage:
+    repository: minio/mc
+    tag: latest
+    pullPolicy: IfNotPresent
+  rootUser: minio
+  rootPassword: minio123
+  bucket: warehouse
+  service:
+    type: ClusterIP
+    apiPort: 9000
+    consolePort: 9001
+postgres:
+  enabled: false
+  image:
+    repository: postgres
+    tag: "16"
+    pullPolicy: IfNotPresent
+  auth:
+    user: analytics
+    password: analytics
+    database: analytics
+  service:
+    type: ClusterIP
+    port: 5432
+connect:
+  enabled: false
+  image:
+    repository: realtime-sales-connect
+    tag: 0.1.0
+    pullPolicy: IfNotPresent
+  curlImage:
+    repository: curlimages/curl
+    tag: 8.12.1
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8083
+  groupId: connect-cluster-1
+  configStorageTopic: connect-configs
+  offsetStorageTopic: connect-offsets
+  statusStorageTopic: connect-status
+dbt:
+  enabled: false
+  image:
+    repository: realtime-sales-dbt
+    tag: 0.1.0
+    pullPolicy: IfNotPresent
+airflow:
+  enabled: false
+  image:
+    repository: realtime-sales-airflow
+    tag: 0.1.0
+    pullPolicy: IfNotPresent
+  adminUsername: admin
+  adminPassword: admin
+  service:
+    type: ClusterIP
+    port: 8080
 observability:
   enabled: false
   prometheus:
@@ -97,5 +161,17 @@ kafka:
       partitions: 3
       replicationFactor: 1
     - name: customer_sales
+      partitions: 3
+      replicationFactor: 1
+    - name: connect-configs
+      partitions: 1
+      replicationFactor: 1
+    - name: connect-offsets
+      partitions: 6
+      replicationFactor: 1
+    - name: connect-status
+      partitions: 3
+      replicationFactor: 1
+    - name: connect-iceberg-control
       partitions: 3
       replicationFactor: 1

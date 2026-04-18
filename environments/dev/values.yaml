@@ -15,6 +15,28 @@ processor:
   consumerGroupId: realtime-flink-processor-dev
 kafkaUi:
   enabled: true
+minio:
+  enabled: true
+postgres:
+  enabled: true
+connect:
+  enabled: true
+  image:
+    repository: realtime-sales-connect
+    tag: 0.1.0
+    pullPolicy: Never
+dbt:
+  enabled: true
+  image:
+    repository: realtime-sales-dbt
+    tag: 0.1.0
+    pullPolicy: Never
+airflow:
+  enabled: true
+  image:
+    repository: realtime-sales-airflow
+    tag: 0.1.0
+    pullPolicy: Never
 observability:
   enabled: true
 kafka:

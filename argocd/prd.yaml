@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/paulchen8206/Kafka-Flink-with-Helm-and-Argo-CD.git
-    targetRevision: HEAD
+    targetRevision: main
     path: charts/realtime-app
     helm:
       releaseName: realtime-prd

@@ -1,4 +1,4 @@
-# Kafka Flink with Helm and Argo CD
+# Full Stack Modern Data Architecture and Engineering
 
 This repository implements a realtime sales processing platform that can run in two local modes:
 
@@ -15,6 +15,18 @@ The pipeline shape is:
 - Debezium captures MySQL CDC events, and a Python CDC publisher emits curated `mdm_customer` and `mdm_product` Kafka topics.
 - dbt builds `bronze`, `silver`, and `gold` models in Postgres as a medallion-style analytics layer.
 - Optional observability services in Kubernetes provide Prometheus, Loki, and Grafana.
+
+## End-to-End Tech Components
+
+- Event ingestion: Python producer publishes realtime sales events to Kafka.
+- Stream processing: Java Spring Boot service runs an embedded Apache Flink job for fan-out and transformations.
+- Messaging backbone: Apache Kafka carries raw, processed, and curated MDM topics.
+- CDC and MDM: MySQL stores master data, Debezium captures binlog changes, and Python CDC publisher emits curated MDM streams.
+- Lakehouse ingestion: Kafka Connect sinks streams to Iceberg tables on MinIO and to Postgres landing tables.
+- Warehouse modeling: dbt transforms `landing` data into `bronze`, `silver`, and `gold` layers.
+- Scheduling: Apache Airflow triggers recurring dbt runs.
+- Runtime and delivery: Docker Compose supports local routine A, while kind + Helm + Argo CD provide GitOps-style routine B.
+- Observability: Kafka UI, Grafana, Prometheus, and Loki support monitoring and troubleshooting.
 
 ## Docs Index
 

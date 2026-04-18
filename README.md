@@ -14,53 +14,33 @@ The pipeline shape is:
 - dbt builds `stage` and `gold` models in Postgres as a Snowflake-like analytics layer.
 - Optional observability services in Kubernetes provide Prometheus, Loki, and Grafana.
 
-## High-Level Architecture
+## Docs Index
 
-### Component Diagram
+- [docs/runbook.md](docs/runbook.md): Hands-on operational guide for local Compose and kind/Helm/Argo CD workflows, including access, validation, troubleshooting, and reset routines.
+- [docs/architecture_design.md](docs/architecture_design.md): Canonical architecture reference with project-level, deployment, and end-to-end dataflow diagrams plus modern data platform patterns.
 
-```mermaid
-flowchart LR
-   subgraph Runtime[Runtime Platform]
-     direction LR
-     P[Producer\nPython + Kafka client]
-     K[(Kafka Broker)]
-     R[Processor\nSpring Boot + Flink]
-     UI[Kafka UI]
-     G[Grafana]
-     PM[Prometheus]
-     L[Loki]
-     PT[Promtail]
-   end
+## Architecture Snapshot
 
-   P -->|raw_sales_orders| K
-   K -->|consume| R
-   R -->|sales_order| K
-   R -->|sales_order_line_item| K
-   R -->|customer_sales| K
-   UI -->|browse topics| K
-   PM -->|scrape| R
-   PM -->|scrape| UI
-   PT -->|ship logs| L
-   G -->|query metrics| PM
-   G -->|query logs| L
-```
+- Producer emits composite sales events to `raw_sales_orders`.
+- Processor (Spring Boot + Flink) consumes raw events and fans out to `sales_order`, `sales_order_line_item`, and `customer_sales`.
+- Kafka Connect sinks processed streams to Iceberg on MinIO and Postgres landing tables.
+- dbt models transform landing into stage and gold warehouse layers.
+- Airflow schedules recurring dbt runs.
+- Argo CD reconciles Helm-based Kubernetes deployments; Grafana/Loki/Prometheus provide observability.
 
-### Dataflow Diagram
+Canonical architecture diagrams live in:
 
-```mermaid
-flowchart TD
-   A[Order Generator Event\ncomposite order payload] --> B[Kafka topic: raw_sales_orders]
-   B --> C[Flink split and transform]
-   C --> D[Kafka topic: sales_order]
-   C --> E[Kafka topic: sales_order_line_item]
-   C --> F[Kafka topic: customer_sales]
-```
+- [docs/architecture_design.md](docs/architecture_design.md)
 
 ## Operations Runbook
 
 Use the runbook for complete local procedures, including startup, validation, UI access, troubleshooting, and reset:
 
-- [runbook.md](runbook.md)
+- [docs/runbook.md](docs/runbook.md)
+
+Use the architecture design doc for the canonical system architecture, deployment components, and modern data platform patterns:
+
+- [docs/architecture_design.md](docs/architecture_design.md)
 
 ## Repository Layout
 
@@ -74,7 +54,8 @@ Use the runbook for complete local procedures, including startup, validation, UI
 - `analytics/sql`: Database bootstrap SQL (landing, stage, gold schemas).
 - `airflow`: Apache Airflow image and DAGs for scheduled dbt orchestration.
 - `scripts`: Local bootstrap and image build helpers.
-- `runbook.md`: Day-2 operations procedures for Compose and Argo CD workflows.
+- `docs/runbook.md`: Day-2 operations procedures for Compose and Argo CD workflows.
+- `docs/architecture_design.md`: Architecture diagrams and modern data engineering framework/patterns.
 
 ## Quick Start: Docker Compose
 

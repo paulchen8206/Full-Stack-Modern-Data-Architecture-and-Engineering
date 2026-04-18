@@ -13,10 +13,42 @@ It supports two local operating modes:
 - Flink stream processing embedded in a Java Spring Boot service.
 - CDC-driven MDM integration with MySQL + Debezium.
 - Lakehouse sinks using Iceberg on MinIO.
-- Warehouse-style analytics on Postgres (used as a local Snowflake-like target).
+- Warehouse-style analytics on Postgres for local development, with portable patterns for Redshift, Snowflake, BigQuery, and Databricks.
 - dbt ELT with medallion layers (landing -> bronze -> silver -> gold).
 - Airflow orchestration for scheduled model refresh.
 - Docker/Kubernetes runtime and Helm/Argo CD automation.
+
+## Lakehouse/Warehouse Target Options
+
+This repository runs locally on Postgres + MinIO by default, but the same architecture pattern can be implemented on:
+
+- Amazon Redshift
+- Snowflake
+- Google BigQuery
+- Databricks
+
+Portability guidance:
+
+- Keep Kafka topic contracts and medallion model intent unchanged.
+- Use environment-specific dbt profiles and adapter packages per target platform.
+- Replace sink connectors and storage integrations to match the selected warehouse/lakehouse stack.
+- Preserve dimensional model semantics (conformed dimensions and facts) across platforms.
+
+### Concrete Migration Matrix (Quick Reference)
+
+| Target | Connector change | dbt adapter | Key config changes |
+| --- | --- | --- | --- |
+| Redshift | Use Redshift sink pattern (direct connector or S3 staging + COPY) | `dbt-redshift` | Redshift endpoint/db/schema plus IAM/COPY settings |
+| Snowflake | Use Snowflake Kafka Connector | `dbt-snowflake` | Account/role/warehouse/database/schema and auth method |
+| BigQuery | Use BigQuery Sink connector | `dbt-bigquery` | Project/dataset/location and service account auth |
+| Databricks | Use Delta sink pattern for Databricks tables | `dbt-databricks` | SQL warehouse host/http_path/token and catalog/schema |
+
+For full migration detail and workflow, see [docs/architecture.md](docs/architecture.md).
+
+### Fast Links to New Migration Sections
+
+- Sample .env onboarding blocks per platform: [docs/architecture.md - 3.3 Sample Environment Variable Blocks (.env Style)](docs/architecture.md#33-sample-environment-variable-blocks-env-style)
+- Cloud Kubernetes migration candidates (AWS/GCP/Azure): [docs/architecture.md - 8.3 Cloud Kubernetes Migration Candidates](docs/architecture.md#83-cloud-kubernetes-migration-candidates)
 
 ## End-to-End Flow (High Level)
 
@@ -31,7 +63,7 @@ It supports two local operating modes:
 
 ## Documentation
 
-- Architecture reference: [docs/architecture_design.md](docs/architecture_design.md)
+- Architecture reference: [docs/architecture.md](docs/architecture.md)
 - Operations runbook: [docs/runbook.md](docs/runbook.md)
 
 ## Repository Layout
@@ -51,7 +83,7 @@ It supports two local operating modes:
 - `airflow`: Apache Airflow image and DAGs for scheduled dbt orchestration.
 - `scripts`: Local bootstrap and image build helpers.
 - `docs/runbook.md`: Day-2 operations procedures for Compose and Argo CD workflows.
-- `docs/architecture_design.md`: Architecture diagrams and modern data engineering framework/patterns.
+- `docs/architecture.md`: Architecture diagrams and modern data engineering framework/patterns.
 
 ## Quick Start
 
@@ -273,6 +305,7 @@ Dev environment behavior:
 ### dbt and Warehouse Layer
 
 - dbt project location: `analytics/dbt`
+- The dbt model structure is portable to Redshift, Snowflake, BigQuery, and Databricks by switching adapter/profile configuration.
 - Source schema: `landing`
 - Bronze schema: `bronze` (views)
 - Silver schema: `silver` (tables)

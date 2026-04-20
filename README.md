@@ -146,24 +146,29 @@ Related source locations:
 
 ## Repository Layout
 
+- `docker-compose.yml`: Local Routine A service topology for the full stack.
+- `Makefile`: Unified operational entrypoints for build, run, validation, and troubleshooting flows.
 - `producer`: Python Kafka producer for composite sales orders.
+- `processor`: Spring Boot application that launches the Flink topology.
+- `connect`: Kafka Connect image and connector configurations (object-storage + JDBC sinks).
 - `mdm-writer`: Python app that inserts and updates MySQL MDM master data.
 - `mdm-cdc-producer`: Python app that consumes Debezium CDC topics and publishes `mdm_customer` and `mdm_product`.
 - `mdm-pyspark-sync`: PySpark app that continuously syncs MySQL MDM tables into Postgres landing tables.
-- `processor`: Spring Boot application that launches the Flink topology.
-- `charts/realtime-app`: Helm chart for producer, processor, Kafka UI, MinIO, Postgres, Kafka Connect, dbt bootstrap, Airflow, and optional Kafka.
-- `trino`: Trino query engine configuration for MinIO-backed Iceberg-compatible lakehouse access.
 - `iceberg-writer`: Python service that consumes Kafka topics and writes directly to Iceberg tables through Trino.
+- `airflow`: Apache Airflow image and DAGs for scheduled dbt orchestration.
+- `analytics/dbt`: dbt project for bronze, silver, and gold models in Postgres.
+- `analytics/sql`: Postgres bootstrap SQL for landing and MDM sync targets.
+- `mdm/sql`: MySQL bootstrap SQL for MDM `customer360` and `product_master` tables.
+- `trino/etc`: Trino coordinator and catalog configuration.
+- `trino/sql`: Trino bootstrap and incremental lakehouse SQL scripts.
+- `observability`: Prometheus, Grafana, and Blackbox Exporter configuration and dashboards.
+- `charts/realtime-app`: Helm chart for Routine B Kubernetes deployment.
 - `environments`: Helm values for `dev`, `qa`, and `prd`.
 - `argocd`: Argo CD Application manifests.
-- `connect`: Kafka Connect image and connector configurations (object-storage + JDBC sinks).
-- `analytics/dbt`: dbt project for bronze, silver, and gold models in Postgres.
-- `analytics/sql`: Database bootstrap SQL (landing plus MDM landing tables in Postgres).
-- `mdm/sql`: MySQL bootstrap SQL for MDM `customer360` and `product_master` tables.
-- `airflow`: Apache Airflow image and DAGs for scheduled dbt orchestration.
-- `scripts`: Local bootstrap and image build helpers.
-- `docs/runbook.md`: Day-2 operations procedures for Compose and Argo CD workflows.
+- `scripts`: Local bootstrap, image build, topic, and query helpers.
 - `docs/architecture.md`: Architecture diagrams and modern data engineering framework/patterns.
+- `docs/runbook.md`: Day-2 operations procedures for Compose and Argo CD workflows.
+- `docs/adr`: Architecture Decision Records (ADRs).
 
 ## Quick Start
 

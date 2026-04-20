@@ -16,7 +16,6 @@ SELECT
   customeremail,
   customersegment,
   currency,
-  ordertotal,
   lineitemcount
 FROM warehouse.landing.sales_order;
 
@@ -36,8 +35,6 @@ SELECT
   sku,
   productname,
   quantity,
-  unitprice,
-  linetotal,
   currency
 FROM warehouse.landing.sales_order_line_item;
 
@@ -54,7 +51,6 @@ SELECT
   customeremail,
   customersegment,
   ordercount,
-  totalspent,
   lastorderid,
   updatedat,
   currency

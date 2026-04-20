@@ -162,10 +162,41 @@ Expected local endpoints:
 - Debezium Connect REST (MDM): `http://localhost:8085`
 - MySQL MDM: localhost:3306
 
+### A1.1 Connect DBeaver to Trino
+
+Use this setup to query Trino from DBeaver in Routine A.
+
+1. Open DBeaver and select New Database Connection.
+2. Search for and select `Trino`.
+3. Set connection parameters:
+  - Host: `localhost`
+  - Port: `8086`
+  - Catalog: `lakehouse`
+  - Schema: `streaming` (optional default)
+  - Username: `analytics`
+  - Password: leave empty
+4. If prompted, allow DBeaver to download the Trino JDBC driver.
+5. Click Test Connection, then Finish.
+
+JDBC URL reference:
+
+```text
+jdbc:trino://localhost:8086
+```
+
+Note: This local Trino setup does not enable password authentication. If your DBeaver profile requires a password field, keep authentication as no password and leave the password value blank.
+
 ### A2. Validate containers
 
 ```bash
 docker compose ps
+```
+
+Kubernetes-style observability snapshot for Docker Routine A:
+
+```bash
+make ops-status
+make airflow-dbt-check
 ```
 
 All services should be Up, especially:
@@ -253,6 +284,29 @@ make trino-sample-queries
 make iceberg-streaming-smoke
 ```
 
+Trino dataset onboarding workflow (manual SQL path):
+
+```bash
+make trino-shell
+./scripts/trino-sql.sh "DESCRIBE warehouse.landing.sales_order"
+./scripts/trino-sql.sh "DESCRIBE warehouse.landing.sales_order_line_item"
+./scripts/trino-sql.sh "DESCRIBE warehouse.landing.customer_sales"
+```
+
+Use `DESCRIBE` first, then align `SELECT` lists in `trino/sql/bootstrap_lakehouse.sql` and `trino/sql/incremental_sync_lakehouse.sql` to the actual landing columns before running bootstrap/sync.
+
+Second Postgres catalog operations (optional):
+
+```bash
+# add file trino/etc/catalog/<catalog>.properties, then reload Trino
+docker compose restart trino
+make trino-smoke
+./scripts/trino-sql.sh "SHOW CATALOGS"
+./scripts/trino-sql.sh "SHOW SCHEMAS FROM <catalog>"
+```
+
+If a temporary catalog is no longer needed, delete its `trino/etc/catalog/<catalog>.properties` file, restart Trino, and re-run `SHOW CATALOGS` to confirm removal.
+
 Interpretation:
 
 - `bronze.*` objects are dbt staging-aligned views.
@@ -262,6 +316,7 @@ Interpretation:
 - If Trino is healthy but returns no Iceberg tables, run `make trino-seed-demo` or `make trino-bootstrap-lakehouse` to materialize Trino-managed Iceberg tables on MinIO.
 - If you want realtime Iceberg ingestion without the Postgres bridge, confirm the `iceberg-writer` service is running and use `make iceberg-streaming-smoke` to verify rows arrived in `lakehouse.streaming`.
 - The `iceberg-writer` also flushes partial topic batches on a timer, so low-volume streams should still land in Iceberg without waiting for a full batch.
+- Current validation note (2026-04-20): `make trino-bootstrap-lakehouse` passed after aligning column names with landing schemas; `make trino-sync-lakehouse` can still fail when source MERGE keys are duplicated (see failure pattern below).
 
 ### A4. Observe logs
 
@@ -363,6 +418,16 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
   docker compose exec airflow rm -f /opt/airflow/airflow-webserver.pid && docker compose restart airflow
   ```
   Then check `docker compose logs --tail=20 airflow` and confirm `Listening at: http://0.0.0.0:8080`.
+- `make trino-smoke` fails right after `docker compose restart trino` with connection reset/refused:
+  Trino is still starting. Wait until `docker compose ps` shows Trino as healthy, then rerun `make trino-smoke`.
+- Trino bootstrap/sync fails with `Column '<name>' cannot be resolved`:
+  Source schema changed relative to bootstrap SQL. Run `DESCRIBE warehouse.landing.<table>` and update `trino/sql/bootstrap_lakehouse.sql` and `trino/sql/incremental_sync_lakehouse.sql` to match current columns.
+- `make trino-sync-lakehouse` fails with `One MERGE target table row matched more than one source row`:
+  One or more source MERGE keys are duplicated. Diagnose with:
+  ```bash
+  ./scripts/trino-sql.sh "SELECT 'sales_order' AS table_name, count(*) AS dup_keys FROM (SELECT orderid FROM warehouse.landing.sales_order GROUP BY orderid HAVING count(*) > 1) UNION ALL SELECT 'sales_order_line_item' AS table_name, count(*) AS dup_keys FROM (SELECT lineitemid FROM warehouse.landing.sales_order_line_item GROUP BY lineitemid HAVING count(*) > 1) UNION ALL SELECT 'customer_sales' AS table_name, count(*) AS dup_keys FROM (SELECT customerid FROM warehouse.landing.customer_sales GROUP BY customerid HAVING count(*) > 1)"
+  ```
+  Then deduplicate source rows before MERGE (for example, keep the latest row per key).
 
 ## Routine B: kind + Helm + Argo CD
 

@@ -41,14 +41,13 @@ WHEN MATCHED THEN UPDATE SET
   customeremail = source.customeremail,
   customersegment = source.customersegment,
   currency = source.currency,
-  ordertotal = source.ordertotal,
   lineitemcount = source.lineitemcount
 WHEN NOT MATCHED THEN INSERT (
   orderid, ordertimestamp, customerid, customername, customeremail,
-  customersegment, currency, ordertotal, lineitemcount
+  customersegment, currency, lineitemcount
 ) VALUES (
   source.orderid, source.ordertimestamp, source.customerid, source.customername, source.customeremail,
-  source.customersegment, source.currency, source.ordertotal, source.lineitemcount
+  source.customersegment, source.currency, source.lineitemcount
 );
 
 MERGE INTO lakehouse.demo.sales_order_line_item AS target
@@ -62,15 +61,13 @@ WHEN MATCHED THEN UPDATE SET
   sku = source.sku,
   productname = source.productname,
   quantity = source.quantity,
-  unitprice = source.unitprice,
-  linetotal = source.linetotal,
   currency = source.currency
 WHEN NOT MATCHED THEN INSERT (
   orderid, ordertimestamp, customerid, customername, lineitemid,
-  sku, productname, quantity, unitprice, linetotal, currency
+  sku, productname, quantity, currency
 ) VALUES (
   source.orderid, source.ordertimestamp, source.customerid, source.customername, source.lineitemid,
-  source.sku, source.productname, source.quantity, source.unitprice, source.linetotal, source.currency
+  source.sku, source.productname, source.quantity, source.currency
 );
 
 MERGE INTO lakehouse.demo.customer_sales AS target
@@ -81,14 +78,13 @@ WHEN MATCHED THEN UPDATE SET
   customeremail = source.customeremail,
   customersegment = source.customersegment,
   ordercount = source.ordercount,
-  totalspent = source.totalspent,
   lastorderid = source.lastorderid,
   updatedat = source.updatedat,
   currency = source.currency
 WHEN NOT MATCHED THEN INSERT (
   customerid, customername, customeremail, customersegment,
-  ordercount, totalspent, lastorderid, updatedat, currency
+  ordercount, lastorderid, updatedat, currency
 ) VALUES (
   source.customerid, source.customername, source.customeremail, source.customersegment,
-  source.ordercount, source.totalspent, source.lastorderid, source.updatedat, source.currency
+  source.ordercount, source.lastorderid, source.updatedat, source.currency
 );

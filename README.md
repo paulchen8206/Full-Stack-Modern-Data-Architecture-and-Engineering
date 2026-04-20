@@ -114,6 +114,36 @@ For full migration detail and workflow, see [docs/architecture.md](docs/architec
 - Operations runbook: [docs/runbook.md](docs/runbook.md)
 - Architecture Decision Records (ADR): [docs/adr/README.md](docs/adr/README.md)
 
+## Complete Tooling Inventory
+
+The table below lists the tooling used across local runtime, data processing, orchestration, deployment, and observability.
+Versions are shown when they are explicitly pinned in this repository.
+
+| Category | Tooling used in this project |
+| --- | --- |
+| Container and local runtime | Docker Compose, Dockerfiles for service images, Makefile-driven workflows |
+| Kubernetes and GitOps | kind, kubectl, Helm (chart: `realtime-app`), Argo CD |
+| Streaming backbone | Apache Kafka `3.7.1`, Kafka UI `v0.7.2` |
+| Stream processing application | Java `17`, Spring Boot `3.2.6`, Apache Flink `1.19.1`, Flink Kafka connector `3.2.0-1.19`, Maven |
+| Data integration and CDC | Kafka Connect (Confluent Platform image `7.6.1`), Debezium Connect `3.0`, JDBC and S3 sink connectors |
+| Object storage and lakehouse path | MinIO, Trino `472`, Iceberg-compatible table path via Trino catalog configuration |
+| Databases | PostgreSQL `16`, MySQL `8.4` |
+| ELT and analytics modeling | dbt with `dbt-postgres==1.8.2` |
+| Workflow orchestration | Apache Airflow `2.10.5` (Python `3.11`) |
+| Python services | Python `>=3.11`, `kafka-python==2.0.2`, `mysql-connector-python==9.0.0`, Hatchling build backend |
+| Spark-based sync | PySpark job (`spark-submit`) for MDM to Postgres sync |
+| Observability and monitoring | Prometheus `v3.2.1`, Grafana `11.5.2`, Blackbox Exporter `v0.27.0` |
+| SQL operations and validation | Trino SQL scripts, bootstrap and incremental SQL scripts, Make targets for health and smoke checks |
+
+Related source locations:
+
+- Runtime services: [docker-compose.yml](docker-compose.yml)
+- Build and ops entrypoints: [Makefile](Makefile)
+- Kubernetes and GitOps artifacts: [charts/realtime-app/Chart.yaml](charts/realtime-app/Chart.yaml), [argocd/dev.yaml](argocd/dev.yaml)
+- dbt project and adapter setup: [analytics/dbt/Dockerfile](analytics/dbt/Dockerfile), [analytics/dbt/dbt_project.yml](analytics/dbt/dbt_project.yml)
+- Processor stack: [processor/pom.xml](processor/pom.xml)
+- Observability provisioning: [observability/prometheus/prometheus.yml](observability/prometheus/prometheus.yml), [observability/grafana/provisioning/datasources/prometheus.yml](observability/grafana/provisioning/datasources/prometheus.yml)
+
 ## Repository Layout
 
 - `producer`: Python Kafka producer for composite sales orders.

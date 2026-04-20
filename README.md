@@ -141,7 +141,19 @@ For full migration detail and workflow, see [docs/architecture.md](docs/architec
 
 Use one of these local startup paths depending on what you need.
 
-Start the full stack, including Kafka, producer, processor, Kafka Connect, Postgres, MinIO, and the one-shot dbt run:
+Start the full Routine A bootstrap (bring up stack and create topics):
+
+```bash
+make routine-a
+```
+
+Start only the Compose stack (without topic bootstrap):
+
+```bash
+make up
+```
+
+Start the full stack directly with the script wrapper (equivalent service scope to `make up`):
 
 ```bash
 ./scripts/compose-up.sh
@@ -185,6 +197,13 @@ Run unified day-2 operations:
 
 ```bash
 make routine-a-ops
+```
+
+Show all available targets and run a local validation bundle:
+
+```bash
+make help
+make validate
 ```
 
 Operational helpers:

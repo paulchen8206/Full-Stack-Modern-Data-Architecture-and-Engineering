@@ -414,7 +414,10 @@ Use this quick map to connect architecture responsibilities in this document to 
 
 | Architecture responsibility | Primary routine | Make target(s) |
 | --- | --- | --- |
+| Discover available operational commands | Shared | `make help` |
+| Validate build and deployment templates | Shared | `make validate` |
 | Bring up local runtime services | Routine A (Docker Compose) | `make up`, `make lakehouse-up` |
+| Bootstrap local runtime services + Kafka topics | Routine A (Docker Compose) | `make routine-a` |
 | Validate realtime and lakehouse data flow | Routine A (Docker Compose) | `make topics-check`, `make iceberg-streaming-smoke` |
 | Run ELT transformations | Routine A (Docker Compose) | `make dbt-run`, `make verify-warehouse`, `make verify-dbt-relations` |
 | Operate Airflow-driven dbt scheduling | Routine A (Docker Compose) | `make airflow-up`, `make airflow-trigger-dbt-dag`, `make airflow-dbt-reboot` |

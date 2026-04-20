@@ -10,12 +10,13 @@ Provide a durable decision log for architecture and operational design choices.
 ## Commands
 
 This section defines the primary commands for this document.
-No runtime commands are executed directly from this index; use linked ADR files and the runbook command sets.
+No runtime commands are executed directly from this index; use linked ADR files and the runbook command sets. Shared target entrypoints are `make help` and `make validate`.
 
 ## Validation
 
 This section defines the primary validation approach for this document.
 Validate ADR relevance by ensuring referenced workflows and commands remain accurate in README and runbook.
+Use `make help` to verify target discoverability and `make validate` to confirm baseline build/render checks pass.
 
 ## Troubleshooting
 

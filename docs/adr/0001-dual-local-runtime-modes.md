@@ -16,11 +16,13 @@ Primary commands related to this decision:
 - `make routine-a-ops`
 - `make routine-b`
 - `make routine-b-ops`
+- Shared targets: `make help`, `make validate`
 
 ## Validation
 
 This section defines the primary validation approach for this document.
 Validate this decision by confirming both routines remain operational and documented with matched day-2 workflows.
+Use `make help` to verify target discoverability and `make validate` to confirm baseline build/render checks pass.
 
 ## Troubleshooting
 

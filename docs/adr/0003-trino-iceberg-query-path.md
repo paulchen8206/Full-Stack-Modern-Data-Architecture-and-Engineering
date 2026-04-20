@@ -17,11 +17,13 @@ Primary commands related to this decision:
 - `make trino-bootstrap-lakehouse`
 - `make trino-rebuild-lakehouse`
 - `make iceberg-streaming-smoke`
+- Shared targets: `make help`, `make validate`
 
 ## Validation
 
 This section defines the primary validation approach for this document.
 Validate this decision by confirming Trino health and by verifying non-zero row counts in streaming Iceberg tables.
+Use `make help` to verify target discoverability and `make validate` to confirm baseline build/render checks pass.
 
 ## Troubleshooting
 

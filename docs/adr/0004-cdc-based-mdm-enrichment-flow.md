@@ -15,11 +15,13 @@ Primary commands related to this decision:
 
 - `make mdm-topics-check`
 - `make mdm-topics-check-dev`
+- Shared targets: `make help`, `make validate`
 
 ## Validation
 
 This section defines the primary validation approach for this document.
 Validate this decision by confirming records flow through curated MDM topics and into landing tables used by downstream models.
+Use `make help` to verify target discoverability and `make validate` to confirm baseline build/render checks pass.
 
 ## Troubleshooting
 

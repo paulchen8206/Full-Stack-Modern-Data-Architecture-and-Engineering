@@ -17,11 +17,13 @@ Primary commands related to this decision:
 - `make routine-b-ops`
 - `make trino-smoke`
 - `make trino-smoke-dev`
+- Shared targets: `make help`, `make validate`
 
 ## Validation
 
 This section defines the primary validation approach for this document.
 Validate this decision by confirming Make targets execute repeatable status, dataflow, and smoke checks for both routines.
+Use `make help` to verify target discoverability and `make validate` to confirm baseline build/render checks pass.
 
 ## Troubleshooting
 
@@ -50,6 +52,7 @@ Key examples:
 - Routine B: `make routine-b-ops`
 - Trino smoke checks: `make trino-smoke` and `make trino-smoke-dev`
 - Iceberg streaming checks: `make iceberg-streaming-smoke` and `make iceberg-streaming-smoke-dev`
+- Shared discovery/validation checks: `make help` and `make validate`
 
 ## Consequences
 

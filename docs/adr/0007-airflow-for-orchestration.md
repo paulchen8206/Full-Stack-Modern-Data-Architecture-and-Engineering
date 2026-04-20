@@ -17,11 +17,13 @@ Primary commands related to this decision:
 - `make airflow-dbt-reboot`
 - `make airflow-trigger-dbt-dag`
 - `make airflow-dbt-check-dev`
+- Shared targets: `make help`, `make validate`
 
 ## Validation
 
 This section defines the primary validation approach for this document.
 Validate this decision by confirming the `dbt_warehouse_schedule` DAG is enabled, runs complete successfully, and bronze/silver/gold layer row counts increase on each cycle.
+Use `make help` to verify target discoverability and `make validate` to confirm baseline build/render checks pass.
 
 ## Troubleshooting
 

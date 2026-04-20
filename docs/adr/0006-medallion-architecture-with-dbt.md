@@ -18,11 +18,13 @@ Primary commands related to this decision:
 - `make verify-dbt-relations`
 - `make airflow-dbt-reboot`
 - `make airflow-dbt-check-dev`
+- Shared targets: `make help`, `make validate`
 
 ## Validation
 
 This section defines the primary validation approach for this document.
 Validate this decision by confirming all four medallion layers contain expected row counts and dbt materializations complete without errors (`PASS=11 WARN=0 ERROR=0`).
+Use `make help` to verify target discoverability and `make validate` to confirm baseline build/render checks pass.
 
 ## Troubleshooting
 

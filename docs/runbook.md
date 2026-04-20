@@ -59,7 +59,8 @@ Documentation map:
 
 | Routine | Daily task | Copy-paste command bundle |
 | --- | --- | --- |
-| Docker Compose | Start full stack | `./scripts/compose-up.sh` |
+| Docker Compose | Bootstrap local routine (stack + topics) | `make routine-a` |
+| Docker Compose | Start compose services only | `make up` |
 | Docker Compose | Run unified day-2 operations | `make routine-a-ops` |
 | Docker Compose | Fast health check | `docker compose ps && ./scripts/check-pipeline-topics.sh` |
 | Docker Compose | Tail app logs | `docker compose logs --tail=200 --no-color --since=10m producer processor` |
@@ -125,13 +126,20 @@ Architecture-to-command map:
 - See [Make Target Map (Architecture to Operations)](architecture.md#84-make-target-map-architecture-to-operations) for the rationale-to-target mapping used by this routine.
 
 ```bash
-./scripts/compose-up.sh
+make routine-a
 ```
 
 Run the unified day-2 operations workflow:
 
 ```bash
 make routine-a-ops
+```
+
+Run shared target discovery and validation:
+
+```bash
+make help
+make validate
 ```
 
 Use `./scripts/compose-up.sh ...` for raw Compose startup flows instead of `docker compose up ...`. The wrapper applies the Postgres-backed Iceberg JDBC metastore upgrade and restarts Trino and `iceberg-writer` when those services are part of the running stack.

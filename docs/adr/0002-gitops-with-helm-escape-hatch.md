@@ -16,11 +16,13 @@ Primary commands related to this decision:
 - `kubectl apply -f argocd/dev.yaml`
 - `make helm-reboot-dev`
 - `make helm-health-dev`
+- Shared targets: `make help`, `make validate`
 
 ## Validation
 
 This section defines the primary validation approach for this document.
 Validate this decision by confirming Argo CD sync health and by verifying local Helm changes can be tested before commit and sync.
+Use `make help` to verify target discoverability and `make validate` to confirm baseline build/render checks pass.
 
 ## Troubleshooting
 
@@ -47,6 +49,7 @@ Primary commands:
 - `kubectl apply -f argocd/dev.yaml`
 - `make helm-reboot-dev`
 - `make helm-health-dev`
+- Shared targets: `make help`, `make validate`
 
 ## Consequences
 

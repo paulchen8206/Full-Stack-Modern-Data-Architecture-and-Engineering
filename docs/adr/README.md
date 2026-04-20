@@ -48,7 +48,8 @@ Status values:
 - [ADR-0006: Airflow-Scheduled dbt Orchestration](0006-airflow-scheduled-dbt-orchestration.md) - Accepted
 - [ADR-0007: Platform Observability Stack with Prometheus, Grafana, and Blackbox Exporter](0007-observability-stack-prometheus-grafana-blackbox.md) - Accepted
 - [ADR-0008: Unified DBeaver and Trino Query Surface for Lakehouse and Warehouse Data](0008-unified-dbeaver-trino-query-surface.md) - Accepted
-- [ADR-0009: Unified Day-2 Operations Interface Through Make Targets](0009-unified-day2-operations-make-targets.md) - Accepted
+- [ADR-0009: Unified Metadata Catalog with OpenMetadata Across Trino, dbt, Airflow, and Kafka](0009-openmetadata-unified-metadata-catalog.md) - Proposed
+- [ADR-0010: Unified Day-2 Operations Interface Through Make Targets](0010-unified-day2-operations-make-targets.md) - Accepted
 
 ## ADR Template
 

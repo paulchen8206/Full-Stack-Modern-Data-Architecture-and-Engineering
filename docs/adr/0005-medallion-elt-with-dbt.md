@@ -1,4 +1,4 @@
-# ADR-0006: Medallion Architecture with dbt for ELT Transformations
+# ADR-0005: Medallion ELT Modeling with dbt
 
 - Status: Accepted
 - Date: 2026-04-18

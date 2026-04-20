@@ -1,4 +1,4 @@
-# ADR-0005: Unified Day-2 Operations Through Make Targets
+# ADR-0009: Unified Day-2 Operations Interface Through Make Targets
 
 - Status: Accepted
 - Date: 2026-04-18

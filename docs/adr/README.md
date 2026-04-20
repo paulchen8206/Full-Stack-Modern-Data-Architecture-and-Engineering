@@ -40,13 +40,15 @@ Status values:
 
 ## ADR Index
 
-- [ADR-0001: Dual Local Runtime Modes (Compose and kind+Helm+Argo CD)](0001-dual-local-runtime-modes.md) - Accepted
-- [ADR-0002: GitOps Reconciliation via Argo CD with Local Helm Escape Hatch](0002-gitops-with-helm-escape-hatch.md) - Accepted
-- [ADR-0003: Trino-Centered Iceberg Query Path on MinIO](0003-trino-iceberg-query-path.md) - Accepted
-- [ADR-0004: CDC-Based MDM Enrichment Flow](0004-cdc-based-mdm-enrichment-flow.md) - Accepted
-- [ADR-0005: Unified Day-2 Operations Through Make Targets](0005-unified-day2-operations-make-targets.md) - Accepted
-- [ADR-0006: Medallion Architecture with dbt for ELT Transformations](0006-medallion-architecture-with-dbt.md) - Accepted
-- [ADR-0007: Airflow for Orchestration](0007-airflow-for-orchestration.md) - Accepted
+- [ADR-0001: Local Runtime Strategy with Compose and kind+Helm+Argo CD](0001-dual-local-runtime-modes.md) - Accepted
+- [ADR-0002: GitOps Delivery via Argo CD with Local Helm Validation Path](0002-gitops-with-helm-escape-hatch.md) - Accepted
+- [ADR-0003: CDC-Driven MDM Master Data Propagation](0003-cdc-driven-mdm-master-data-propagation.md) - Accepted
+- [ADR-0004: Trino Lakehouse Query Path on MinIO](0004-trino-lakehouse-query-path-on-minio.md) - Accepted
+- [ADR-0005: Medallion ELT Modeling with dbt](0005-medallion-elt-with-dbt.md) - Accepted
+- [ADR-0006: Airflow-Scheduled dbt Orchestration](0006-airflow-scheduled-dbt-orchestration.md) - Accepted
+- [ADR-0007: Platform Observability Stack with Prometheus, Grafana, and Blackbox Exporter](0007-observability-stack-prometheus-grafana-blackbox.md) - Accepted
+- [ADR-0008: Unified DBeaver and Trino Query Surface for Lakehouse and Warehouse Data](0008-unified-dbeaver-trino-query-surface.md) - Accepted
+- [ADR-0009: Unified Day-2 Operations Interface Through Make Targets](0009-unified-day2-operations-make-targets.md) - Accepted
 
 ## ADR Template
 

@@ -1,4 +1,4 @@
-# ADR-0002: GitOps Reconciliation via Argo CD with Local Helm Escape Hatch
+# ADR-0002: GitOps Delivery via Argo CD with Local Helm Validation Path
 
 - Status: Accepted
 - Date: 2026-04-18

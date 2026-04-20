@@ -1,4 +1,4 @@
-# ADR-0004: CDC-Based MDM Enrichment Flow
+# ADR-0003: CDC-Driven MDM Master Data Propagation
 
 - Status: Accepted
 - Date: 2026-04-18

@@ -1,4 +1,4 @@
-# ADR-0001: Dual Local Runtime Modes (Compose and kind+Helm+Argo CD)
+# ADR-0001: Local Runtime Strategy with Compose and kind+Helm+Argo CD
 
 - Status: Accepted
 - Date: 2026-04-18

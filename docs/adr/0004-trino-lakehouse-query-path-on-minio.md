@@ -1,4 +1,4 @@
-# ADR-0003: Trino-Centered Iceberg Query Path on MinIO
+# ADR-0004: Trino Lakehouse Query Path on MinIO
 
 - Status: Accepted
 - Date: 2026-04-18

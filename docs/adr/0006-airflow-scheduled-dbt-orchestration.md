@@ -1,4 +1,4 @@
-# ADR-0007: Airflow for Orchestration
+# ADR-0006: Airflow-Scheduled dbt Orchestration
 
 - Status: Accepted
 - Date: 2026-04-18
@@ -79,4 +79,4 @@ Key design choices:
 
 - `airflow/dags/dbt_warehouse_schedule.py` — DAG definition
 - `airflow/Dockerfile` — Airflow image with dbt installed
-- ADR-0006: Medallion Architecture with dbt for ELT Transformations
+- ADR-0005: Medallion ELT Modeling with dbt

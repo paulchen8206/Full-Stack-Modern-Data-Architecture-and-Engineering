@@ -9,27 +9,21 @@ Use only one routine at a time for a clean workflow.
 
 ## Purpose
 
-This section defines the purpose of this document.
 Provide repeatable day-2 operational procedures for both local runtime routines.
 
 ## Commands
 
-This section defines the primary commands for this document.
 Use the Operator Cheat Sheet and routine sections for copy-paste command bundles.
 
 ## Validation
 
-This section defines the primary validation approach for this document.
 Use the validation checkpoints in Routine A and Routine B to verify service health, dataflow, and analytics outputs.
 
 ## Troubleshooting
 
-This section defines the primary troubleshooting approach for this document.
 Use the troubleshooting sections in this document as the primary operational diagnostic path.
 
 ## References
-
-This section defines the primary cross-references for this document.
 
 - [../README.md](../README.md)
 - [architecture.md](architecture.md)

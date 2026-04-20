@@ -9,27 +9,21 @@ It supports two local operating modes:
 
 ## Purpose
 
-This section defines the purpose of this document.
 Provide a single project entrypoint for architecture, operations, and migration guidance.
 
 ## Commands
 
-This section defines the primary commands for this document.
 Use the Quick Start command blocks in this file for Routine A (Compose) and Routine B (kind plus Helm plus Argo CD).
 
 ## Validation
 
-This section defines the primary validation approach for this document.
 Use the Data Validation and Validation Snapshot sections in this file to confirm expected runtime behavior.
 
 ## Troubleshooting
 
-This section defines the primary troubleshooting approach for this document.
 Use the troubleshooting guidance in this file first, then use the runbook for routine-specific operational diagnostics.
 
 ## References
-
-This section defines the primary cross-references for this document.
 
 - [docs/architecture.md](docs/architecture.md)
 - [docs/runbook.md](docs/runbook.md)

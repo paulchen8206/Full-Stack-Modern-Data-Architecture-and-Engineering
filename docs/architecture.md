@@ -4,27 +4,21 @@ This document is the canonical architecture reference for this project. It organ
 
 ## Purpose
 
-This section defines the purpose of this document.
 Define the canonical architecture, principles, and technology choices for this platform.
 
 ## Commands
 
-This section defines the primary commands for this document.
 Use the architecture-to-operations mapping in this document to choose the correct Make targets and deployment flows.
 
 ## Validation
 
-This section defines the primary validation approach for this document.
 Use the validation-oriented sections and mapped operational checks to confirm architecture behavior in local environments.
 
 ## Troubleshooting
 
-This section defines the primary troubleshooting approach for this document.
 Use architecture notes in this document to diagnose design-level issues, then use the runbook for step-by-step remediation.
 
 ## References
-
-This section defines the primary cross-references for this document.
 
 - [../README.md](../README.md)
 - [runbook.md](runbook.md)

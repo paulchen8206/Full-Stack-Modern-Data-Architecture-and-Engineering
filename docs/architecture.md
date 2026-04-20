@@ -1,6 +1,6 @@
 # Architecture Reference
 
-This document is the canonical architecture reference for this project. It organizes the platform as a modern data architecture that combines batch and streaming, ELT modeling, lakehouse storage, and GitOps deployment automation.
+This document is the canonical architecture reference for this project. It organizes the platform as a modern data architecture that combines batch and streaming, ELT modeling, lakehouse storage, metadata cataloging, observability, and GitOps deployment automation.
 
 ## Purpose
 
@@ -44,6 +44,8 @@ This platform demonstrates how to build a full-stack modern data system with the
 - Persist data in a lakehouse pattern using S3-compatible object storage locally, with a path to true Iceberg tables and SQL querying, and in an analytics warehouse pattern (Postgres used to mimic Snowflake-like warehouse behavior).
 - Apply ELT transformations with dbt using medallion layers (bronze, silver, gold).
 - Incorporate dimensional modeling for analytics consumption.
+- Centralize metadata, lineage, and discovery in OpenMetadata as the data catalog surface.
+- Provide operational and data-plane observability with Prometheus, Grafana, Blackbox probing, and runbook-driven checks.
 - Run services in containers (Docker) and orchestrate on Kubernetes.
 - Support polyglot engineering using Java and Python.
 - Automate deployment through Helm (release packaging) and Argo CD (GitOps reconciliation).
@@ -68,6 +70,10 @@ Out of scope for this demo:
   Helm values and Argo CD manifests drive environment consistency.
 - Progressive environment promotion:
   Same topology across dev, qa, and prd with environment overlays.
+- Metadata as a product:
+  Data assets are discoverable and governed through a shared metadata catalog and lineage model.
+- Observability by default:
+  Runtime, metadata, and delivery paths expose health and diagnostics.
 
 ## 3. Technology Mapping
 
@@ -83,10 +89,12 @@ Out of scope for this demo:
 | ELT modeling | dbt | Bronze/silver/gold SQL transformations and dimensional model materialization |
 | CDC for master data | Debezium + MySQL | Capture and stream row-level changes |
 | Orchestration | Airflow | Scheduled dbt execution |
+| Metadata cataloging | OpenMetadata | Unified metadata discovery, lineage, and ingestion control plane |
 | Container runtime | Docker / Docker Compose | Local service packaging and fast inner-loop execution |
 | Container orchestration | Kubernetes (kind locally) | Cluster-style deployment and parity testing |
 | Release packaging | Helm | Templated, versioned deployment definitions |
 | GitOps delivery | Argo CD | Continuous reconciliation from Git to cluster |
+| Observability | Prometheus + Grafana + Blackbox Exporter (+ Loki in k8s profile) | Metrics, dashboards, endpoint probing, and operational diagnostics |
 | Programming languages | Java + Python | Java for stream processor, Python for producers/integration/sync services |
 
 MinIO portability note:
@@ -258,6 +266,10 @@ Environment variable handling guidelines:
 
 ## 4. Logical Architecture Overview
 
+This section describes the core platform components and their interaction boundaries.
+
+Diagram: logical architecture component diagram.
+
 ```mermaid
 flowchart LR
   subgraph RT[Realtime Ingestion and Processing]
@@ -266,9 +278,7 @@ flowchart LR
     FL[Java Spring Boot + Flink Processor]
     PR -->|raw_sales_orders| K
     K -->|consume| FL
-    FL -->|sales_order| K
-    FL -->|sales_order_line_item| K
-    FL -->|customer_sales| K
+    FL -->|sales_order / sales_order_line_item / customer_sales| K
   end
 
   subgraph MDM[Master Data and CDC]
@@ -283,37 +293,96 @@ flowchart LR
     MCP -->|mdm_customer / mdm_product| K
   end
 
-  subgraph LH[Lakehouse and Warehouse]
+  subgraph Lake[Lakehouse and Warehouse]
     KC[Kafka Connect Sinks]
-    IO[(MinIO + Iceberg)]
+    IO[(MinIO Object Storage)]
     PG[(Postgres Landing + Analytics)]
     SP[PySpark MDM Sync]
     TQ[Trino Query Engine]
-    DBT[dbt Medallion + Dimensional Models]
+    IW[Kafka to Iceberg Writer]
+    DBT[dbt Medallion Models]
     AF[Airflow Scheduler]
     K --> KC
     KC --> IO
     KC --> PG
     MY --> SP
     SP --> PG
-    PG --> DBT
+    K --> IW
+    IW -->|Iceberg tables via Trino| TQ
     TQ --> IO
+    PG --> DBT
     AF --> DBT
   end
 
-  subgraph Ops[Platform Ops]
-    H[Helm]
-    A[Argo CD]
-    O[Kafka UI / Prometheus / Loki / Grafana]
-    A --> H
-    O --> RT
-    O --> LH
+  subgraph Meta[Metadata Cataloging]
+    OMI[OpenMetadata Ingestion]
+    OM[OpenMetadata Server]
+    OMI --> OM
+    TQ -.metadata and lineage.-> OMI
+    PG -.metadata and lineage.-> OMI
+    DBT -.artifacts and lineage.-> OMI
+    AF -.pipeline metadata.-> OMI
+    K -.topic metadata.-> OMI
   end
+
+  subgraph Obs[Observability]
+    PROM[Prometheus]
+    BBX[Blackbox Exporter]
+    GRAF[Grafana]
+    KUI[Kafka UI]
+    BBX --> PROM
+    PROM --> GRAF
+  end
+
+  Obs -.health and metrics.-> RT
+  Obs -.health and metrics.-> Lake
+  Obs -.health and metrics.-> Meta
 ```
 
 ## 5. End-to-End Data Flow
 
+This section describes the end-to-end movement of data across runtime, analytics, and metadata planes.
+
+Diagram: end-to-end dataflow diagram.
+
+```mermaid
+flowchart TD
+  A[Producer emits raw_sales_orders] --> B[(Kafka)]
+  B --> C[Flink processor normalizes events]
+  C --> D[sales_order]
+  C --> E[sales_order_line_item]
+  C --> F[customer_sales]
+  D --> G[Kafka Connect sinks]
+  E --> G
+  F --> G
+  G --> H[(Postgres landing)]
+  G --> I[(MinIO raw objects)]
+  B --> J[Iceberg writer]
+  J --> K[(Trino managed Iceberg on MinIO)]
+  L[MySQL MDM updates] --> M[Debezium CDC]
+  M --> B
+  B --> N[MDM CDC publisher]
+  N --> O[mdm_customer and mdm_product]
+  L --> P[PySpark sync]
+  P --> H
+  H --> Q[dbt bronze silver gold]
+  R[Airflow schedule] --> Q
+  S[OpenMetadata ingestion] --> T[OpenMetadata catalog]
+  K -.metadata.-> S
+  H -.metadata.-> S
+  Q -.lineage.-> S
+  R -.pipeline metadata.-> S
+  B -.topic metadata.-> S
+  U[Prometheus and Blackbox] --> V[Grafana dashboards]
+  U -.runtime signals.-> A
+  U -.runtime signals.-> C
+  U -.runtime signals.-> Q
+  U -.runtime signals.-> T
+```
+
 ### 5.1 Realtime Sales Domain Flow
+
+This subsection describes realtime event processing from raw producer events to modeled analytics outputs.
 
 1. Python producer publishes composite sales events to `raw_sales_orders`.
 2. Java/Flink processor consumes raw events and fans out normalized streams:
@@ -327,11 +396,22 @@ flowchart LR
 
 ### 5.2 Master Data (MDM) Flow
 
+This subsection describes master data capture, CDC publication, and analytics synchronization.
+
 1. MDM writer upserts `customer360` and `product_master` entities into MySQL.
 2. Debezium captures MySQL binlog changes and emits raw CDC topics.
 3. CDC publisher normalizes/curates CDC records into analytics-friendly topics (`mdm_customer`, `mdm_product`).
 4. PySpark sync job loads MySQL MDM tables into Postgres landing MDM tables.
 5. dbt joins transactional and MDM data to build conformed dimensions and facts.
+
+### 5.3 Data Cataloging and Observability Flow
+
+This subsection describes metadata ingestion and observability signal paths used for operational validation.
+
+1. OpenMetadata ingestion workflows collect metadata from Trino, Postgres, dbt artifacts, Airflow pipelines, and Kafka topics.
+2. OpenMetadata stores searchable entities and lineage links for tables, topics, pipelines, and models.
+3. Prometheus and Blackbox collect runtime and endpoint health metrics for core services.
+4. Grafana provides dashboard views for pipeline/service health, while runbook checks validate ingestion success paths.
 
 ## 6. ELT and Medallion Design
 
@@ -381,11 +461,56 @@ Modeling benefits:
 
 ### 8.2 Kubernetes Runtime (kind + Helm + Argo CD)
 
+This subsection describes the Kubernetes implementation model for local GitOps parity.
+
 - Primary objective: GitOps-style deployment parity and environment promotion practice.
 - Helm chart templates the full application stack.
 - Argo CD continuously syncs desired state from Git.
 - Environment values (`dev`, `qa`, `prd`) drive differences such as image references, broker endpoints, and scaling.
 - Trino can be enabled as the lakehouse SQL endpoint for MinIO-backed Iceberg-compatible datasets.
+
+Diagram: Kubernetes implementation diagram.
+
+```mermaid
+flowchart LR
+  subgraph Git[Git Repository]
+    CH[Helm Chart and Values]
+    APP[Argo CD Application Manifests]
+  end
+
+  subgraph Argo[Argo CD Control Plane]
+    ARGO[Argo CD Reconciler]
+  end
+
+  subgraph K8S[kind or Kubernetes Cluster]
+    subgraph NS[realtime-dev namespace]
+      KAFKA[Kafka]
+      CONNECT[Kafka Connect]
+      TRINO[Trino]
+      POSTGRES[Postgres]
+      MINIO[MinIO]
+      AIRFLOW[Airflow]
+      DBT[dbt job]
+      OPM[OpenMetadata server]
+      OMI[OpenMetadata ingestion]
+      PROM[Prometheus]
+      GRAF[Grafana]
+      BBX[Blackbox]
+    end
+  end
+
+  APP --> ARGO
+  CH --> ARGO
+  ARGO --> K8S
+  KAFKA --> CONNECT
+  CONNECT --> POSTGRES
+  CONNECT --> MINIO
+  TRINO --> MINIO
+  AIRFLOW --> DBT
+  OMI --> OPM
+  PROM --> GRAF
+  BBX --> PROM
+```
 
 ### 8.3 Cloud Kubernetes Migration Candidates
 
@@ -437,6 +562,8 @@ Cross-reference note:
 
 ## 9. CI/CD and GitOps Design
 
+This section describes Git as source of truth, Argo CD reconciliation, and deployment verification flow.
+
 - Source of truth:
   Git repository stores chart templates, environment values, and Argo CD applications.
 - Delivery mechanism:
@@ -445,6 +572,33 @@ Cross-reference note:
   `dev -> qa -> prd` by controlled values/manifests progression.
 - Operational safety:
   Health checks, logs, and validation scripts are used before promotion.
+
+Diagram: GitOps delivery flowchart.
+
+```mermaid
+flowchart TD
+  DEV[Engineer updates code and values] --> PR[Pull request and review]
+  PR --> MERGE[Merge to main]
+  MERGE --> REPO[Git repository state updated]
+  REPO --> ARGO[Argo CD detects drift]
+  ARGO --> RENDER[Helm render with environment values]
+  RENDER --> APPLY[Apply desired manifests to cluster]
+  APPLY --> HEALTH[Argo CD health and sync checks]
+  HEALTH -->|healthy| VERIFY[Run architecture validation commands]
+  HEALTH -->|degraded| FIX[Revert commit or fix values]
+  VERIFY --> PROMOTE[Promote same pattern to qa then prd]
+```
+
+Diagram: tooling validation flowchart.
+
+```mermaid
+flowchart LR
+  A[make validate] --> B[docker compose config]
+  A --> C[helm lint and render]
+  D[make openmetadata-status] --> E[OpenMetadata health]
+  F[make ops-status] --> G[Runtime endpoint checks]
+  H[make routine-b-ops] --> I[GitOps runtime parity checks]
+```
 
 ## 10. Non-Functional Considerations
 
@@ -463,7 +617,9 @@ Cross-reference note:
 ### 10.3 Observability
 
 - Kafka UI for topic inspection.
-- Prometheus/Loki/Grafana stack for metrics and logs in Kubernetes mode.
+- Prometheus/Grafana/Blackbox stack for metrics, dashboards, and endpoint probing in local and Kubernetes modes.
+- Loki-backed log aggregation can be enabled in Kubernetes profile where configured.
+- OpenMetadata ingestion workflow summaries provide metadata-plane observability for connector health and lineage freshness.
 - Runbook-driven checks for pipeline health and model outputs.
 
 ### 10.4 Security (Demo vs Production)
@@ -474,7 +630,23 @@ Current local setup favors simplicity. Production hardening should include:
 - TLS and authenticated Kafka client/broker traffic.
 - Role-based access control for data stores and runtime services.
 
-## 11. Architecture Decisions Summary
+## 11. Data Cataloging and Observability Design
+
+Data cataloging design:
+
+- OpenMetadata is the metadata control plane for Trino, Postgres, dbt, Airflow, and Kafka.
+- Connector workflows are versioned under `metadata/openmetadata/workflows` and executed through Make targets.
+- dbt lineage is derived from sanitized local artifacts (`manifest.json` and `run_results.json` under the OpenMetadata-compatible target path).
+- Catalog validation requires connector test steps to pass (`GetQueries`, `CheckSchemaRegistry`) and workflow success rate to remain healthy.
+
+Observability design:
+
+- Runtime-plane observability: Prometheus scrapes services and Blackbox probes endpoint availability; Grafana provides dashboards.
+- Metadata-plane observability: OpenMetadata ingestion summaries and connector test steps expose catalog ingestion health.
+- Operational-plane observability: `make ops-status`, `make openmetadata-status`, and ingestion targets provide repeatable health checks.
+- Alerting/SLO evolution path: promote current health checks into alert rules for ingestion failures, stale lineage, and endpoint downtime.
+
+## 12. Architecture Decisions Summary
 
 - Postgres is intentionally used as a local warehouse analog to mimic Snowflake-like SQL analytics workflows.
 - The same architecture can target Redshift, Snowflake, BigQuery, or Databricks with adapter/profile and sink-integration changes rather than full redesign.
@@ -484,11 +656,13 @@ Current local setup favors simplicity. Production hardening should include:
 - PySpark and Debezium integrate master data and CDC into analytical flows.
 - Docker/Compose supports local speed; Kubernetes/Helm/Argo CD supports GitOps reproducibility.
 - Java and Python are both first-class implementation languages based on service responsibilities.
+- OpenMetadata is the unified metadata catalog surface and is a first-class platform component.
+- Observability is a cross-cutting concern across runtime, metadata, and delivery operations.
 
-## 12. Future Enhancements
+## 13. Future Enhancements
 
-- Add Schema Registry and compatibility enforcement for Kafka topics.
+- Enforce Schema Registry compatibility policies for Kafka topic evolution.
 - Increase dbt test coverage (uniqueness, referential integrity, freshness).
-- Introduce data lineage metadata and alerting.
+- Add metadata freshness SLIs/SLOs and alerting for ingestion regressions.
 - Externalize secrets and integrate enterprise identity controls.
 - Add performance test suites for streaming and transformation workloads.

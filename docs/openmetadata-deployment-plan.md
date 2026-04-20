@@ -18,6 +18,27 @@ Out of scope:
 - Production hardening (SSO, TLS, HA, backup policy)
 - Kubernetes deployment manifests
 
+## Hardening Addendum (2026-04-20)
+
+The local implementation now includes two connector hardening updates that should be applied with this plan:
+
+- Postgres query-usage collection: Postgres runs with `shared_preload_libraries=pg_stat_statements` and `pg_stat_statements.track=all`; metadata ingestion ensures `CREATE EXTENSION IF NOT EXISTS pg_stat_statements` before running Postgres ingestion.
+- Kafka schema checks: a local `schema-registry` service is available and Kafka ingestion uses `schemaRegistryURL: http://schema-registry:8081` to satisfy `CheckSchemaRegistry` and remove schema-registry warning noise.
+
+Validation commands:
+
+```bash
+docker compose up -d postgres schema-registry
+make openmetadata-ingest-postgres
+make openmetadata-ingest-kafka
+```
+
+Expected validation outcomes:
+
+- Postgres connection tests include `GetQueries` as passed.
+- Kafka connection tests include `CheckSchemaRegistry` as passed.
+- Kafka ingestion workflow summary reports `Warnings: 0`.
+
 ## Current Stack Mapping
 
 Existing services relevant to metadata ingestion:
@@ -137,9 +158,12 @@ sink:
   config:
     api_endpoint: http://openmetadata-server:8585/api
 
-airflowConfig:
-  endPoint: http://openmetadata-server:8585
-  pipelineName: trino_metadata_ingestion
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: http://openmetadata-server:8585/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: <OPENMETADATA_JWT_TOKEN>
 ```
 
 ### 2) Postgres Warehouse Metadata Ingestion
@@ -155,7 +179,8 @@ source:
       type: Postgres
       hostPort: postgres:5432
       username: analytics
-      password: analytics
+      authType:
+        password: analytics
       database: analytics
   sourceConfig:
     config:
@@ -173,9 +198,12 @@ sink:
   config:
     api_endpoint: http://openmetadata-server:8585/api
 
-airflowConfig:
-  endPoint: http://openmetadata-server:8585
-  pipelineName: postgres_metadata_ingestion
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: http://openmetadata-server:8585/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: <OPENMETADATA_JWT_TOKEN>
 ```
 
 ### 3) dbt Metadata and Lineage Ingestion
@@ -185,16 +213,14 @@ File: `metadata/openmetadata/workflows/dbt_ingestion.yaml`
 ```yaml
 source:
   type: dbt
-  serviceName: dbt-analytics
-  serviceConnection:
-    config:
-      type: Dbt
-      dbtConfigSource:
-        dbtManifestFilePath: /opt/openmetadata/metadata/analytics/dbt/target/manifest.json
-        dbtRunResultsFilePath: /opt/openmetadata/metadata/analytics/dbt/target/run_results.json
+  serviceName: trino-lakehouse
   sourceConfig:
     config:
       type: DBT
+      dbtConfigSource:
+        dbtConfigType: local
+        dbtManifestFilePath: /opt/openmetadata/metadata/analytics/dbt/target/openmetadata/manifest.json
+        dbtRunResultsFilePath: /opt/openmetadata/metadata/analytics/dbt/target/openmetadata/run_results.json
       dbtUpdateDescriptions: true
       includeTags: true
 
@@ -203,9 +229,12 @@ sink:
   config:
     api_endpoint: http://openmetadata-server:8585/api
 
-airflowConfig:
-  endPoint: http://openmetadata-server:8585
-  pipelineName: dbt_lineage_ingestion
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: http://openmetadata-server:8585/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: <OPENMETADATA_JWT_TOKEN>
 ```
 
 ### 4) Airflow Pipeline Metadata Ingestion
@@ -220,8 +249,9 @@ source:
     config:
       type: Airflow
       hostPort: http://airflow:8080
-      username: admin
-      password: admin
+      connection:
+        type: SQLite
+        databaseMode: /opt/airflow/airflow.db
   sourceConfig:
     config:
       type: PipelineMetadata
@@ -232,9 +262,12 @@ sink:
   config:
     api_endpoint: http://openmetadata-server:8585/api
 
-airflowConfig:
-  endPoint: http://openmetadata-server:8585
-  pipelineName: airflow_pipeline_ingestion
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: http://openmetadata-server:8585/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: <OPENMETADATA_JWT_TOKEN>
 ```
 
 ### 5) Kafka Topic Metadata Ingestion
@@ -249,7 +282,7 @@ source:
     config:
       type: Kafka
       bootstrapServers: kafka:9092
-      schemaRegistryURL: ""
+      schemaRegistryURL: http://schema-registry:8081
   sourceConfig:
     config:
       type: MessagingMetadata
@@ -267,9 +300,12 @@ sink:
   config:
     api_endpoint: http://openmetadata-server:8585/api
 
-airflowConfig:
-  endPoint: http://openmetadata-server:8585
-  pipelineName: kafka_topic_ingestion
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: http://openmetadata-server:8585/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: <OPENMETADATA_JWT_TOKEN>
 ```
 
 ## Rollout Order and Gates
@@ -278,7 +314,7 @@ airflowConfig:
 
 - Confirm stack health: `make routine-a-ops`
 - Confirm Trino health: `make trino-smoke`
-- Ensure dbt artifacts exist (`manifest.json`, `run_results.json`) by running `make dbt-run`
+- Ensure dbt artifacts exist and are ingestion-compatible by running `make dbt-run` followed by `make openmetadata-prepare-dbt-artifacts`
 
 Gate to continue:
 
@@ -344,6 +380,26 @@ Gate to finish:
 - No repeated connector failures
 
 ## Example Workflow Execution Commands
+
+Preferred tooling path (Make targets):
+
+```bash
+make openmetadata-up
+make openmetadata-status
+make openmetadata-ingest-trino
+make openmetadata-ingest-postgres
+make openmetadata-ingest-dbt
+make openmetadata-ingest-airflow
+make openmetadata-ingest-kafka
+```
+
+Tooling checks:
+
+```bash
+docker compose config > /dev/null && echo "compose-config-ok"
+docker compose ps postgres schema-registry openmetadata-server openmetadata-ingestion
+curl -fsS http://localhost:8585 >/dev/null && echo "openmetadata: healthy"
+```
 
 From inside `openmetadata-ingestion` container:
 

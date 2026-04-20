@@ -248,6 +248,9 @@ Operational helpers:
 - `make mdm-up`
 - `make mdm-topics-check`
 - `make airflow-dbt-reboot`
+- `make openmetadata-up`
+- `make openmetadata-status`
+- `make openmetadata-ingest-kafka`
 - `make ops-status`
 
 Key local endpoints:
@@ -260,6 +263,7 @@ Key local endpoints:
 - Trino coordinator: `http://localhost:8086`
 - Debezium Connect REST (MDM): `http://localhost:8085`
 - Airflow UI: `http://localhost:8084`
+- OpenMetadata UI/API: `http://localhost:8585`
 - Postgres: `localhost:5432` (user/password/db: `analytics`)
 - MySQL MDM: `localhost:3306` (root password: `mdmroot`, db: `mdm`)
 

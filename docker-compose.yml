@@ -35,16 +35,26 @@ services:
       - ./scripts/create-topics.sh:/scripts/create-topics.sh:ro
 
 
-  kafka-ui:
-    image: provectuslabs/kafka-ui:v0.7.2
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:7.5.3
     depends_on:
       kafka:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "9021:9021"
     environment:
-      KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: 'kafka:9092'
+      CONTROL_CENTER_ZOOKEEPER_CONNECT: ''
+      CONTROL_CENTER_CONNECT_CONNECT_CLUSTER: 'connect:8083'
+      CONTROL_CENTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
+      CONTROL_CENTER_CONNECT_HEALTHCHECK_ENDPOINT: '/connectors'
+      CONTROL_CENTER_CONNECT_CLUSTER: 'connect'
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+      CONTROL_CENTER_COMMAND_TOPIC_PARTITIONS: 1
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      PORT: 9021
+    restart: unless-stopped
 
   schema-registry:
     image: python:3.11-alpine

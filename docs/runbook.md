@@ -1,9 +1,10 @@
 # Local Development Operations Runbook
 
-This runbook defines two supported local operation routines:
+This runbook defines three supported local operation routines:
 
 - Routine A: Docker Compose (fast local loop)
 - Routine B: kind + Helm + Argo CD (GitOps local cluster loop)
+- Routine K8S: Isolated kind + Helm (no image build, no Argo CD)
 
 Use only one routine at a time for a clean workflow.
 
@@ -476,7 +477,7 @@ Use this only when you want to run each phase independently.
 1. Bootstrap kind and Argo CD:
 
 ```bash
-./scripts/bootstrap-kind.sh
+k8s/kind/bootstrap-kind.sh
 ```
 
 2. Wait until Argo CD pods are Ready:
@@ -733,7 +734,7 @@ Use this routine when deploying the same Helm chart through Argo CD to non-local
 ### C1. Prerequisites
 
 - Container images for producer, processor, connect, dbt, and airflow are published to a registry reachable by the target cluster.
-- QA and PRD values are maintained in `environments/qa/values.yaml` and `environments/prd/values.yaml`.
+- QA and PRD values are maintained in `k8s/helm/values/values-qa.yaml` and `k8s/helm/values/values-prd.yaml`.
 - Argo CD is installed and reachable in the control cluster.
 - Your kubeconfig includes contexts for the QA and PRD target clusters.
 

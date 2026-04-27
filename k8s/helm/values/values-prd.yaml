@@ -1,0 +1,18 @@
+kafkaBootstrapServers: kafka-prd.kafka.svc.cluster.local:9092
+producer:
+	replicas: 2
+	image:
+		repository: my-registry/realtime-sales-producer
+		tag: 0.1.0
+		pullPolicy: IfNotPresent
+	intervalMs: 2500
+processor:
+	replicas: 2
+	image:
+		repository: my-registry/realtime-sales-processor
+		tag: 0.1.0
+		pullPolicy: IfNotPresent
+	consumerGroupId: realtime-flink-processor-prd
+	checkpointIntervalMs: 5000
+kafka:
+	enabled: false

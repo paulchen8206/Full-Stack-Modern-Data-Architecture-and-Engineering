@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: register-schemas-job
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    app.kubernetes.io/name: realtime-app
+    app.kubernetes.io/component: schema-registry
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: register-schemas
+          image: curlimages/curl:8.7.1
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              for subject in raw_sales_orders sales_order sales_order_line_item customer_sales mdm_customer mdm_product; do
+                if [ -f "/schemas/${subject}.json" ]; then
+                  echo "Registering schema for $subject..."
+                  curl -s -o /dev/null -w "%{http_code}\n" -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+                    --data @"/schemas/${subject}.json" \
+                    "http://realtime-dev-realtime-app-schema-registry:8081/subjects/${subject}-value/versions"
+                else
+                  echo "Schema file not found: /schemas/${subject}.json"
+                fi
+              done
+          volumeMounts:
+            - name: schemas
+              mountPath: /schemas
+      volumes:
+        - name: schemas
+          configMap:
+            name: schemas-configmap

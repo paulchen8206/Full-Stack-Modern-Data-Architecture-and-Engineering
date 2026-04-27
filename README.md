@@ -54,6 +54,7 @@
   - [Appendix A.4 Govern (Metadata, Policies, Audit)](#appendix-a4-govern-metadata-policies-audit)
   - [Appendix A.5 Grounding Sources (What to Index)](#appendix-a5-grounding-sources-what-to-index)
   - [Appendix A.6 Example Agent Playbook](#appendix-a6-example-agent-playbook)
+- [Routine K8S: Isolated kind + Helm](#routine-k8s-isolated-kind--helm)
 
 <a id="purpose-and-scope"></a>
 
@@ -956,3 +957,54 @@ interact through allowlisted, audited APIs (read-only by default).
 
 9.  **Evaluation suite:** regression tests for incident summaries,
     remediation suggestions, and cost/latency/safety behavior.
+
+- [Routine K8S: Isolated kind + Helm](#routine-k8s-isolated-kind--helm)
+
+## Routine K8S: Isolated kind + Helm
+
+This routine provides a pure Kubernetes + Helm workflow for local development, without building/loading images or using Argo CD. Use this for rapid Helm chart iteration, validation, and smoke testing.
+
+- Bootstrap cluster, Helm chart, and validate:
+  ```bash
+  make routine-k8s
+  ```
+- Run day-2 validation and smoke checks:
+  ```bash
+  make routine-k8s-ops
+  ```
+- Remove Helm release and delete namespace:
+  ```bash
+  make routine-k8s-down
+  ```
+
+**What it does:**
+- Creates kind cluster and installs Argo CD (no app applied)
+- Installs Helm chart dependencies, lints, renders, and deploys dev chart
+- Runs Helm health snapshot, MDM topic validation, Airflow/dbt check, Trino/Iceberg smoke
+- Does NOT build or load images, or apply Argo CD app
+
+**Validation targets included:**
+- `make helm-health-dev` – Helm workload health snapshot
+- `make mdm-topics-check-dev` – Validate MDM topic flow in k8s
+- `make airflow-dbt-check-dev` – Validate Airflow + dbt job state in k8s
+- `make trino-smoke-dev` – Trino pod health in k8s
+- `make iceberg-streaming-smoke-dev` – Iceberg streaming validation in k8s
+
+**Port-forwarding for UI access:**
+- Airflow: `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-airflow 8084:8080`
+- MinIO: `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-minio 9001:9001`
+- Trino: `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-trino 8086:8080`
+- Grafana: `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-grafana 3001:3000`
+
+**Reset/cleanup:**
+- Remove Helm release and namespace:
+  ```bash
+  make routine-k8s-down
+  ```
+
+**Troubleshooting:**
+- If pods show `ErrImageNeverPull`, images must be built/loaded (see Routine B)
+- If `iceberg-writer` is in `CrashLoopBackOff`, run `make helm-metastore-migrate-dev`
+- For chart changes, rerun `make routine-k8s` to re-apply
+
+---

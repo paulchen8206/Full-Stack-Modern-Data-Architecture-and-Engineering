@@ -1,3 +1,5 @@
+schemaRegistry:
+  enabled: true
 nameOverride: ""
 fullnameOverride: ""
 producer:
@@ -37,16 +39,19 @@ icebergWriter:
   flushIntervalMs: 5000
   catalog: lakehouse
   schema: streaming
-kafkaUi:
-  enabled: false
+controlCenter:
+  enabled: true
   replicas: 1
   image:
-    repository: provectuslabs/kafka-ui
-    tag: v0.7.2
+    repository: confluentinc/cp-enterprise-control-center
+    tag: 7.5.3
     pullPolicy: IfNotPresent
+  connectCluster: 'http://realtime-dev-realtime-app-connect:8083'
+  connectClusterName: 'connect'
+  schemaRegistryUrl: 'http://realtime-dev-realtime-app-schema-registry:8081'
   service:
     type: ClusterIP
-    port: 8080
+    port: 9021
 minio:
   enabled: false
   image:
@@ -121,7 +126,7 @@ airflow:
     type: ClusterIP
     port: 8080
 mdm:
-  enabled: false
+  enabled: true
   mysql:
     image:
       repository: mysql
@@ -209,18 +214,24 @@ observability:
     service:
       type: ClusterIP
       port: 3000
-kafkaBootstrapServers: kafka:9092
+kafkaBootstrapServers: "realtime-dev-realtime-app-kafka:9092"
+zookeeper:
+  enabled: true
+  image:
+    repository: confluentinc/cp-zookeeper
+    tag: 7.5.3
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 2181
 kafka:
-  enabled: false
-  listeners:
-    client:
-      protocol: PLAINTEXT
-  controller:
-    replicaCount: 1
-  broker:
-    replicaCount: 1
-  kraft:
-    enabled: true
+  enabled: true
+  image:
+    repository: confluentinc/cp-kafka
+    tag: 7.5.3
+    pullPolicy: IfNotPresent
+  replicas: 1
+  zookeeperConnect: "realtime-dev-realtime-app-zookeeper:2181"
   provisioning:
     enabled: true
     numPartitions: 3
@@ -283,3 +294,4 @@ kafka:
       replicationFactor: 1
       config:
         cleanup.policy: compact
+kafkaBootstrapServers: "realtime-dev-realtime-app-kafka:9092"

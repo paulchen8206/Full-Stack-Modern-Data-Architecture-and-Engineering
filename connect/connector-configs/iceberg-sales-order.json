@@ -4,7 +4,7 @@
   "topics": "sales_order",
   "s3.bucket.name": "warehouse",
   "topics.dir": "raw/sales_order",
-  "store.url": "http://minio:9000",
+  "store.url": "http://realtime-dev-realtime-app-minio:9000",
   "s3.region": "us-east-1",
   "aws.access.key.id": "minio",
   "aws.secret.access.key": "minio123",

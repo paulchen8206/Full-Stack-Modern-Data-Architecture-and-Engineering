@@ -4,7 +4,7 @@
   "topics": "sales_order,sales_order_line_item,customer_sales",
   "value.converter": "org.apache.kafka.connect.json.JsonConverter",
   "value.converter.schemas.enable": "true",
-  "connection.url": "jdbc:postgresql://postgres:5432/analytics",
+  "connection.url": "jdbc:postgresql://realtime-dev-realtime-app-postgres:5432/analytics",
   "connection.user": "analytics",
   "connection.password": "analytics",
   "table.name.format": "landing.${topic}",

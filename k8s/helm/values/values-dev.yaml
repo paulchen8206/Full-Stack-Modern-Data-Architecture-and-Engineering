@@ -1,0 +1,177 @@
+zookeeper:
+  enabled: true
+  image:
+    repository: confluentinc/cp-zookeeper
+    tag: 7.5.3
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 2181
+kafka:
+  enabled: true
+  image:
+    repository: confluentinc/cp-kafka
+    tag: 7.5.3
+    pullPolicy: IfNotPresent
+  replicas: 1
+  zookeeperConnect: "realtime-dev-realtime-app-zookeeper:2181"
+  provisioning:
+    enabled: true
+    numPartitions: 3
+    replicationFactor: 1
+    topics:
+    - name: raw_sales_orders
+      partitions: 3
+      replicationFactor: 1
+    - name: sales_order
+      partitions: 3
+      replicationFactor: 1
+    - name: sales_order_line_item
+      partitions: 3
+      replicationFactor: 1
+    - name: customer_sales
+      partitions: 3
+      replicationFactor: 1
+    - name: mdm_customer
+      partitions: 3
+      replicationFactor: 1
+    - name: mdm_product
+      partitions: 3
+      replicationFactor: 1
+    - name: mdm_mysql.mdm.customer360
+      partitions: 3
+      replicationFactor: 1
+    - name: mdm_mysql.mdm.product_master
+      partitions: 3
+      replicationFactor: 1
+    - name: connect-configs
+      partitions: 1
+      replicationFactor: 1
+      config:
+        cleanup.policy: compact
+    - name: connect-offsets
+      partitions: 6
+      replicationFactor: 1
+      config:
+        cleanup.policy: compact
+    - name: connect-status
+      partitions: 3
+      replicationFactor: 1
+      config:
+        cleanup.policy: compact
+    - name: connect-iceberg-control
+      partitions: 3
+      replicationFactor: 1
+    - name: mdm-connect-configs
+      partitions: 1
+      replicationFactor: 1
+      config:
+        cleanup.policy: compact
+    - name: mdm-connect-offsets
+      partitions: 6
+      replicationFactor: 1
+      config:
+        cleanup.policy: compact
+    - name: mdm-connect-status
+      partitions: 3
+      replicationFactor: 1
+      config:
+        cleanup.policy: compact
+kafkaBootstrapServers: "realtime-dev-realtime-app-kafka:9092"
+zookeeper:
+  enabled: true
+  image:
+    repository: confluentinc/cp-zookeeper
+    tag: 7.5.3
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 2181
+kafkaBootstrapServers: "realtime-dev-realtime-app-kafka:9092"
+producer:
+  replicas: 1
+  image:
+    repository: genai-enabled-data-platform-architecture-and-engineering-producer
+    tag: latest
+    pullPolicy: Never
+  intervalMs: 1000
+processor:
+  replicas: 1
+  image:
+    repository: genai-enabled-data-platform-architecture-and-engineering-processor
+    tag: latest
+    pullPolicy: Never
+  consumerGroupId: realtime-flink-processor-dev
+icebergWriter:
+  enabled: true
+  batchSize: 50
+  pollTimeoutMs: 1000
+  flushIntervalMs: 5000
+  image:
+    repository: genai-enabled-data-platform-architecture-and-engineering-iceberg-writer
+    tag: latest
+    pullPolicy: Never
+kafkaUi:
+  enabled: false
+controlCenter:
+  enabled: true
+minio:
+  enabled: true
+trino:
+  enabled: true
+postgres:
+  enabled: true
+connect:
+  enabled: true
+  image:
+    repository: genai-enabled-data-platform-architecture-and-engineering-connect
+    tag: latest
+    pullPolicy: Never
+dbt:
+  enabled: true
+  image:
+    repository: genai-enabled-data-platform-architecture-and-engineering-dbt
+    tag: latest
+    pullPolicy: Never
+airflow:
+  enabled: true
+  image:
+    repository: genai-enabled-data-platform-architecture-and-engineering-airflow
+    tag: latest
+    pullPolicy: Never
+mdm:
+  enabled: true
+  writer:
+    image:
+      repository: genai-enabled-data-platform-architecture-and-engineering-mdm-writer
+      tag: latest
+      pullPolicy: Never
+  cdcProducer:
+    image:
+      repository: genai-enabled-data-platform-architecture-and-engineering-mdm-cdc-producer
+      tag: latest
+      pullPolicy: Never
+  pysparkSync:
+    image:
+      repository: genai-enabled-data-platform-architecture-and-engineering-mdm-pyspark-sync
+      tag: latest
+      pullPolicy: Never
+observability:
+  enabled: true
+kafka:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/kafka
+    tag: 4.0.0-debian-12-r10
+  provisioning:
+    enabled: true
+    waitForKafka: false
+  extraConfig: |-
+    default.replication.factor=1
+    min.insync.replicas=1
+    offsets.topic.replication.factor=1
+    transaction.state.log.replication.factor=1
+    transaction.state.log.min.isr=1
+    share.coordinator.state.topic.replication.factor=1
+    share.coordinator.state.topic.min.isr=1

@@ -1,4 +1,60 @@
-# ── Variables ─────────────────────────────────────────────────────────────────
+###############################################################################
+# ROUTINE K8S – Isolated Kubernetes + Helm (no image build, no ArgoCD)
+###############################################################################
+routine-k8s: kind-bootstrap helm-deps helm-lint helm-render-dev helm-render-qa helm-render-prd helm-reboot-dev helm-health-dev helm-metastore-migrate-dev routine-k8s-ops ## [K8S]  Isolated k8s + Helm: cluster, chart deps, lint, render, deploy, health, migrate, validate
+	@echo "[routine-k8s] All k8s + Helm operations complete."
+
+routine-k8s-ops: helm-health-dev mdm-topics-check-dev airflow-dbt-check-dev trino-smoke-dev iceberg-streaming-smoke-dev ## [K8S]  Day-2 ops: health, MDM, Airflow/dbt, Trino/Iceberg
+	@echo "[routine-k8s-ops] K8s/Helm validation and smoke checks complete."
+
+routine-k8s-down: ## [K8S]  Remove Helm release and delete dev namespace
+	helm uninstall realtime-dev -n realtime-dev || true
+	kubectl delete namespace realtime-dev --ignore-not-found
+	@echo "[routine-k8s-down] Helm release removed and namespace deleted."
+#
+.PHONY: check-tools health clean start stop restart help routine-a up down topics-create
+#
+###############################################################################
+# HEALTH CHECKS & CLEANUP
+###############################################################################
+health: check-tools ## Check health of all critical services
+	@docker compose ps
+	@curl -fsS http://localhost:8086/v1/info >/dev/null && echo "trino: healthy" || echo "trino: unavailable"
+	@curl -fsS http://localhost:8083/connectors >/dev/null && echo "connect: healthy" || echo "connect: unavailable"
+	@curl -fsS http://localhost:8085/connectors >/dev/null && echo "mdm-connect: healthy" || echo "mdm-connect: unavailable"
+	@curl -fsS http://localhost:8084/health >/dev/null && echo "airflow: healthy" || echo "airflow: unavailable"
+	@curl -fsS http://localhost:9090/-/ready >/dev/null && echo "prometheus: healthy" || echo "prometheus: unavailable"
+	@curl -fsS http://localhost:9115/metrics >/dev/null && echo "blackbox-exporter: healthy" || echo "blackbox-exporter: unavailable"
+	@curl -fsS http://localhost:3000/api/health >/dev/null && echo "grafana: healthy" || echo "grafana: unavailable"
+	@curl -fsS http://localhost:8585 >/dev/null && echo "openmetadata: healthy" || echo "openmetadata: unavailable"
+
+clean: check-tools ## Remove stopped containers, dangling images, and unused volumes
+	docker compose down -v --remove-orphans
+	docker system prune -f
+
+start: routine-a ## Alias for routine-a
+stop: down ## Alias for down
+restart: down up ## Alias for down then up
+#
+###############################################################################
+# AUTOLOAD .env FILE IF PRESENT
+###############################################################################
+ifneq ("$(wildcard .env)","")
+include .env
+export
+endif
+
+###############################################################################
+# TOOL CHECKS (run automatically before main routines)
+###############################################################################
+
+check-tools:
+	@command -v docker >/dev/null 2>&1 || { echo >&2 "docker not installed"; exit 1; }
+	@command -v docker compose >/dev/null 2>&1 || { echo >&2 "docker compose not installed"; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { echo >&2 "python3 not installed"; exit 1; }
+###############################################################################
+# VARIABLES
+###############################################################################
 CLUSTER_NAME    ?= realtime-dev
 PRODUCER_IMAGE  ?= realtime-sales-producer:0.1.0
 PROCESSOR_IMAGE ?= realtime-sales-processor:0.1.0
@@ -16,11 +72,16 @@ MESSAGE_COUNT   ?= 5
 TRINO_URL       ?= http://localhost:8086
 SQL_FILE        ?=
 
-# ── Defaults ─────────────────────────────────────────────────────────────────
-.DEFAULT_GOAL := help
 
-# ── Target groups ─────────────────────────────────────────────────────────────
-PHONY_SHARED := help validate build
+#
+###############################################################################
+# PROJECT ROUTINE A OPTIMIZATION
+###############################################################################
+# Routine A: Fast local application loop for dev/test
+# - One-time setup: make setup (sets script permissions)
+# - Start stack: make up (idempotent, no unnecessary restarts)
+# - Create topics: make topics-create (can run in parallel)
+PHONY_SHARED := help validate build setup
 
 PHONY_ROUTINE_A := \
 	routine-a routine-a-ops up down topics-create topics-list topics-check consume \
@@ -42,7 +103,13 @@ PHONY_ROUTINE_B := \
 
 PHONY_TARGETS := $(PHONY_SHARED) $(PHONY_ROUTINE_A) $(PHONY_ROUTINE_B)
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+setup: ## One-time setup for scripts (run manually if scripts change)
+	chmod +x scripts/*.sh
+
+#
+###############################################################################
+# HELPERS
+###############################################################################
 define require-var
 	@if [ -z "$($(1))" ]; then \
 		echo "Usage: make $(2) $(1)=<$(3)>" >&2; \
@@ -62,15 +129,25 @@ define kind-load-image
 	kind load docker-image --name "$(CLUSTER_NAME)" "$($(1))"
 endef
 
-# ── Phony targets ─────────────────────────────────────────────────────────────
+#
+###############################################################################
+# PHONY TARGETS
+###############################################################################
 .PHONY: $(PHONY_TARGETS)
+.PHONY: setup
 
-# ── Help ──────────────────────────────────────────────────────────────────────
-help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | \
-	  awk 'BEGIN{FS=":.*##"} {printf "  %-22s %s\n", $$1, $$2}'
+#
+###############################################################################
+# HELP TARGET
+###############################################################################
+help: ## Show all targets and descriptions
+	@echo "\nAvailable targets:\n"
+	@awk -F':|##' '/^[a-zA-Z0-9_.-]+:.*##/ { printf "  %-22s %s\n", $$1, $$3 }' $(MAKEFILE_LIST) | sort
 
-# ── Shared ────────────────────────────────────────────────────────────────────
+#
+###############################################################################
+# SHARED TARGETS
+###############################################################################
 build: ## [shared]  Build the processor JAR (tests skipped)
 	cd processor && mvn -DskipTests package
 
@@ -78,10 +155,17 @@ validate: build helm-lint helm-render ## [shared]  Build + lint + render all env
 	docker compose config > /dev/null
 	@echo "All validations passed."
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Routine A – Docker Compose  (fast local application loop)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-routine-a: up topics-create ## [A]  Full Routine A bootstrap: start stack + create topics
+
+#
+# 
+# 
+# 
+###############################################################################
+# ROUTINE A – Docker Compose (fast local application loop)
+###############################################################################
+routine-a: ## [A]  Full Routine A bootstrap: start stack + create topics (parallelized)
+	routine-a: check-tools ## [A]  Full Routine A bootstrap: start stack + create topics (parallelized)
+	$(MAKE) -j 2 up topics-create
 
 routine-a-ops: ## [A]  Unified ops runbook: kafka-ui up, dbt off, MDM checks, airflow+dbt reboot, status
 	$(MAKE) kafka-ui-up
@@ -91,11 +175,12 @@ routine-a-ops: ## [A]  Unified ops runbook: kafka-ui up, dbt off, MDM checks, ai
 	$(MAKE) airflow-dbt-reboot
 	$(MAKE) ops-status
 
-up: ## [A]  Start local docker-compose stack
-	chmod +x scripts/*.sh
+up: ## [A]  Start local docker-compose stack (idempotent)
+	up: check-tools ## [A]  Start local docker-compose stack (idempotent)
 	./scripts/compose-up.sh -d
 
 down: ## [A]  Stop local docker-compose stack
+	down: check-tools ## [A]  Stop local docker-compose stack
 	docker compose down
 
 topics-create: ## [A]  Create Kafka topics (runs topic-init service)  [scripts/create-topics.sh]
@@ -256,9 +341,10 @@ trino-smoke-dev: ## [B]  Check Trino pod health in the dev namespace
 	kubectl -n realtime-dev get pods -l app.kubernetes.io/component=trino
 	kubectl -n realtime-dev logs deploy/realtime-dev-realtime-app-trino --tail=50 || true
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Routine B – kind + Helm + Argo CD  (GitOps local cluster loop)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+###############################################################################
+# ROUTINE B – kind + Helm + Argo CD (GitOps local cluster loop)
+###############################################################################
 routine-b: kind-bootstrap images helm-reboot-dev ## [B]  Full Routine B bootstrap: cluster + images + local Helm deploy (Docker-like flow)
 
 routine-b-ops: ## [B]  Unified ops runbook parity with routine-a-ops for the dev cluster
@@ -312,10 +398,8 @@ kind-load: ## [B]  Load images into the kind cluster
 
 images: docker-build kind-load ## [B]  Build images and load into kind  [scripts/build-images.sh]
 
-kind-bootstrap: ## [B]  Create kind cluster and install Argo CD  [scripts/bootstrap-kind.sh]
-	kind create cluster --name "$(CLUSTER_NAME)" --wait 120s
-	kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
-	kubectl apply --server-side -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kind-bootstrap: ## [B]  Create kind cluster and install Argo CD  [k8s/kind/bootstrap-kind.sh]
+	k8s/kind/bootstrap-kind.sh
 
 argocd-apply: ## [B]  Apply the Argo CD Application manifest for ENV (default: dev)
 	kubectl apply -f argocd/$(ENV).yaml
@@ -326,14 +410,15 @@ helm-deps: ## [B]  Download / update Helm chart dependencies
 helm-lint: helm-deps ## [B]  Lint the Helm chart
 	helm lint charts/realtime-app
 
+
 helm-render-dev: helm-deps ## [B]  Render Helm templates for dev
-	helm template realtime-dev charts/realtime-app -f environments/dev/values.yaml
+	helm template realtime-dev charts/realtime-app -f k8s/helm/values/values-dev.yaml
 
 helm-render-qa: helm-deps ## [B]  Render Helm templates for qa
-	helm template realtime-qa  charts/realtime-app -f environments/qa/values.yaml
+	helm template realtime-qa charts/realtime-app -f k8s/helm/values/values-qa.yaml
 
 helm-render-prd: helm-deps ## [B]  Render Helm templates for prd
-	helm template realtime-prd charts/realtime-app -f environments/prd/values.yaml
+	helm template realtime-prd charts/realtime-app -f k8s/helm/values/values-prd.yaml
 
 helm-render: helm-render-dev helm-render-qa helm-render-prd ## [B]  Render templates for all environments
 

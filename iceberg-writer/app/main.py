@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from kafka import KafkaConsumer
+from confluent_kafka.avro import AvroConsumer
 
 
 TOPIC_TABLES = {
@@ -22,10 +22,7 @@ def chunked(items: list[dict], batch_size: int) -> Iterable[list[dict]]:
         yield items[start : start + batch_size]
 
 
-def decode_json(raw: bytes | None):
-    if raw is None:
-        return None
-    return json.loads(raw.decode("utf-8"))
+
 
 
 def trino_request(sql: str, server: str, user: str, catalog: str, schema: str) -> dict:
@@ -63,6 +60,12 @@ def sql_string(value: str | None) -> str:
 def sql_decimal(value: str | None) -> str:
     if value is None:
         return "CAST(NULL AS DECIMAL(18,2))"
+    # Handle Avro logicalType decimal bytes
+    if isinstance(value, bytes):
+        # Avro decimal bytes are big-endian signed integers, scale is usually 2
+        # For simplicity, convert to int then divide by 100 (scale=2)
+        int_value = int.from_bytes(value, byteorder="big", signed=True)
+        value = str(Decimal(int_value) / Decimal("100"))
     Decimal(value)
     return f"CAST({sql_string(value)} AS DECIMAL(18,2))"
 
@@ -82,7 +85,15 @@ def sql_bigint(value) -> str:
 def sql_timestamp(epoch_ms) -> str:
     if epoch_ms is None:
         return "CAST(NULL AS TIMESTAMP(3))"
-    timestamp = datetime.fromtimestamp(int(epoch_ms) / 1000, tz=timezone.utc)
+    # Accept both integer epoch ms and ISO8601 string
+    if isinstance(epoch_ms, (int, float)) or (isinstance(epoch_ms, str) and epoch_ms.isdigit()):
+        timestamp = datetime.fromtimestamp(int(epoch_ms) / 1000, tz=timezone.utc)
+    else:
+        # Try to parse ISO8601 string
+        try:
+            timestamp = datetime.fromisoformat(epoch_ms.replace("Z", "+00:00"))
+        except Exception:
+            return "CAST(NULL AS TIMESTAMP(3))"
     formatted = timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     return f"TIMESTAMP {sql_string(formatted)}"
 
@@ -380,7 +391,8 @@ def flush_topic_batch(
 
 
 def main() -> None:
-    bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092").split(",")
+    bootstrap_servers_env = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+    print(f"[DEBUG] KAFKA_BOOTSTRAP_SERVERS env: {bootstrap_servers_env}", flush=True)
     group_id = os.getenv("ICEBERG_WRITER_GROUP_ID", "iceberg-writer")
     server = os.getenv("TRINO_URL", "http://trino:8080")
     user = os.getenv("TRINO_USER", "analytics")
@@ -396,29 +408,30 @@ def main() -> None:
     for sql in bootstrap_sql(schema):
         execute_trino(sql, server, user, catalog, schema)
 
-    consumer = KafkaConsumer(
-        *topics,
-        bootstrap_servers=bootstrap_servers,
-        group_id=group_id,
-        auto_offset_reset=os.getenv("ICEBERG_WRITER_OFFSET_RESET", "earliest"),
-        enable_auto_commit=True,
-        value_deserializer=decode_json,
-        key_deserializer=lambda raw: raw.decode("utf-8") if raw else None,
-    )
+
+    consumer = AvroConsumer({
+        'bootstrap.servers': bootstrap_servers_env,
+        'group.id': group_id,
+        'auto.offset.reset': os.getenv("ICEBERG_WRITER_OFFSET_RESET", "earliest"),
+        'enable.auto.commit': True,
+        'schema.registry.url': os.getenv("SCHEMA_REGISTRY_URL", "http://localhost:8081"),
+    })
+    consumer.subscribe(topics)
 
     print("iceberg writer started", flush=True)
 
     pending_payloads: dict[str, list[dict]] = {topic: [] for topic in topics}
     last_flush_at: dict[str, float] = {topic: time.monotonic() for topic in topics}
 
+
     while True:
-        records = consumer.poll(timeout_ms=poll_timeout_ms, max_records=max_poll_records)
+        msg = consumer.poll(timeout=poll_timeout_ms / 1000)
         now = time.monotonic()
-        for partition_records in records.values():
-            for message in partition_records:
-                if message.topic not in TOPIC_TABLES or message.value is None:
-                    continue
-                pending_payloads[message.topic].append(unwrap_payload(message.value))
+        if msg is not None and msg.value() is not None:
+            topic = msg.topic()
+            if topic not in TOPIC_TABLES:
+                continue
+            pending_payloads[topic].append(unwrap_payload(msg.value()))
 
         for topic in topics:
             payloads = pending_payloads[topic]

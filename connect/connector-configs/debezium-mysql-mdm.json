@@ -1,18 +1,21 @@
 {
-  "connector.class": "io.debezium.connector.mysql.MySqlConnector",
-  "tasks.max": "1",
-  "database.hostname": "mysql-mdm",
-  "database.port": "3306",
-  "database.user": "root",
-  "database.password": "mdmroot",
-  "database.server.id": "5401",
-  "topic.prefix": "mdm_mysql",
-  "database.include.list": "mdm",
-  "table.include.list": "mdm.customer360,mdm.product_master",
-  "include.schema.changes": "false",
-  "snapshot.mode": "initial",
-  "decimal.handling.mode": "string",
-  "time.precision.mode": "connect",
-  "schema.history.internal": "io.debezium.storage.file.history.FileSchemaHistory",
-  "schema.history.internal.file.filename": "/tmp/debezium-mdm-schemahistory.dat"
+  "name": "debezium-mysql-mdm",
+  "config": {
+    "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+    "tasks.max": "1",
+    "database.hostname": "mysql-mdm",
+    "database.port": "3306",
+    "database.user": "root",
+    "database.password": "mdmroot",
+    "database.server.id": "5401",
+    "topic.prefix": "mdm_mysql",
+    "database.include.list": "mdm",
+    "table.include.list": "mdm.customer360,mdm.product_master",
+    "include.schema.changes": "false",
+    "snapshot.mode": "initial",
+    "decimal.handling.mode": "string",
+    "time.precision.mode": "connect",
+    "schema.history.internal": "io.debezium.storage.file.history.FileSchemaHistory",
+    "schema.history.internal.file.filename": "/tmp/debezium-mdm-schemahistory.dat"
+  }
 }

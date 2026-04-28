@@ -1,4 +1,3 @@
-import json
 import os
 import random
 import time
@@ -6,7 +5,8 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 
-from kafka import KafkaProducer
+from confluent_kafka import avro
+from confluent_kafka.avro import AvroProducer
 
 
 SEGMENTS = ["SMB", "MID_MARKET", "ENTERPRISE"]
@@ -67,22 +67,44 @@ def build_sales_order() -> dict:
     }
 
 
+
 def main() -> None:
-    bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9094").split(",")
+    bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9094")
+    schema_registry_url = os.getenv("SCHEMA_REGISTRY_URL", "http://schema-registry:8081")
     topic = os.getenv("RAW_TOPIC", "raw_sales_orders")
     interval_ms = int(os.getenv("PRODUCER_INTERVAL_MS", "2000"))
 
-    producer = KafkaProducer(
-        bootstrap_servers=bootstrap_servers,
-        value_serializer=lambda payload: json.dumps(payload).encode("utf-8"),
-        linger_ms=50,
-        acks="all",
+    # Load Avro value schema
+    schema_path = os.path.join(os.path.dirname(__file__), "sales_order.avsc")
+    with open(schema_path) as f:
+        value_schema_str = f.read()
+    value_schema = avro.loads(value_schema_str)
+
+    # Define Avro key schema as a record
+    key_schema_str = '{"name": "OrderKey", "type": "record", "fields": [{"name": "key", "type": "string"}]}'
+    key_schema = avro.loads(key_schema_str)
+
+    avro_producer = AvroProducer(
+        {
+            'bootstrap.servers': bootstrap_servers,
+            'schema.registry.url': schema_registry_url,
+            'acks': 'all',
+            'linger.ms': 50,
+        },
+        default_key_schema=key_schema,
+        default_value_schema=value_schema
     )
 
     while True:
         order = build_sales_order()
-        producer.send(topic, key=order["orderId"].encode("utf-8"), value=order)
-        producer.flush()
+        avro_producer.produce(
+            topic=topic,
+            key={"key": order["orderId"]},
+            value=order,
+            key_schema=key_schema,
+            value_schema=value_schema
+        )
+        avro_producer.flush()
         print(f"published order {order['orderId']} for customer {order['customer']['customerId']}", flush=True)
         time.sleep(interval_ms / 1000)
 

@@ -161,92 +161,51 @@ Related source locations:
 - `docs/runbook.md`: Day-2 operations procedures for Compose and Argo CD workflows.
 - `docs/adr`: Architecture Decision Records (ADRs).
 
-## Quick Start
 
-### Option A: Docker Compose
+## 🚀 Quick Start: Unified Docker Routine (Routine A)
 
-Use one of these local startup paths depending on what you need.
+All local development, validation, and troubleshooting flows are now consolidated under unified scripts and Make targets. **Deprecated scripts will print a warning and exit.**
 
-Start the full Routine A bootstrap (bring up stack and create topics):
+### Start the Full Stack (Routine A)
 
 ```bash
-make routine-a
+make routine-a         # Brings up the stack and creates topics
 ```
 
-Start only the Compose stack (without topic bootstrap):
+Or, to start only the Compose stack (no topic bootstrap):
 
 ```bash
 make up
 ```
 
-Start the full stack directly with the script wrapper (equivalent service scope to `make up`):
+Or, use the script wrapper (enforces metastore upgrade):
 
 ```bash
 ./scripts/compose-up.sh
 ```
 
-Start only the core streaming path for a faster inner loop:
+### Validate and Operate
 
 ```bash
-./scripts/compose-up.sh -d --build kafka topic-init kafka-ui producer processor
+make routine-a-ops     # Unified day-2 operations
+make help              # List all available targets
+make validate          # Run local validation bundle
 ```
 
-Validate topic flow:
+### Common Operations
 
-```bash
-./scripts/list-topics.sh
-./scripts/consume-topic.sh raw_sales_orders 3
-./scripts/check-pipeline-topics.sh
-```
-
-Start lakehouse and warehouse layer:
-
-```bash
-make lakehouse-up
-```
-
-> If you bypass `make`, use `./scripts/compose-up.sh ...` instead of raw `docker compose up ...` so the Postgres-backed Iceberg JDBC metastore upgrade is enforced automatically before Trino and `iceberg-writer` continue.
-
-Run dbt manually:
-
-```bash
-make dbt-run
-```
-
-Start Airflow:
-
-```bash
-make airflow-up
-```
-
-Run unified day-2 operations:
-
-```bash
-make routine-a-ops
-```
-
-Show all available targets and run a local validation bundle:
-
-```bash
-make help
-make validate
-```
-
-Operational helpers:
-
-| Target | Purpose |
+| Command | Purpose |
 | --- | --- |
+| `make dbt-run` | Run dbt models |
+| `make airflow-up` | Start Airflow |
 | `make kafka-ui-up` | Start Kafka UI |
-| `make dbt-stop` | Stop the dbt service |
 | `make mdm-up` | Start MDM services |
-| `make mdm-topics-check` | Validate MDM topic consumption |
-| `make airflow-dbt-reboot` | Restart Airflow and dbt |
-| `make openmetadata-up` | Start OpenMetadata |
-| `make openmetadata-status` | Check OpenMetadata pipeline status |
-| `make openmetadata-ingest-kafka` | Run Kafka metadata ingestion |
 | `make ops-status` | Show overall service health |
+| `make trino-smoke` | Quick Trino health check |
+| `make trino-bootstrap-lakehouse` | Bootstrap Iceberg tables |
+| `make iceberg-streaming-smoke` | Validate streaming Iceberg tables |
 
-Key local endpoints:
+### Endpoints
 
 | Service | Endpoint |
 | --- | --- |
@@ -262,41 +221,30 @@ Key local endpoints:
 | Postgres | `localhost:5432` (user/password/db: `analytics`) |
 | MySQL MDM | `localhost:3306` (root password: `mdmroot`, db: `mdm`) |
 
-Quick Trino health check:
+### Container Behavior
 
-```bash
-make trino-smoke
-```
+- One-shot init containers (`topic-init`, `minio-init`, `connect-init`) and `dbt` will exit with code 0 after completion.
+- Trino may start successfully even if no Iceberg tables exist yet (expected until MinIO sink path is upgraded).
 
-Bootstrap real Iceberg demo tables on MinIO:
+### Troubleshooting FAQ
 
-```bash
-make trino-seed-demo
-make trino-bootstrap-lakehouse
-make trino-rebuild-lakehouse
-make trino-sync-lakehouse
-make trino-sample-queries
-make iceberg-streaming-smoke
-```
+- **Port already in use?** Run `docker compose down -v` before restarting.
+- **Volumes not resetting?** Use `docker compose down -v` to clear all volumes.
+- **Healthcheck failures?** Check logs with `docker compose logs <service>`.
+- **dbt container exited?** This is normal after a successful run; check dbt logs for errors.
+- **No data in gold/silver models?** Ensure upstream topics and Iceberg tables are populated and dbt has run.
 
-Local Airflow credentials: username `admin` / password `admin`.
+---
 
-Expected container behavior:
+## 🐳 Option B: kind + Helm + Argo CD (Routine B)
 
-- `topic-init`, `minio-init`, and `connect-init` are one-shot init containers and normally end in `Exited (0)`.
-- `dbt` is also a one-shot service and normally ends in `Exited (0)` after `dbt run` completes.
-- A finished `dbt` container does not mean bronze, silver, or gold data is missing.
-- Trino may start successfully even when no Iceberg tables exist yet; that is expected until the MinIO sink path is upgraded to true Iceberg metadata management.
-
-### Option B: kind + Helm + Argo CD
-
-Use this flow to run the dev environment on kind while building images locally with Docker.
-
-Bootstrap local cluster (Docker-like one command):
+For Kubernetes/GitOps simulation, use:
 
 ```bash
 make routine-b
 ```
+
+See [docs/runbook.md](docs/runbook.md) for full Routine B and k8s flows.
 
 Bootstrap local cluster via Argo CD app:
 

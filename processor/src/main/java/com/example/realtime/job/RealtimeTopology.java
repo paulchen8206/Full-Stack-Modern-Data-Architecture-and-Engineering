@@ -1,14 +1,15 @@
 package com.example.realtime.job;
 
 import com.example.realtime.config.RealtimeProperties;
-import com.example.realtime.model.CustomerSalesProjection;
-import com.example.realtime.model.SalesOrderEvent;
-import com.example.realtime.model.SalesOrderLineItemProjection;
-import com.example.realtime.model.SalesOrderProjection;
-import com.example.realtime.serde.JsonDeserializationSchema;
-import com.example.realtime.serde.JsonSerializationSchema;
+import com.example.SalesOrder;
+import com.example.LineItem;
+import com.example.realtime.avro.SalesOrderProjection;
+import com.example.realtime.avro.SalesOrderLineItemProjection;
+import com.example.realtime.avro.CustomerSalesProjection;
+import org.apache.flink.formats.avro.registry.confluent.ConfluentRegistryAvroDeserializationSchema;
+import org.apache.flink.formats.avro.registry.confluent.ConfluentRegistryAvroSerializationSchema;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
-import org.apache.flink.api.common.serialization.SerializationSchema;
+import org.apache.flink.formats.avro.AvroSerializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema;
 import org.apache.flink.connector.kafka.sink.KafkaSink;
@@ -31,53 +32,99 @@ public class RealtimeTopology {
         StreamExecutionEnvironment environment = StreamExecutionEnvironment.getExecutionEnvironment();
         environment.enableCheckpointing(properties.getCheckpointIntervalMs());
 
-        KafkaSource<SalesOrderEvent> rawSalesOrderSource = KafkaSource.<SalesOrderEvent>builder()
-                .setBootstrapServers(properties.getKafkaBootstrapServers())
-                .setTopics(properties.getRawSalesOrdersTopic())
-                .setGroupId(properties.getConsumerGroupId())
-                .setStartingOffsets(OffsetsInitializer.latest())
-                .setValueOnlyDeserializer(new JsonDeserializationSchema<>(SalesOrderEvent.class))
-                .build();
+                KafkaSource<SalesOrder> rawSalesOrderSource = KafkaSource.<SalesOrder>builder()
+                                .setBootstrapServers(properties.getKafkaBootstrapServers())
+                                .setTopics(properties.getRawSalesOrdersTopic())
+                                .setGroupId(properties.getConsumerGroupId())
+                                .setStartingOffsets(OffsetsInitializer.latest())
+                                .setValueOnlyDeserializer(
+                                        ConfluentRegistryAvroDeserializationSchema.forSpecific(
+                                                SalesOrder.class,
+                                                properties.getSchemaRegistryUrl()
+                                        )
+                                )
+                                .build();
 
-        DataStream<SalesOrderEvent> rawOrders = environment
+        DataStream<SalesOrder> rawOrders = environment
                 .fromSource(rawSalesOrderSource, WatermarkStrategy.noWatermarks(), "raw-sales-orders")
                 .uid("raw-sales-orders-source");
 
-        DataStream<SalesOrderProjection> salesOrders = rawOrders
-                .map(SalesOrderProjection::fromEvent)
-                .returns(TypeInformation.of(SalesOrderProjection.class))
-                .name("sales-order-projection");
 
-        DataStream<SalesOrderLineItemProjection> salesOrderLineItems = rawOrders
-                .flatMap((SalesOrderEvent event, org.apache.flink.util.Collector<SalesOrderLineItemProjection> collector) -> {
-                    for (SalesOrderEvent.LineItem lineItem : event.getLineItems()) {
-                        collector.collect(SalesOrderLineItemProjection.fromEvent(event, lineItem));
-                    }
-                })
-                .returns(TypeInformation.of(SalesOrderLineItemProjection.class))
-                .name("sales-order-line-item-projection");
+                DataStream<SalesOrderProjection> salesOrders = rawOrders
+                        .map(order -> SalesOrderProjection.newBuilder()
+                                .setOrderId(order.getOrderId().toString())
+                                .setOrderTimestamp(order.getOrderTimestamp().toString())
+                                .setCustomerId(order.getCustomer().getCustomerId().toString())
+                                .setCustomerName(order.getCustomer().getFirstName().toString() + " " + order.getCustomer().getLastName().toString())
+                                .setCustomerEmail(order.getCustomer().getEmail().toString())
+                                .setCustomerSegment(order.getCustomer().getSegment().toString())
+                                .setCurrency(order.getCurrency().toString())
+                                .setOrderTotal(java.nio.ByteBuffer.wrap(new java.math.BigDecimal(order.getOrderTotal().toString()).unscaledValue().toByteArray()))
+                                .setLineItemCount(order.getLineItems().size())
+                                .build())
+                        .returns(TypeInformation.of(SalesOrderProjection.class))
+                        .name("sales-order-projection");
 
-        DataStream<CustomerSalesProjection> customerSales = rawOrders
-                .map(CustomerSalesProjection::fromOrder)
-                .returns(TypeInformation.of(CustomerSalesProjection.class))
-                .keyBy(CustomerSalesProjection::getCustomerId)
-                .reduce(CustomerSalesProjection::accumulate)
-                .name("customer-sales-aggregation");
 
-        salesOrders.sinkTo(buildKafkaSink(properties.getSalesOrderTopic())).name("sales-order-sink");
-        salesOrderLineItems.sinkTo(buildKafkaSink(properties.getSalesOrderLineItemTopic())).name("sales-order-line-item-sink");
-        customerSales.sinkTo(buildKafkaSink(properties.getCustomerSalesTopic())).name("customer-sales-sink");
+                DataStream<SalesOrderLineItemProjection> salesOrderLineItems = rawOrders
+                                .flatMap((SalesOrder order, org.apache.flink.util.Collector<SalesOrderLineItemProjection> collector) -> {
+                                        for (Object itemObj : order.getLineItems()) {
+                                                LineItem item = (LineItem) itemObj;
+                                                collector.collect(SalesOrderLineItemProjection.newBuilder()
+                                                                .setOrderId(order.getOrderId().toString())
+                                                                .setOrderTimestamp(order.getOrderTimestamp().toString())
+                                                                .setCustomerId(order.getCustomer().getCustomerId().toString())
+                                                                .setCustomerName(order.getCustomer().getFirstName().toString() + " " + order.getCustomer().getLastName().toString())
+                                                                .setLineItemId(item.getLineItemId().toString())
+                                                                .setSku(item.getSku().toString())
+                                                                .setProductName(item.getProductName().toString())
+                                                                .setQuantity(item.getQuantity())
+                                                                .setUnitPrice(java.nio.ByteBuffer.wrap(new java.math.BigDecimal(item.getUnitPrice().toString()).unscaledValue().toByteArray()))
+                                                                .setLineTotal(java.nio.ByteBuffer.wrap(new java.math.BigDecimal(item.getLineTotal().toString()).unscaledValue().toByteArray()))
+                                                                .setCurrency(order.getCurrency().toString())
+                                                                .build());
+                                        }
+                                })
+                                .returns(TypeInformation.of(SalesOrderLineItemProjection.class))
+                                .name("sales-order-line-item-projection");
 
-        environment.execute("realtime-sales-topology");
-    }
 
-    private <T> KafkaSink<T> buildKafkaSink(String topic) {
-                SerializationSchema<T> serializationSchema = new JsonSerializationSchema<>();
+                DataStream<CustomerSalesProjection> customerSales = rawOrders
+                        .map(order -> CustomerSalesProjection.newBuilder()
+                                .setCustomerId(order.getCustomer().getCustomerId().toString())
+                                .setCustomerName(order.getCustomer().getFirstName().toString() + " " + order.getCustomer().getLastName().toString())
+                                .setCustomerEmail(order.getCustomer().getEmail().toString())
+                                .setCustomerSegment(order.getCustomer().getSegment().toString())
+                                .setOrderCount(1L)
+                                .setTotalSpent(java.nio.ByteBuffer.wrap(new java.math.BigDecimal(order.getOrderTotal().toString()).unscaledValue().toByteArray()))
+                                .setLastOrderId(order.getOrderId().toString())
+                                .setUpdatedAt(order.getOrderTimestamp().toString())
+                                .setCurrency(order.getCurrency().toString())
+                                .build())
+                        .returns(TypeInformation.of(CustomerSalesProjection.class))
+                        // .keyBy(CustomerSalesProjection::getCustomerId)
+                        // .reduce(CustomerSalesProjection::accumulate)
+                        .name("customer-sales-aggregation");
+
+                salesOrders.sinkTo(buildAvroKafkaSink(properties.getSalesOrderTopic(), SalesOrderProjection.class)).name("sales-order-sink");
+                salesOrderLineItems.sinkTo(buildAvroKafkaSink(properties.getSalesOrderLineItemTopic(), SalesOrderLineItemProjection.class)).name("sales-order-line-item-sink");
+                customerSales.sinkTo(buildAvroKafkaSink(properties.getCustomerSalesTopic(), CustomerSalesProjection.class)).name("customer-sales-sink");
+
+                environment.execute("realtime-sales-topology");
+        }
+
+        private <T extends org.apache.avro.specific.SpecificRecord> KafkaSink<T> buildAvroKafkaSink(String topic, Class<T> avroClass) {
         return KafkaSink.<T>builder()
                 .setBootstrapServers(properties.getKafkaBootstrapServers())
                 .setRecordSerializer(KafkaRecordSerializationSchema.<T>builder()
                         .setTopic(topic)
-                        .setValueSerializationSchema(serializationSchema)
+                        .setValueSerializationSchema(
+                            ConfluentRegistryAvroSerializationSchema.forSpecific(
+                                avroClass,
+                                topic + "-value",
+                                properties.getSchemaRegistryUrl() // Add this property to your config if not present
+                            )
+                        )
                         .build())
                 .build();
     }

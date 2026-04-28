@@ -1,7 +1,20 @@
 services:
+  minio:
+    container_name: minio
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+
   kafka:
-    image: apache/kafka:3.7.1
     container_name: kafka
+    image: confluentinc/cp-kafka:7.6.0
     ports:
       - "9094:9094"
     environment:
@@ -19,60 +32,55 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "( /usr/bin/kafka-topics --bootstrap-server localhost:9092 --list || /usr/bin/kafka-topics --bootstrap-server localhost:9094 --list ) > /dev/null 2>&1"]
       interval: 5s
       timeout: 10s
       retries: 12
       start_period: 10s
-
-  topic-init:
-    image: apache/kafka:3.7.1
-    depends_on:
-      kafka:
-        condition: service_healthy
-    entrypoint: ["/bin/bash", "/scripts/create-topics.sh"]
-    volumes:
-      - ./scripts/create-topics.sh:/scripts/create-topics.sh:ro
-
-
-  control-center:
-    image: confluentinc/cp-enterprise-control-center:7.5.3
-    depends_on:
-      kafka:
-        condition: service_healthy
-    ports:
-      - "9021:9021"
-    environment:
-      CONTROL_CENTER_BOOTSTRAP_SERVERS: 'kafka:9092'
-      CONTROL_CENTER_ZOOKEEPER_CONNECT: ''
-      CONTROL_CENTER_CONNECT_CONNECT_CLUSTER: 'connect:8083'
-      CONTROL_CENTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
-      CONTROL_CENTER_CONNECT_HEALTHCHECK_ENDPOINT: '/connectors'
-      CONTROL_CENTER_CONNECT_CLUSTER: 'connect'
-      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
-      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
-      CONTROL_CENTER_COMMAND_TOPIC_PARTITIONS: 1
-      CONTROL_CENTER_REPLICATION_FACTOR: 1
-      PORT: 9021
     restart: unless-stopped
 
-  schema-registry:
-    image: python:3.11-alpine
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka-init
     depends_on:
       kafka:
         condition: service_healthy
+    entrypoint: ["/bin/bash", "/scripts/docker-create-topics.sh"]
+    volumes:
+      - ./scripts/docker-create-topics.sh:/scripts/docker-create-topics.sh:ro
+    environment:
+      KAFKA_HEAP_OPTS: "-Xmx256m -Xms128m"
+
+  schema-registry:
+    container_name: schema-registry
+    image: confluentinc/cp-schema-registry:latest
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     ports:
       - "8081:8081"
-    command: ["python", "/app/mock_schema_registry.py"]
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+
+  schema-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.schema-init
+    image: schema-init:latest
+    container_name: schema-init
+    depends_on:
+      schema-registry:
+        condition: service_started
     volumes:
-      - ./scripts/mock_schema_registry.py:/app/mock_schema_registry.py:ro
+      - ./schemas:/schemas:ro
 
   producer:
+    container_name: producer
     build:
       context: ./producer
-    depends_on:
-      topic-init:
-        condition: service_completed_successfully
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       RAW_TOPIC: raw_sales_orders
@@ -80,13 +88,12 @@ services:
     restart: on-failure
 
   processor:
+    container_name: processor
     build:
       context: ./processor
-    depends_on:
-      topic-init:
-        condition: service_completed_successfully
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
       APP_RAW_SALES_ORDERS_TOPIC: raw_sales_orders
       APP_SALES_ORDER_TOPIC: sales_order
       APP_SALES_ORDER_LINE_ITEM_TOPIC: sales_order_line_item
@@ -94,29 +101,21 @@ services:
       APP_CONSUMER_GROUP_ID: realtime-flink-processor-local
       APP_CHECKPOINT_INTERVAL_MS: 10000
     restart: on-failure
-
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: minio123
     volumes:
       - minio-data:/data
 
   minio-init:
+    container_name: minio-init
     image: minio/mc:latest
     depends_on:
       - minio
-    entrypoint: ["/bin/sh", "/scripts/init-minio.sh"]
+    entrypoint: [ "/bin/sh", "/scripts/init-minio.sh" ]
     volumes:
       - ./scripts/init-minio.sh:/scripts/init-minio.sh:ro
 
   trino:
-    image: trinodb/trino:472
+    container_name: trino
+    image: trinodb/trino:latest
     depends_on:
       minio-init:
         condition: service_completed_successfully
@@ -131,15 +130,15 @@ services:
       - ./trino/etc/catalog:/etc/trino/catalog:ro
 
   iceberg-writer:
+    container_name: iceberg-writer
     build:
       context: ./iceberg-writer
     depends_on:
-      topic-init:
-        condition: service_completed_successfully
       trino:
         condition: service_started
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
       ICEBERG_WRITER_GROUP_ID: iceberg-writer
       ICEBERG_WRITER_OFFSET_RESET: earliest
       ICEBERG_WRITER_BATCH_SIZE: 50
@@ -152,7 +151,8 @@ services:
     restart: on-failure
 
   postgres:
-    image: postgres:16
+    container_name: postgres
+    image: postgres:14
     command:
       - postgres
       - -c
@@ -170,7 +170,8 @@ services:
       - ./analytics/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
   mysql-mdm:
-    image: mysql:8.4
+    container_name: mysql-mdm
+    image: mysql:latest
     command:
       - --server-id=223344
       - --log-bin=mysql-bin
@@ -186,6 +187,7 @@ services:
       - ./mdm/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
   mdm-writer:
+    container_name: mdm-writer
     build:
       context: ./mdm-writer
     depends_on:
@@ -201,50 +203,49 @@ services:
     restart: on-failure
 
   connect:
-    build:
-      context: ./connect
+    container_name: connect
+    image: debezium/connect:2.5
     depends_on:
-      topic-init:
-        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
       minio-init:
         condition: service_completed_successfully
       postgres:
         condition: service_started
+      schema-init:
+        condition: service_completed_successfully
     ports:
       - "8083:8083"
     environment:
-      CONNECT_BOOTSTRAP_SERVERS: kafka:9092
-      CONNECT_REST_ADVERTISED_HOST_NAME: connect
-      CONNECT_REST_PORT: 8083
-      CONNECT_GROUP_ID: connect-cluster-1
-      CONNECT_CONFIG_STORAGE_TOPIC: connect-configs
-      CONNECT_OFFSET_STORAGE_TOPIC: connect-offsets
-      CONNECT_STATUS_STORAGE_TOPIC: connect-status
-      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
-      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
-      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: connect-cluster-1
+      CONFIG_STORAGE_TOPIC: connect-configs
+      OFFSET_STORAGE_TOPIC: connect-offsets
+      STATUS_STORAGE_TOPIC: connect-status
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+      KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
 
   connect-init:
-    image: curlimages/curl:8.12.1
+    image: ghcr.io/jqlang/jq:latest
+    container_name: connect-init
     depends_on:
       connect:
         condition: service_started
-    entrypoint: ["/bin/sh", "/scripts/register-connectors.sh"]
+    entrypoint: ["/bin/sh", "/scripts/docker-register-connectors.sh"]
     volumes:
-      - ./scripts/register-connectors.sh:/scripts/register-connectors.sh:ro
-      - ./connect/connector-configs:/connector-configs:ro
+      - ./scripts/docker-register-connectors.sh:/scripts/docker-register-connectors.sh:ro
+      - ./connect/connector-configs:/connectors:ro
 
   mdm-connect:
-    image: quay.io/debezium/connect:3.0
+    container_name: mdm-connect
+    image: quay.io/debezium/connect:latest
     depends_on:
-      topic-init:
-        condition: service_completed_successfully
       mysql-mdm:
         condition: service_started
     ports:
@@ -259,24 +260,10 @@ services:
       VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
 
-  mdm-connect-init:
-    image: curlimages/curl:8.12.1
-    depends_on:
-      mdm-connect:
-        condition: service_started
-    entrypoint: ["/bin/sh", "/scripts/register-mdm-connectors.sh"]
-    volumes:
-      - ./scripts/register-mdm-connectors.sh:/scripts/register-mdm-connectors.sh:ro
-      - ./connect/connector-configs:/connector-configs:ro
-
   mdm-cdc-producer:
+    container_name: mdm-cdc-producer
     build:
       context: ./mdm-cdc-producer
-    depends_on:
-      topic-init:
-        condition: service_completed_successfully
-      mdm-connect-init:
-        condition: service_completed_successfully
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MDM_CDC_GROUP_ID: mdm-cdc-publisher
@@ -284,6 +271,7 @@ services:
     restart: on-failure
 
   mdm-pyspark-sync:
+    container_name: mdm-pyspark-sync
     build:
       context: ./mdm-pyspark-sync
     depends_on:
@@ -315,28 +303,27 @@ services:
     restart: on-failure
 
   dbt:
+    container_name: dbt
     build:
       context: ./analytics/dbt
       dockerfile: Dockerfile
     depends_on:
       postgres:
         condition: service_started
-      connect-init:
-        condition: service_completed_successfully
     volumes:
       - ./analytics/dbt:/dbt
     command: >-
-      bash -lc "dbt deps --project-dir /dbt --profiles-dir /dbt && dbt run --project-dir /dbt --profiles-dir /dbt"
+      bash -lc "dbt deps --project-dir /dbt --profiles-dir /dbt && dbt run
+      --project-dir /dbt --profiles-dir /dbt"
 
   airflow:
+    container_name: airflow
     build:
       context: ./airflow
       dockerfile: Dockerfile
     depends_on:
       postgres:
         condition: service_started
-      connect-init:
-        condition: service_completed_successfully
     ports:
       - "8084:8080"
     environment:
@@ -353,10 +340,11 @@ services:
       - ./airflow/dags:/opt/airflow/dags:ro
       - ./analytics/dbt:/opt/airflow/dbt
       - ./scripts/start-airflow.sh:/opt/airflow/scripts/start-airflow.sh:ro
-    entrypoint: ["/bin/sh", "/opt/airflow/scripts/start-airflow.sh"]
+    entrypoint: [ "/bin/sh", "/opt/airflow/scripts/start-airflow.sh" ]
 
   prometheus:
-    image: prom/prometheus:v3.2.1
+    container_name: prometheus
+    image: prom/prometheus:latest
     depends_on:
       - kafka
       - trino
@@ -375,7 +363,8 @@ services:
       - --web.enable-lifecycle
 
   blackbox-exporter:
-    image: prom/blackbox-exporter:v0.27.0
+    container_name: blackbox-exporter
+    image: prom/blackbox-exporter:latest
     ports:
       - "9115:9115"
     command:
@@ -384,7 +373,8 @@ services:
       - ./observability/blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
 
   grafana:
-    image: grafana/grafana:11.5.2
+    container_name: grafana
+    image: grafana/grafana:latest
     depends_on:
       - prometheus
     ports:
@@ -399,8 +389,9 @@ services:
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
 
   openmetadata-db:
-    image: mysql:8.4
-    profiles: ["openmetadata"]
+    container_name: openmetadata-db
+    image: mysql:latest
+    profiles: [ "openmetadata" ]
     environment:
       MYSQL_ROOT_PASSWORD: openmetadata_root
       MYSQL_DATABASE: openmetadata_db
@@ -412,8 +403,9 @@ services:
       - openmetadata-db-data:/var/lib/mysql
 
   openmetadata-search:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
-    profiles: ["openmetadata"]
+    container_name: openmetadata-search
+    image: docker.elastic.co/elasticsearch:8.14.3
+    profiles: [ "openmetadata" ]
     environment:
       discovery.type: single-node
       xpack.security.enabled: "false"
@@ -424,8 +416,9 @@ services:
       - openmetadata-es-data:/usr/share/elasticsearch/data
 
   openmetadata-server:
+    container_name: openmetadata-server
     image: openmetadata/server:1.5.8
-    profiles: ["openmetadata"]
+    profiles: [ "openmetadata" ]
     depends_on:
       - openmetadata-db
       - openmetadata-search
@@ -447,15 +440,65 @@ services:
       - "8585:8585"
 
   openmetadata-ingestion:
+    container_name: openmetadata-ingestion
     image: openmetadata/ingestion:1.5.8
-    profiles: ["openmetadata"]
+    profiles: [ "openmetadata" ]
     depends_on:
       - openmetadata-server
-    entrypoint: ["/bin/bash", "-lc", "sleep infinity"]
+    entrypoint: [ "/bin/bash", "-lc", "sleep infinity" ]
     volumes:
       - ./metadata/openmetadata:/opt/openmetadata/metadata
       - ./analytics/dbt:/opt/openmetadata/metadata/analytics/dbt:ro
       - airflow-data:/opt/airflow:ro
+
+  conduktor-db:
+    container_name: conduktor-db
+    image: postgres:14
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready", "-d", "db_prod" ]
+      interval: 10s
+      timeout: 60s
+      retries: 10
+      start_period: 80s
+    environment:
+      POSTGRES_DB: conduktor
+      POSTGRES_USER: conduktor
+      POSTGRES_PASSWORD: conduktor
+      PGDATA: "/var/lib/postgresql/data"
+      POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"    
+    ports:
+      - "5433:5432"
+    volumes:
+      - conduktor-db-data:/var/lib/postgresql/data
+
+  conduktor:
+    container_name: conduktor
+    image: conduktor/conduktor-console:1.28.0
+    ports:
+      - "8088:8080"
+    environment:
+      CDK_ORGANIZATION_NAME: "local"
+      CDK_ADMIN_EMAIL: "admin@local.io"
+      CDK_ADMIN_PASSWORD: "admin"
+      CDK_KAFKA_BROKERS: "kafka:9092"
+      CDK_DATABASE_URL: "postgresql://conduktor:conduktor@conduktor-db:5432/conduktor"
+      CDK_DATABASE_USERNAME: "conduktor"
+      CDK_DATABASE_PASSWORD: "conduktor"
+      CDK_CLUSTERS_0_ID: "local-kafka"
+      CDK_CLUSTERS_0_NAME: "local-kafka"
+      CDK_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:9092"
+      CDK_CLUSTERS_0_SCHEMAREGISTRY_ID: "confluent-sr"
+      CDK_CLUSTERS_0_SCHEMAREGISTRY_URL: "http://schema-registry:8081"
+      CDK_CLUSTERS_0_COLOR: "#6A57C8"
+      CDK_CLUSTERS_0_ICON: "kafka"
+      CDK_CLUSTERS_0_KAFKACONNECTS_0_ID: "kafka-connect"
+      CDK_CLUSTERS_0_KAFKACONNECTS_0_NAME: "My Kafka Connect"
+      CDK_CLUSTERS_0_KAFKACONNECTS_0_URL: "http://connect:8083"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      conduktor-db:
+        condition: service_started
 
 volumes:
   airflow-data:
@@ -466,3 +509,4 @@ volumes:
   grafana-data:
   openmetadata-db-data:
   openmetadata-es-data:
+  conduktor-db-data:

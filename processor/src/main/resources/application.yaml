@@ -9,3 +9,4 @@ app:
   customer-sales-topic: ${APP_CUSTOMER_SALES_TOPIC:customer_sales}
   consumer-group-id: ${APP_CONSUMER_GROUP_ID:realtime-flink-processor}
   checkpoint-interval-ms: ${APP_CHECKPOINT_INTERVAL_MS:10000}
+  schema-registry-url: ${SCHEMA_REGISTRY_URL:http://schema-registry:8081}

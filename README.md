@@ -1,3 +1,180 @@
+## 🚀 Quick Start: Unified Docker Routine (Routine A)
+
+All local development, validation, and troubleshooting flows are now consolidated under unified scripts and Make targets. **Deprecated scripts will print a warning and exit.**
+### Start the Full Stack (Routine A)
+
+```bash
+make routine-a         # Brings up the stack and creates topics
+Or, to start only the Compose stack (no topic bootstrap):
+
+```bash
+make up
+Or, use the script wrapper (enforces metastore upgrade):
+
+```bash
+./scripts/compose-up.sh
+### Validate and Operate
+
+```bash
+make routine-a-ops     # Unified day-2 operations
+### Common Operations
+
+| Command | Purpose |
+| --- | --- |
+### Endpoints
+
+| Service | Endpoint |
+| --- | --- |
+### Container Behavior
+
+- One-shot init containers (`topic-init`, `minio-init`, `connect-init`) and `dbt` will exit with code 0 after completion.
+- Trino may start successfully even if no Iceberg tables exist yet (expected until MinIO sink path is upgraded).
+### Troubleshooting FAQ
+
+- **Port already in use?** Run `docker compose down -v` before restarting.
+- **Volumes not resetting?** Use `docker compose down -v` to clear all volumes.
+---
+
+# Kafka Topic Management (Unified)
+
+All topic management is now handled by a single script:
+```sh
+./scripts/kafka-topics.sh <create|list|consume|check-pipeline> [options]
+```
+**Examples:**
+
+```sh
+# Create default topics
+./scripts/kafka-topics.sh create
+# List all topics
+./scripts/kafka-topics.sh list
+
+# Consume messages from a topic
+./scripts/kafka-topics.sh consume sales_order 10
+
+# Check pipeline topics for recent messages
+./scripts/kafka-topics.sh check-pipeline --count 2
+**Deprecated scripts will print a warning and exit.**
+
+## 🔗 Connector Registration (Unified)
+
+All connector registration is now handled by a single script:
+```sh
+./scripts/consolidated-register-connector.sh --config <config.json> --name <connector-name> [--url <connect-url>] [--k8s <namespace> <deployment>]
+```
+- For local Docker Compose: use `--url http://connect:8083` or your Connect REST endpoint.
+- For Kubernetes: use `--k8s <namespace> <deployment>` to exec into the deployment and register the connector.
+- The script validates JSON, supports both create and update, and works for any connector config.
+**Examples:**
+
+```sh
+# Register a connector locally
+./scripts/consolidated-register-connector.sh --config connector-configs/my-connector.json --name my-connector --url http://localhost:8083
+# Register a connector in Kubernetes
+./scripts/consolidated-register-connector.sh --config connector-configs/my-connector.json --name my-connector --k8s realtime-dev realtime-dev-realtime-app-connect
+
+**Deprecated scripts will print a warning and exit.**
+#
+# Iceberg/Trino Smoke Test Script (IMPORTANT)
+#
+
+**Iceberg/Trino Smoke Test Scripts Consolidation**
+
+The following scripts are now deprecated and replaced by a single, flexible script:
+
+- `check-iceberg-streaming.sh`
+- `check-iceberg-streaming-k8s.sh`
+
+**Use this new script instead:**
+
+```sh
+./scripts/check-iceberg-streaming-unified.sh [--k8s] [--namespace ns] [--deployment deploy] [--local-port 8086] [--remote-port 8080]
+```
+
+**Examples:**
+
+```sh
+# Run locally
+./scripts/check-iceberg-streaming-unified.sh
+
+# Run in Kubernetes
+./scripts/check-iceberg-streaming-unified.sh --k8s --namespace realtime-dev --deployment realtime-dev-realtime-app-trino
+```
+
+**The old scripts will print a deprecation warning and exit.**
+
+#
+# Kafka Topic Management Scripts (IMPORTANT)
+#
+
+**Kafka Topic Scripts Consolidation**
+
+The following scripts are now deprecated and replaced by a single, flexible script:
+
+- `create-topics.sh`
+- `list-topics.sh`
+- `consume-topic.sh`
+- `check-pipeline-topics.sh`
+
+**Use this new script instead:**
+
+```sh
+./scripts/kafka-topics.sh <create|list|consume|check-pipeline> [options]
+```
+
+**Examples:**
+
+```sh
+# Create default topics
+./scripts/kafka-topics.sh create
+
+# List all topics
+./scripts/kafka-topics.sh list
+
+# Consume messages from a topic
+./scripts/kafka-topics.sh consume sales_order 10
+
+# Check pipeline topics for recent messages
+./scripts/kafka-topics.sh check-pipeline --count 2
+```
+
+**The old scripts will print a deprecation warning and exit.**
+
+#
+# Connector Registration Scripts (IMPORTANT)
+#
+
+**Connector Registration Scripts Consolidation**
+
+The following scripts are now deprecated and replaced by a single, flexible script:
+
+- `register-all-connectors.sh`
+- `register-connectors.sh`
+- `register-mdm-connectors.sh`
+- `register-sample-connector.sh`
+
+**Use this new script instead:**
+
+```sh
+./scripts/consolidated-register-connector.sh --config <config.json> --name <connector-name> [--url <connect-url>] [--k8s <namespace> <deployment>]
+```
+
+- For local Docker Compose: use `--url http://connect:8083` or your Connect REST endpoint.
+- For Kubernetes: use `--k8s <namespace> <deployment>` to exec into the deployment and register the connector.
+- The script validates JSON, supports both create and update, and works for any connector config.
+
+**Examples:**
+
+```sh
+# Register a connector locally
+./scripts/consolidated-register-connector.sh --config connector-configs/my-connector.json --name my-connector --url http://localhost:8083
+
+# Register a connector in Kubernetes
+./scripts/consolidated-register-connector.sh --config connector-configs/my-connector.json --name my-connector --k8s realtime-dev realtime-dev-realtime-app-connect
+```
+
+**The old scripts will print a deprecation warning and exit.**
+
 <div align="center" style="font-size: 13px; line-height: 1.15; margin: 0;">
   <h1 style="margin: 0; line-height: 1.08; font-size: 1.65em;">GenAI-Enabled Data Platform Architecture</h1>
   <h3 style="margin: 2px 0 6px; line-height: 1.1; font-size: 1.05em; color: #1D4ED8;">Engineering Lifecycle Reference</h3>

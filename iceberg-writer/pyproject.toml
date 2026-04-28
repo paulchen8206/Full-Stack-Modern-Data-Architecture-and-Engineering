@@ -4,7 +4,8 @@ version = "0.1.0"
 description = "Consumes Kafka topics and writes directly to Iceberg tables through Trino"
 requires-python = ">=3.11"
 dependencies = [
-    "kafka-python==2.0.2",
+    "confluent-kafka[avro]==1.9.2",
+    "avro==1.10.0",
 ]
 
 [project.scripts]

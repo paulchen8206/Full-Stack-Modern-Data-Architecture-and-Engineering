@@ -1,5 +1,5 @@
 realtime_analytics:
-  target: dev
+  target: trino
   outputs:
     dev:
       type: postgres
@@ -9,4 +9,12 @@ realtime_analytics:
       password: analytics
       dbname: analytics
       schema: public
+      threads: 4
+    trino:
+      type: trino
+      user: analytics
+      host: trino
+      port: 8080
+      catalog: lakehouse
+      schema: streaming
       threads: 4

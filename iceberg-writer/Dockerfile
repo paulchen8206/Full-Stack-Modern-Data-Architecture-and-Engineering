@@ -2,8 +2,15 @@ FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
 WORKDIR /app
 
+# Install build tools, librdkafka-dev, pkg-config, and python3-dev for confluent-kafka
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential gcc libc-dev librdkafka-dev pkg-config python3-dev netcat-openbsd && rm -rf /var/lib/apt/lists/*
+
 COPY pyproject.toml ./
 COPY app ./app
 RUN uv sync --no-dev
 
-CMD ["uv", "run", "iceberg-writer"]
+COPY wait-for-it.sh /usr/local/bin/wait-for-it.sh
+RUN chmod +x /usr/local/bin/wait-for-it.sh
+
+# Wait for Postgres before starting iceberg-writer
+CMD ["/usr/local/bin/wait-for-it.sh", "postgres:5432", "uv", "run", "iceberg-writer"]

@@ -12,7 +12,22 @@ routine-k8s-down: ## [K8S]  Remove Helm release and delete dev namespace
 	kubectl delete namespace realtime-dev --ignore-not-found
 	@echo "[routine-k8s-down] Helm release removed and namespace deleted."
 #
-.PHONY: check-tools health clean start stop restart help routine-a up down topics-create
+###############################################################################
+# PHONY TARGETS (consolidated)
+###############################################################################
+.PHONY: \
+	all help setup build validate clean health \
+	up down routine-a routine-a-ops routine-b routine-b-ops routine-b-down \
+	topics-create topics-list topics-check consume \
+	lakehouse-up lakehouse-down jdbc-metastore-migrate \
+	airflow-up airflow-logs airflow-trigger-dbt-dag airflow-dbt-reboot airflow-dbt-check \
+	kafka-ui-up dbt-stop ops-status routine-a-observe \
+	openmetadata-up openmetadata-down openmetadata-status openmetadata-ingest-trino openmetadata-ingest-postgres \
+	openmetadata-ingest-dbt openmetadata-ingest-airflow openmetadata-ingest-kafka openmetadata-prepare-dbt-artifacts \
+	mdm-up mdm-topics-check dbt-run verify-warehouse verify-dbt-relations \
+	trino-smoke trino-query trino-shell trino-seed-demo trino-bootstrap-lakehouse \
+	trino-rebuild-lakehouse trino-sync-lakehouse trino-sample-queries \
+	iceberg-streaming-smoke iceberg-streaming-smoke-dev trino-smoke-dev
 #
 ###############################################################################
 # HEALTH CHECKS & CLEANUP
@@ -32,9 +47,10 @@ clean: check-tools ## Remove stopped containers, dangling images, and unused vol
 	docker compose down -v --remove-orphans
 	docker system prune -f
 
-start: routine-a ## Alias for routine-a
-stop: down ## Alias for down
-restart: down up ## Alias for down then up
+# The following aliases can be used as shell aliases if desired:
+# start: routine-a
+# stop: down
+# restart: down up
 #
 ###############################################################################
 # AUTOLOAD .env FILE IF PRESENT
@@ -156,18 +172,19 @@ validate: build helm-lint helm-render ## [shared]  Build + lint + render all env
 	@echo "All validations passed."
 
 
-#
-# 
-# 
+
 # 
 ###############################################################################
 # ROUTINE A – Docker Compose (fast local application loop)
 ###############################################################################
-routine-a: ## [A]  Full Routine A bootstrap: start stack + create topics (parallelized)
-	routine-a: check-tools ## [A]  Full Routine A bootstrap: start stack + create topics (parallelized)
+
+# Routine A: Fast local application loop for dev/test
+routine-a: check-tools
 	$(MAKE) -j 2 up topics-create
 
-routine-a-ops: ## [A]  Unified ops runbook: kafka-ui up, dbt off, MDM checks, airflow+dbt reboot, status
+
+# Routine A Ops: All-in-one operational checks
+routine-a-ops:
 	$(MAKE) kafka-ui-up
 	$(MAKE) dbt-stop
 	$(MAKE) mdm-up
@@ -175,26 +192,26 @@ routine-a-ops: ## [A]  Unified ops runbook: kafka-ui up, dbt off, MDM checks, ai
 	$(MAKE) airflow-dbt-reboot
 	$(MAKE) ops-status
 
-up: ## [A]  Start local docker-compose stack (idempotent)
-	up: check-tools ## [A]  Start local docker-compose stack (idempotent)
+up: check-tools
 	./scripts/compose-up.sh -d
 
-down: ## [A]  Stop local docker-compose stack
-	down: check-tools ## [A]  Stop local docker-compose stack
+down: check-tools
 	docker compose down
 
-topics-create: ## [A]  Create Kafka topics (runs topic-init service)  [scripts/create-topics.sh]
-	docker compose run --rm topic-init
 
-topics-list: ## [A]  List Kafka topics  [scripts/list-topics.sh]
-	KAFKA_BOOTSTRAP_SERVERS="$(KAFKA_BOOTSTRAP)" ./scripts/list-topics.sh
+# Unified Kafka topics management (consolidated script)
+topics-create: ## [A]  Create all Kafka topics (consolidated)
+	./scripts/kafka-topics.sh create
 
-topics-check: ## [A]  Sample messages from every pipeline topic  [scripts/check-pipeline-topics.sh]
-	MESSAGE_COUNT="$(MESSAGE_COUNT)" ./scripts/check-pipeline-topics.sh
+topics-list: ## [A]  List Kafka topics (consolidated)
+	./scripts/kafka-topics.sh list
 
-consume: ## [A]  Consume TOPIC (make consume TOPIC=raw_sales_orders)  [scripts/consume-topic.sh]
+topics-check: ## [A]  Sample messages from every pipeline topic (consolidated)
+	./scripts/kafka-topics.sh check-pipeline
+
+consume: ## [A]  Consume messages from a Kafka topic (consolidated)
 	$(call require-var,TOPIC,consume,topic-name)
-	KAFKA_BOOTSTRAP_SERVERS="$(KAFKA_BOOTSTRAP)" ./scripts/consume-topic.sh "$(TOPIC)" "$(MESSAGE_COUNT)"
+	./scripts/kafka-topics.sh consume "$(TOPIC)" "$(MESSAGE_COUNT)"
 
 lakehouse-up: ## [A]  Start Kafka Connect + MinIO + Postgres + dbt layer
 	./scripts/compose-up.sh -d minio minio-init trino postgres connect connect-init iceberg-writer airflow
@@ -214,9 +231,6 @@ airflow-dbt-reboot: ## [A]  Rebuild/restart Airflow, run dbt once, then show air
 	docker compose run --rm dbt
 	docker compose ps airflow dbt
 
-kafka-ui-up: ## [A]  Start Kafka UI only (without running dbt)
-	docker compose up -d kafka-ui
-	docker compose ps kafka-ui dbt
 
 dbt-stop: ## [A]  Ensure dbt is not running
 	docker compose stop dbt || true
@@ -227,7 +241,7 @@ ops-status: ## [A]  Show key runtime status for kafka-ui, airflow, and dbt
 	docker compose ps
 	@echo ""
 	@echo "[ops-status] one-shot/init container status (expected: Exited (0) when successful)"
-	docker compose ps -a topic-init minio-init connect-init mdm-connect-init dbt || true
+	docker compose ps -a minio-init connect-init mdm-connect-init dbt || true
 	@echo ""
 	@echo "[ops-status] endpoint checks"
 	@curl -fsS http://localhost:8086/v1/info >/dev/null && echo "trino: healthy" || echo "trino: unavailable"
@@ -331,10 +345,10 @@ trino-sample-queries: ## [A]  Run sample Trino SQL against the lakehouse catalog
 	$(call run-trino-file,trino/sql/sample_queries.sql)
 
 iceberg-streaming-smoke: ## [A]  Verify Kafka events reached lakehouse.streaming Iceberg tables
-	TRINO_URL="$(TRINO_URL)" ./scripts/check-iceberg-streaming.sh
+	./scripts/check-iceberg-streaming-unified.sh
 
 iceberg-streaming-smoke-dev: ## [B]  Verify Iceberg streaming tables in the dev cluster through a Trino port-forward
-	K8S_NAMESPACE=realtime-dev TRINO_SERVICE=realtime-dev-realtime-app-trino LOCAL_TRINO_PORT=8086 ./scripts/check-iceberg-streaming-k8s.sh
+	./scripts/check-iceberg-streaming-unified.sh --k8s --namespace realtime-dev
 
 trino-smoke-dev: ## [B]  Check Trino pod health in the dev namespace
 	kubectl -n realtime-dev wait --for=condition=Ready pod -l app.kubernetes.io/component=trino --timeout=300s
@@ -345,16 +359,22 @@ trino-smoke-dev: ## [B]  Check Trino pod health in the dev namespace
 ###############################################################################
 # ROUTINE B – kind + Helm + Argo CD (GitOps local cluster loop)
 ###############################################################################
-routine-b: kind-bootstrap images helm-reboot-dev ## [B]  Full Routine B bootstrap: cluster + images + local Helm deploy (Docker-like flow)
 
-routine-b-ops: ## [B]  Unified ops runbook parity with routine-a-ops for the dev cluster
+# Routine B: kind + Helm + Argo CD (GitOps local cluster loop)
+routine-b: kind-bootstrap images helm-reboot-dev
+
+
+# Routine B Ops: All-in-one operational checks for dev cluster
+routine-b-ops:
 	$(MAKE) ops-status-dev
 	$(MAKE) mdm-topics-check-dev
 	$(MAKE) airflow-dbt-check-dev
 	$(MAKE) trino-smoke-dev
 	$(MAKE) iceberg-streaming-smoke-dev
 
-routine-b-down: ## [B]  Stop Routine B workloads (remove Argo CD app and Helm release)
+
+# Routine B Down: Remove Argo CD app and Helm release
+routine-b-down:
 	kubectl -n argocd delete application realtime-dev --ignore-not-found=true || true
 	helm uninstall realtime-dev -n realtime-dev || true
 

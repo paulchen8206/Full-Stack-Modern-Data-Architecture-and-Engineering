@@ -1,16 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCHEMA_REGISTRY_URL="http://realtime-dev-realtime-app-schema-registry:8081"
-SCHEMAS_DIR="/schemas"
+# Schema Registry URL (override with env var if needed)
+SCHEMA_REGISTRY_URL="${SCHEMA_REGISTRY_URL:-http://realtime-dev-realtime-app-schema-registry:8081}"
+# Schemas directory (relative to project root by default)
+SCHEMAS_DIR="${SCHEMAS_DIR:-./schemas}"
 
-for subject in raw_sales_orders sales_order sales_order_line_item customer_sales mdm_customer mdm_product; do
-  if [ -f "${SCHEMAS_DIR}/${subject}.json" ]; then
-    echo "Registering schema for $subject..."
-    curl -s -o /dev/null -w "%{http_code}\n" -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" \
-      --data @"${SCHEMAS_DIR}/${subject}.json" \
-      "${SCHEMA_REGISTRY_URL}/subjects/${subject}-value/versions"
-  else
-    echo "Schema file not found: ${SCHEMAS_DIR}/${subject}.json"
+echo "Looking for .avsc files in $SCHEMAS_DIR"
+for avsc_file in "$SCHEMAS_DIR"/*.avsc; do
+  if [ -f "$avsc_file" ]; then
+    subject=$(basename "$avsc_file" .avsc)
+    echo "Registering schema for subject: $subject"
+    # Prepare the registration payload
+    payload=$(jq -c --arg schema "$(jq -c . "$avsc_file")" '{schema: $schema}')
+    # Register with Schema Registry
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+      -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+      --data "$payload" \
+      "$SCHEMA_REGISTRY_URL/subjects/${subject}-value/versions")
+    if [ "$http_code" = "200" ] || [ "$http_code" = "201" ]; then
+      echo "Successfully registered $subject ($http_code)"
+    else
+      echo "Failed to register $subject (HTTP $http_code)"
+    fi
   fi
 done

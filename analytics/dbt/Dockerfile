@@ -7,6 +7,6 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir dbt-postgres==1.8.2
+    && pip install --no-cache-dir dbt-postgres==1.8.2 dbt-trino
 
 WORKDIR /dbt

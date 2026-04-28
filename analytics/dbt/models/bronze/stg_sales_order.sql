@@ -1,11 +1,11 @@
 select
-  orderid as order_id,
-  ordertimestamp as order_timestamp,
-  customerid as customer_id,
-  customername as customer_name,
-  customeremail as customer_email,
-  customersegment as customer_segment,
+  order_id,
+  order_timestamp,
+  customer_id,
+  customer_name,
+  customer_email,
+  customer_segment,
   currency,
-  ordertotal::numeric as order_total,
-  lineitemcount::int as line_item_count
-from landing.sales_order
+  order_total,
+  line_item_count
+from streaming.sales_order

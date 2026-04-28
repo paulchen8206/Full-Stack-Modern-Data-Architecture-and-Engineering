@@ -1,3 +1,4 @@
+
 package com.example.realtime.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -9,11 +10,12 @@ public class RealtimeProperties {
 
     private String kafkaBootstrapServers = "localhost:9094";
     private String rawSalesOrdersTopic = "raw_sales_orders";
-    private String salesOrderTopic = "sales_order";
-    private String salesOrderLineItemTopic = "sales_order_line_item";
-    private String customerSalesTopic = "customer_sales";
+    private String salesOrderTopic = "bronze.sales_order";
+    private String salesOrderLineItemTopic = "bronze.sales_order_line_item";
+    private String customerSalesTopic = "bronze.customer_sales";
     private String consumerGroupId = "realtime-flink-processor";
     private long checkpointIntervalMs = 10000L;
+    private String schemaRegistryUrl = "http://schema-registry:8081";
 
     public String getKafkaBootstrapServers() {
         return kafkaBootstrapServers;
@@ -69,5 +71,13 @@ public class RealtimeProperties {
 
     public void setCheckpointIntervalMs(long checkpointIntervalMs) {
         this.checkpointIntervalMs = checkpointIntervalMs;
+    }
+
+    public String getSchemaRegistryUrl() {
+        return schemaRegistryUrl;
+    }
+
+    public void setSchemaRegistryUrl(String schemaRegistryUrl) {
+        this.schemaRegistryUrl = schemaRegistryUrl;
     }
 }

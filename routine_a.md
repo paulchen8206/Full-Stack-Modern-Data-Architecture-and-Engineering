@@ -40,203 +40,66 @@ make routine-a-ops     # Unified day-2 operations
 All topic management is now handled by a single script:
 ```sh
 ./scripts/kafka-topics.sh <create|list|consume|check-pipeline> [options]
-```
-**Examples:**
+## Routine A: Unified Stack Startup & Operations
 
-```sh
-# Create default topics
-./scripts/kafka-topics.sh create
-# List all topics
-./scripts/kafka-topics.sh list
+Routine A is the primary workflow for starting, validating, and operating the full GenAI-Enabled Data Platform stack in local development. All procedures are consolidated for simplicity and reliability.
 
-# Consume messages from a topic
-./scripts/kafka-topics.sh consume sales_order 10
+### Brief Introduction
 
-# Check pipeline topics for recent messages
-./scripts/kafka-topics.sh check-pipeline --count 2
-**Deprecated scripts will print a warning and exit.**
+Routine A brings up all core services (Kafka, Schema Registry, Connect, MinIO, Trino, dbt, etc.), creates required topics, and prepares the environment for development and testing. It also provides unified scripts for day-2 operations and troubleshooting.
 
-## 🔗 Connector Registration (Unified)
+### Procedures
 
-All connector registration is now handled by a single script:
-```sh
-./scripts/consolidated-register-connector.sh --config <config.json> --name <connector-name> [--url <connect-url>] [--k8s <namespace> <deployment>]
-```
-- For local Docker Compose: use `--url http://connect:8083` or your Connect REST endpoint.
-- For Kubernetes: use `--k8s <namespace> <deployment>` to exec into the deployment and register the connector.
-- The script validates JSON, supports both create and update, and works for any connector config.
-**Examples:**
+1. **Start the Full Stack:**
+  ```sh
+  make routine-a
+  # or, to start only the Compose stack (no topic bootstrap):
+  make up
+  # or, with metastore upgrade enforcement:
+  ./scripts/compose-up.sh
+  ```
 
-```sh
-# Register a connector locally
-./scripts/consolidated-register-connector.sh --config connector-configs/my-connector.json --name my-connector --url http://localhost:8083
-# Register a connector in Kubernetes
-./scripts/consolidated-register-connector.sh --config connector-configs/my-connector.json --name my-connector --k8s realtime-dev realtime-dev-realtime-app-connect
+2. **Validate and Operate:**
+  ```sh
+  make routine-a-ops
+  ```
 
-**Deprecated scripts will print a warning and exit.**
-#
-# Iceberg/Trino Smoke Test Script (IMPORTANT)
-#
+3. **Kafka Topic Management:**
+  ```sh
+  ./scripts/kafka-topics.sh <create|list|consume|check-pipeline> [options]
+  # Examples:
+  ./scripts/kafka-topics.sh create
+  ./scripts/kafka-topics.sh list
+  ./scripts/kafka-topics.sh consume sales_order 10
+  ./scripts/kafka-topics.sh check-pipeline --count 2
+  ```
 
-**Iceberg/Trino Smoke Test Scripts Consolidation**
+4. **Connector Registration:**
+  ```sh
+  ./scripts/consolidated-register-connector.sh --config <config.json> --name <connector-name> [--url <connect-url>] [--k8s <namespace> <deployment>]
+  # Example:
+  ./scripts/consolidated-register-connector.sh --config connector-configs/my-connector.json --name my-connector --url http://localhost:8083
+  ```
 
-The following scripts are now deprecated and replaced by a single, flexible script:
+5. **Smoke Test Iceberg/Trino:**
+  ```sh
+  ./scripts/check-iceberg-streaming-unified.sh
+  # Or for Kubernetes:
+  ./scripts/check-iceberg-streaming-unified.sh --k8s --namespace <ns> --deployment <deploy>
+  ```
 
-- `check-iceberg-streaming.sh`
-- `check-iceberg-streaming-k8s.sh`
+### Important Points
 
-**Use this new script instead:**
-
-```sh
-./scripts/check-iceberg-streaming-unified.sh [--k8s] [--namespace ns] [--deployment deploy] [--local-port 8086] [--remote-port 8080]
-```
-
-**Examples:**
-
-```sh
-# Run locally
-./scripts/check-iceberg-streaming-unified.sh
-
-# Run in Kubernetes
-./scripts/check-iceberg-streaming-unified.sh --k8s --namespace realtime-dev --deployment realtime-dev-realtime-app-trino
-```
-
-**The old scripts will print a deprecation warning and exit.**
-
-#
-# Kafka Topic Management Scripts (IMPORTANT)
-#
-
-**Kafka Topic Scripts Consolidation**
-
-The following scripts are now deprecated and replaced by a single, flexible script:
-
-- `create-topics.sh`
-- `list-topics.sh`
-- `consume-topic.sh`
-- `check-pipeline-topics.sh`
-
-**Use this new script instead:**
-
-```sh
-./scripts/kafka-topics.sh <create|list|consume|check-pipeline> [options]
-```
-
-**Examples:**
-
-```sh
-# Create default topics
-./scripts/kafka-topics.sh create
-
-# List all topics
-./scripts/kafka-topics.sh list
-
-# Consume messages from a topic
-./scripts/kafka-topics.sh consume sales_order 10
-
-# Check pipeline topics for recent messages
-./scripts/kafka-topics.sh check-pipeline --count 2
-```
-
-**The old scripts will print a deprecation warning and exit.**
-
-#
-# Connector Registration Scripts (IMPORTANT)
-#
-
-**Connector Registration Scripts Consolidation**
-
-The following scripts are now deprecated and replaced by a single, flexible script:
-
-- `register-all-connectors.sh`
-- `register-connectors.sh`
-- `register-mdm-connectors.sh`
-- `register-sample-connector.sh`
-
-**Use this new script instead:**
-
-```sh
-./scripts/consolidated-register-connector.sh --config <config.json> --name <connector-name> [--url <connect-url>] [--k8s <namespace> <deployment>]
-```
-
-- For local Docker Compose: use `--url http://connect:8083` or your Connect REST endpoint.
-- For Kubernetes: use `--k8s <namespace> <deployment>` to exec into the deployment and register the connector.
-- The script validates JSON, supports both create and update, and works for any connector config.
-
-**Examples:**
-
-```sh
-# Register a connector locally
-./scripts/consolidated-register-connector.sh --config connector-configs/my-connector.json --name my-connector --url http://localhost:8083
-
-# Register a connector in Kubernetes
-./scripts/consolidated-register-connector.sh --config connector-configs/my-connector.json --name my-connector --k8s realtime-dev realtime-dev-realtime-app-connect
-```
-
-**The old scripts will print a deprecation warning and exit.**
-
-<div align="center" style="font-size: 13px; line-height: 1.15; margin: 0;">
-  <h1 style="margin: 0; line-height: 1.08; font-size: 1.65em;">GenAI-Enabled Data Platform Architecture</h1>
-  <h3 style="margin: 2px 0 6px; line-height: 1.1; font-size: 1.05em; color: #1D4ED8;">Engineering Lifecycle Reference</h3>
-  <p style="margin: 0; line-height: 1;">
-    <img alt="AWS" src="https://img.shields.io/badge/Cloud-AWS-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white" />
-    <img alt="Kafka" src="https://img.shields.io/badge/Streaming-Kafka-1F2937?style=for-the-badge&logo=apachekafka&logoColor=white" />
-    <img alt="Flink" src="https://img.shields.io/badge/Processing-Flink-E6526F?style=for-the-badge&logo=apacheflink&logoColor=white" />
-    <img alt="Databricks" src="https://img.shields.io/badge/Lakehouse-Databricks-FF3621?style=for-the-badge&logo=databricks&logoColor=white" />
-    <img alt="Snowflake" src="https://img.shields.io/badge/Warehouse-Snowflake-29B5E8?style=for-the-badge&logo=snowflake&logoColor=white" />
-  </p>
-</div>
+- All deprecated scripts will print a warning and exit. Use only the unified scripts above.
+- One-shot init containers (`topic-init`, `minio-init`, `connect-init`, `dbt`) will exit with code 0 after completion.
+- Trino may start successfully even if no Iceberg tables exist yet (expected until MinIO sink path is upgraded).
+- If you see "port already in use" or volumes not resetting, run:
+  ```sh
+  docker compose down -v
+  ```
+- For troubleshooting, always check container logs and use the provided scripts for validation.
 
 ---
-
- 
-
-## <span style="color: #0B7285;">Table of Contents</span>
-
-- [1. Purpose and Scope](#purpose-and-scope)
-- [2. Architecture & Navigation](#architecture-and-navigation)
-  - [2.1 Pipeline Index (Internal Links)](#pipeline-index-internal-links)
-  - [2.2 Target Stack (Baseline)](#target-stack-baseline)
-  - [2.3 End-to-End Architecture (Data Plane / Control Plane / GenAI Plane)](#end-to-end-architecture-data-plane-control-plane-genai-plane)
-- [3. Lifecycle Operating Model](#lifecycle-operating-model)
-  - [3.1 Usage of GenAI on lifecycle model](#usage-of-genai-on-lifecycle-model)
-  - [3.2 Lifecycle stage map (GenAI at Each Stage)](#lifecycle-stage-map-genai-at-each-stage)
-- [4. Ingest (Kafka CDC, Contracts, Connectors)](#ingest-kafka-cdc-contracts-connectors)
-  - [4.1 Debezium + Confluent Schema Registry (Reference Standard)](#debezium-confluent-schema-registry-reference-standard)
-- [5. Process (Flink, Databricks, Starburst)](#process-flink-databricks-starburst)
-  - [5.1 Starburst (Trino) (Federation / Exploration)](#starburst-trino-federation-exploration)
-  - [5.2 Apache Flink for Operational Analytics (Reference Pattern)](#apache-flink-for-operational-analytics-reference-pattern)
-  - [5.3 Databricks (Lakehousing Processing - Bronze/Silver)](#databricks-lakehousing-processing-bronzesilver)
-    - [5.3.1 Kafka -> Bronze (Delta) using Structured Streaming](#kafka-to-bronze-delta-using-structured-streaming)
-    - [5.3.2 Bronze -> Silver (Current State) using CDC MERGE](#bronze-to-silver-current-state-using-cdc-merge)
-- [6. Transform & Model (Snowflake + dbt)](#transform-model-snowflake-dbt)
-  - [6.1 Kafka -> Operational Data Store (OAP-1 Ingestion via Kafka Connector)](#kafka-to-operational-data-store-oap-1-ingestion-via-kafka-connector)
-    - [6.1.1 Kafka Connect on AWS ECS (MSK SASL/SCRAM)](#kafka-connect-on-aws-ecs-msk-saslscram)
-    - [6.1.2 MSK Connectivity and Auth Patterns](#msk-connectivity-and-auth-patterns)
-    - [6.1.3 SASL/SCRAM Setup Summary](#saslscram-setup-summary)
-  - [6.2 ODS -> CURATED (CDC Merge + dbt Modeling)](#ods-to-curated-cdc-merge-dbt-modeling)
-    - [6.2.1 dbt on Snowflake: Modeling + Semantic Layer](#dbt-on-snowflake-modeling-semantic-layer)
-  - [6.3 Lakehouse Strategy on AWS (S3 + Open Table Formats)](#lakehouse-strategy-on-aws-s3-open-table-formats)
-- [7. Serve & Consume (Semantic Layer, Governed Analytics)](#serve-consume-semantic-layer-governed-analytics)
-- [8. Observe & Operate (Prometheus/Grafana, Runbooks)](#observe-operate-prometheusgrafana-runbooks)
-  - [8.1 Key Observability Signals (by Component)](#key-observability-signals-by-component)
-  - [8.2 Operational Runbooks (Minimum Set)](#operational-runbooks-minimum-set)
-- [9. Govern & Secure (Security, Governance, CI/CD)](#govern-secure-security-governance-cicd)
-- [10. Adoption Roadmap and KPIs](#adoption-roadmap-and-kpis)
-- [Conclusion: Key GenAI Benefits](#conclusion-key-genai-benefits)
-- [Appendix A. GenAI Enablement Details](#appendix-a-genai-enablement-details)
-  - [Appendix A.1 Build (Design-to-Code)](#appendix-a1-build-design-to-code)
-  - [Appendix A.2 Run (Agentic Operations)](#appendix-a2-run-agentic-operations)
-  - [Appendix A.3 Consume (Governed Self-Service)](#appendix-a3-consume-governed-self-service)
-  - [Appendix A.4 Govern (Metadata, Policies, Audit)](#appendix-a4-govern-metadata-policies-audit)
-  - [Appendix A.5 Grounding Sources (What to Index)](#appendix-a5-grounding-sources-what-to-index)
-  - [Appendix A.6 Example Agent Playbook](#appendix-a6-example-agent-playbook)
-- [Routine K8S: Isolated kind + Helm](#routine-k8s-isolated-kind--helm)
-
-<a id="purpose-and-scope"></a>
-
-## <span style="color: #0B7285;">1. Purpose and Scope</span>
-
 **Executive summary:** Lifecycle-first reference architecture for
 GenAI-enabled data engineering on AWS (MSK/Kafka + Debezium + Schema
 Registry, Flink, Databricks, Snowflake + dbt, Prometheus/Grafana). GenAI

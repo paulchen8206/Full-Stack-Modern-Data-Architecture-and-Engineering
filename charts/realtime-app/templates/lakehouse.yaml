@@ -1,4 +1,4 @@
-{{- if or .Values.postgres.enabled .Values.connect.enabled .Values.dbt.enabled .Values.airflow.enabled }}
+{{- if or .Values.postgres.enabled .Values.odsConnect.enabled .Values.dbt.enabled .Values.airflow.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -623,23 +623,23 @@ spec:
       targetPort: 5432
 {{- end }}
 
-{{- if .Values.connect.enabled }}
+{{- if .Values.odsConnect.enabled }}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-connect-config
+  name: {{ include "realtime-app.fullname" . }}-ods-connect-config
   annotations:
     argocd.argoproj.io/sync-wave: "0"
   labels:
     app.kubernetes.io/name: {{ include "realtime-app.name" . }}
-    app.kubernetes.io/component: connect
+    app.kubernetes.io/component: ods-connect
 data:
   register-connectors.sh: |
     #!/usr/bin/env sh
     set -eu
 
-    CONNECT_URL="${CONNECT_URL:-http://{{ include "realtime-app.fullname" . }}-connect:8083}"
+    CONNECT_URL="${CONNECT_URL:-http://{{ include "realtime-app.fullname" . }}-ods-connect:8083}"
 
     wait_for_connect() {
       until curl -sf "${CONNECT_URL}/connectors" >/dev/null; do
@@ -767,45 +767,45 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-connect
+  name: {{ include "realtime-app.fullname" . }}-ods-connect
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
     app.kubernetes.io/name: {{ include "realtime-app.name" . }}
-    app.kubernetes.io/component: connect
+    app.kubernetes.io/component: ods-connect
 spec:
   replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "realtime-app.name" . }}
-      app.kubernetes.io/component: connect
+      app.kubernetes.io/component: ods-connect
   template:
     metadata:
       labels:
         app.kubernetes.io/name: {{ include "realtime-app.name" . }}
-        app.kubernetes.io/component: connect
+        app.kubernetes.io/component: ods-connect
     spec:
       containers:
-        - name: connect
-          image: {{ .Values.connect.image.repository }}:{{ .Values.connect.image.tag }}
-          imagePullPolicy: {{ .Values.connect.image.pullPolicy }}
+        - name: ods-connect
+          image: {{ .Values.odsConnect.image.repository }}:{{ .Values.odsConnect.image.tag }}
+          imagePullPolicy: {{ .Values.odsConnect.image.pullPolicy }}
           ports:
             - containerPort: 8083
           env:
             - name: CONNECT_BOOTSTRAP_SERVERS
               value: {{ .Values.kafkaBootstrapServers | quote }}
             - name: CONNECT_REST_ADVERTISED_HOST_NAME
-              value: {{ printf "%s-connect" (include "realtime-app.fullname" .) | quote }}
+              value: {{ printf "%s-ods-connect" (include "realtime-app.fullname" .) | quote }}
             - name: CONNECT_REST_PORT
               value: "8083"
             - name: CONNECT_GROUP_ID
-              value: {{ .Values.connect.groupId | quote }}
+              value: {{ .Values.odsConnect.groupId | quote }}
             - name: CONNECT_CONFIG_STORAGE_TOPIC
-              value: {{ .Values.connect.configStorageTopic | quote }}
+              value: {{ .Values.odsConnect.configStorageTopic | quote }}
             - name: CONNECT_OFFSET_STORAGE_TOPIC
-              value: {{ .Values.connect.offsetStorageTopic | quote }}
+              value: {{ .Values.odsConnect.offsetStorageTopic | quote }}
             - name: CONNECT_STATUS_STORAGE_TOPIC
-              value: {{ .Values.connect.statusStorageTopic | quote }}
+              value: {{ .Values.odsConnect.statusStorageTopic | quote }}
             - name: CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR
               value: "1"
             - name: CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR
@@ -828,62 +828,62 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-connect
+  name: {{ include "realtime-app.fullname" . }}-ods-connect
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
     app.kubernetes.io/name: {{ include "realtime-app.name" . }}
-    app.kubernetes.io/component: connect
+    app.kubernetes.io/component: ods-connect
 spec:
-  type: {{ .Values.connect.service.type }}
+  type: {{ .Values.odsConnect.service.type }}
   selector:
     app.kubernetes.io/name: {{ include "realtime-app.name" . }}
-    app.kubernetes.io/component: connect
+    app.kubernetes.io/component: ods-connect
   ports:
     - name: http
-      port: {{ .Values.connect.service.port }}
+      port: {{ .Values.odsConnect.service.port }}
       targetPort: 8083
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-connect-init
+  name: {{ include "realtime-app.fullname" . }}-ods-connect-init
   annotations:
     argocd.argoproj.io/sync-wave: "2"
   labels:
     app.kubernetes.io/name: {{ include "realtime-app.name" . }}
-    app.kubernetes.io/component: connect-init
+    app.kubernetes.io/component: ods-connect-init
 spec:
   backoffLimit: 6
   template:
     metadata:
       labels:
         app.kubernetes.io/name: {{ include "realtime-app.name" . }}
-        app.kubernetes.io/component: connect-init
+        app.kubernetes.io/component: ods-connect-init
     spec:
       restartPolicy: OnFailure
       containers:
-        - name: connect-init
-          image: {{ .Values.connect.curlImage.repository }}:{{ .Values.connect.curlImage.tag }}
-          imagePullPolicy: {{ .Values.connect.curlImage.pullPolicy }}
+        - name: ods-connect-init
+          image: {{ .Values.odsConnect.curlImage.repository }}:{{ .Values.odsConnect.curlImage.tag }}
+          imagePullPolicy: {{ .Values.odsConnect.curlImage.pullPolicy }}
           command: ["/bin/sh", "/scripts/register-connectors.sh"]
           volumeMounts:
-            - name: connect-config
+            - name: ods-connect-config
               mountPath: /scripts/register-connectors.sh
               subPath: register-connectors.sh
             - name: connector-configs
               mountPath: /connector-configs
       volumes:
-        - name: connect-config
+        - name: ods-connect-config
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-connect-config
+            name: {{ include "realtime-app.fullname" . }}-ods-connect-config
             defaultMode: 0755
             items:
               - key: register-connectors.sh
                 path: register-connectors.sh
         - name: connector-configs
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-connect-config
+            name: {{ include "realtime-app.fullname" . }}-ods-connect-config
             items:
               - key: iceberg-sales-order.json
                 path: iceberg-sales-order.json

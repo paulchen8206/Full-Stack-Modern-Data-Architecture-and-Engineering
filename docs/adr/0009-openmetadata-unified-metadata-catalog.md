@@ -97,4 +97,4 @@ Rollout approach:
 - `trino/etc/catalog/` — Trino catalogs used as primary metadata source
 - `analytics/dbt/target/manifest.json` and `analytics/dbt/target/run_results.json` — dbt artifact sources for lineage
 - `airflow/dags/dbt_warehouse_schedule.py` — Airflow DAG metadata source
-- `connect/connector-configs/` — Kafka and connector context for streaming metadata
+- `ods-connect/connector-configs/` — Kafka and connector context for streaming metadata

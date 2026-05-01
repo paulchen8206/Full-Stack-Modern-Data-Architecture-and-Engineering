@@ -1,0 +1,37 @@
+{
+  "namespace": "com.example",
+  "type": "record",
+  "name": "SalesOrder",
+  "fields": [
+    {"name": "orderId", "type": "string"},
+    {"name": "orderTimestamp", "type": "string"},
+    {"name": "currency", "type": "string"},
+    {"name": "orderTotal", "type": "string"},
+    {"name": "customer", "type": {
+      "type": "record",
+      "name": "Customer",
+      "fields": [
+        {"name": "customerId", "type": "string"},
+        {"name": "firstName", "type": "string"},
+        {"name": "lastName", "type": "string"},
+        {"name": "email", "type": "string"},
+        {"name": "segment", "type": "string"}
+      ]
+    }},
+    {"name": "lineItems", "type": {
+      "type": "array",
+      "items": {
+        "type": "record",
+        "name": "LineItem",
+        "fields": [
+          {"name": "lineItemId", "type": "string"},
+          {"name": "sku", "type": "string"},
+          {"name": "productName", "type": "string"},
+          {"name": "quantity", "type": "int"},
+          {"name": "unitPrice", "type": "string"},
+          {"name": "lineTotal", "type": "string"}
+        ]
+      }
+    }}
+  ]
+}

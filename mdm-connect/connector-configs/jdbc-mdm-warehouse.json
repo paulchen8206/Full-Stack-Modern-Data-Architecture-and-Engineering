@@ -1,0 +1,29 @@
+{
+  "name": "jdbc-mdm-warehouse",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "tasks.max": "1",
+    "topics": "mdm_customer_jdbc,mdm_product_jdbc,mdm_date_jdbc",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "true",
+    "connection.url": "jdbc:postgresql://postgres:5432/analytics",
+    "connection.user": "analytics",
+    "connection.password": "analytics",
+    "table.name.format": "landing.${topic}",
+    "transforms": "RouteTopic",
+    "transforms.RouteTopic.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.RouteTopic.regex": "(.*)_jdbc",
+    "transforms.RouteTopic.replacement": "$1",
+    "insert.mode": "insert",
+    "auto.create": "true",
+    "auto.evolve": "true",
+    "batch.size": "3000",
+    "delete.enabled": "false",
+    "pk.mode": "none",
+    "errors.tolerance": "all",
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "true",
+    "consumer.override.auto.offset.reset": "latest",
+    "quote.sql.identifiers": "never"
+  }
+}

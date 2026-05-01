@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: register-kafka-connectors
+  name: register-ods-connectors
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
@@ -17,7 +17,7 @@ spec:
             - |
               apk add --no-cache bash curl
               NAMESPACE="$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)"
-              CONNECT_DEPLOYMENT="realtime-dev-realtime-app-connect"
+              CONNECT_DEPLOYMENT="realtime-dev-realtime-app-ods-connect"
               wait_for_connect() {
                 until kubectl exec -n $NAMESPACE deploy/$CONNECT_DEPLOYMENT -- curl -sf http://localhost:8083/connectors >/dev/null; do
                   echo "Waiting for Kafka Connect REST API..."
@@ -28,7 +28,7 @@ spec:
               for cfg in /configs/*.json; do
                 name=$(basename "$cfg" .json)
                 echo "Registering $name from $cfg"
-                kubectl cp "$cfg" $NAMESPACE/$(kubectl get pod -n $NAMESPACE -l app.kubernetes.io/component=connect -o jsonpath='{.items[0].metadata.name}'):/tmp/$name.json
+                kubectl cp "$cfg" $NAMESPACE/$(kubectl get pod -n $NAMESPACE -l app.kubernetes.io/component=ods-connect -o jsonpath='{.items[0].metadata.name}'):/tmp/$name.json
                 kubectl exec -n $NAMESPACE deploy/$CONNECT_DEPLOYMENT -- curl -X POST -H "Content-Type: application/json" --data @/tmp/$name.json http://localhost:8083/connectors || echo "WARN: Could not register $name"
               done
           volumeMounts:

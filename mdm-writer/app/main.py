@@ -1,7 +1,7 @@
 import os
 import random
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 import mysql.connector
@@ -21,6 +21,7 @@ PRODUCTS = [
     ("SKU-103", "USB-C Dock"),
     ("SKU-104", "Noise Cancelling Headset"),
 ]
+INSERT_NEW_KEY_PROB = float(os.getenv("MDM_INSERT_NEW_KEY_PROB", "0.8"))
 
 
 def money(value: Decimal) -> Decimal:
@@ -38,8 +39,32 @@ def mysql_connection() -> mysql.connector.MySQLConnection:
     )
 
 
+def customer_seed() -> tuple[str, str, str]:
+    if random.random() < INSERT_NEW_KEY_PROB:
+        customer_num = random.randint(1000, 999999)
+        return (
+            f"CUST-{customer_num}",
+            f"Customer {customer_num}",
+            f"customer{customer_num}@example.com",
+        )
+    return random.choice(CUSTOMERS)
+
+
+def product_seed() -> tuple[str, str]:
+    if random.random() < INSERT_NEW_KEY_PROB:
+        product_num = random.randint(100, 999999)
+        return (f"SKU-{product_num}", f"Product {product_num}")
+    return random.choice(PRODUCTS)
+
+
+def date_seed(now: datetime) -> date:
+    if random.random() < INSERT_NEW_KEY_PROB:
+        return (now - timedelta(days=random.randint(0, 730))).date()
+    return now.date()
+
+
 def upsert_customer(cursor: mysql.connector.cursor.MySQLCursor) -> None:
-    customer_id, name, email = random.choice(CUSTOMERS)
+    customer_id, name, email = customer_seed()
     now = datetime.utcnow()
     first_seen = now - timedelta(days=random.randint(7, 180))
     last_seen = now - timedelta(days=random.randint(0, 7))
@@ -87,7 +112,7 @@ def upsert_customer(cursor: mysql.connector.cursor.MySQLCursor) -> None:
 
 
 def upsert_product(cursor: mysql.connector.cursor.MySQLCursor) -> None:
-    product_id, product_name = random.choice(PRODUCTS)
+    product_id, product_name = product_seed()
     now = datetime.utcnow()
     first_seen = now - timedelta(days=random.randint(14, 365))
     last_seen = now - timedelta(days=random.randint(0, 14))
@@ -129,6 +154,44 @@ def upsert_product(cursor: mysql.connector.cursor.MySQLCursor) -> None:
     )
 
 
+def upsert_date(cursor: mysql.connector.cursor.MySQLCursor) -> None:
+        now = datetime.utcnow()
+        target_date = date_seed(now)
+
+        cursor.execute(
+                """
+                INSERT INTO mdm_date (
+                    date_key,
+                    full_date,
+                    day_of_month,
+                    day_of_week,
+                    day_name,
+                    week_of_year,
+                    month_of_year,
+                    month_name,
+                    quarter_of_year,
+                    year_number,
+                    is_weekend
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                        int(target_date.strftime("%Y%m%d")),
+                        target_date,
+                        target_date.day,
+                        ((target_date.isoweekday() % 7) + 1),
+                        target_date.strftime("%A"),
+                        int(target_date.strftime("%V")),
+                        target_date.month,
+                        target_date.strftime("%B"),
+                        ((target_date.month - 1) // 3) + 1,
+                        target_date.year,
+                        target_date.weekday() >= 5,
+                ),
+        )
+
+
 def main() -> None:
     interval_ms = int(os.getenv("MDM_WRITE_INTERVAL_MS", "3000"))
 
@@ -138,10 +201,11 @@ def main() -> None:
             cursor = conn.cursor()
             upsert_customer(cursor)
             upsert_product(cursor)
+            upsert_date(cursor)
             conn.commit()
             cursor.close()
             conn.close()
-            print("upserted customer360 and product_master rows", flush=True)
+            print("upserted customer360, product_master, and mdm_date rows", flush=True)
             time.sleep(interval_ms / 1000)
         except mysql.connector.Error as exc:
             print(f"mysql unavailable, retrying: {exc}", flush=True)

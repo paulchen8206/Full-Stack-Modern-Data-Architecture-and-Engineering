@@ -33,7 +33,7 @@ If MDM topics or landing tables are empty, troubleshoot connector health and syn
 This section defines the primary cross-references for this document.
 
 - [../runbook.md](../runbook.md)
-- [../../connect/connector-configs/debezium-mysql-mdm.json](../../connect/connector-configs/debezium-mysql-mdm.json)
+- [../../debezium-connect/connector-configs/debezium-mysql-mdm.json](../../debezium-connect/connector-configs/debezium-mysql-mdm.json)
 
 ## Context
 
@@ -66,4 +66,4 @@ Implement MDM enrichment through a CDC-driven flow:
 ## Detailed References
 
 - ../runbook.md
-- ../../connect/connector-configs/debezium-mysql-mdm.json
+- ../../debezium-connect/connector-configs/debezium-mysql-mdm.json

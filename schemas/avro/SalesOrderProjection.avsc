@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "SalesOrderProjection",
+  "namespace": "com.example.realtime.avro",
+  "fields": [
+    {"name": "orderId", "type": "string"},
+    {"name": "orderTimestamp", "type": "string"},
+    {"name": "customerId", "type": "string"},
+    {"name": "customerName", "type": "string"},
+    {"name": "customerEmail", "type": "string"},
+    {"name": "customerSegment", "type": "string"},
+    {"name": "currency", "type": "string"},
+    {"name": "orderTotal", "type": {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 2}},
+    {"name": "lineItemCount", "type": "int"}
+  ]
+}

@@ -27,7 +27,7 @@ make routine-a-ops     # Unified day-2 operations
 | --- | --- |
 ### Container Behavior
 
-- One-shot init containers (`topic-init`, `minio-init`, `connect-init`) and `dbt` will exit with code 0 after completion.
+- One-shot init containers (`topic-init`, `minio-init`, `ods-connect-init`) and `dbt` will exit with code 0 after completion.
 - Trino may start successfully even if no Iceberg tables exist yet (expected until MinIO sink path is upgraded).
 ### Troubleshooting FAQ
 
@@ -91,7 +91,7 @@ Routine A brings up all core services (Kafka, Schema Registry, Connect, MinIO, T
 ### Important Points
 
 - All deprecated scripts will print a warning and exit. Use only the unified scripts above.
-- One-shot init containers (`topic-init`, `minio-init`, `connect-init`, `dbt`) will exit with code 0 after completion.
+- One-shot init containers (`topic-init`, `minio-init`, `ods-connect-init`, `dbt`) will exit with code 0 after completion.
 - Trino may start successfully even if no Iceberg tables exist yet (expected until MinIO sink path is upgraded).
 - If you see "port already in use" or volumes not resetting, run:
   ```sh

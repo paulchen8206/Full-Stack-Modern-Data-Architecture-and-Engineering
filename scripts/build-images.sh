@@ -14,7 +14,7 @@ MDM_PYSPARK_SYNC_IMAGE="${MDM_PYSPARK_SYNC_IMAGE:-realtime-sales-mdm-pyspark-syn
 
 docker build -t "${PRODUCER_IMAGE}" ./producer
 docker build -t "${PROCESSOR_IMAGE}" ./processor
-docker build -t "${CONNECT_IMAGE}" ./connect
+docker build -t "${CONNECT_IMAGE}" ./ods-connect
 docker build -t "${DBT_IMAGE}" ./analytics/dbt
 docker build -t "${AIRFLOW_IMAGE}" ./airflow
 docker build -t "${MDM_WRITER_IMAGE}" ./mdm-writer

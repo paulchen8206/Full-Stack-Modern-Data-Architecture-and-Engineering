@@ -223,7 +223,7 @@ make validate          # Run local validation bundle
 
 ### Container Behavior
 
-- One-shot init containers (`topic-init`, `minio-init`, `connect-init`) and `dbt` will exit with code 0 after completion.
+- One-shot init containers (`topic-init`, `minio-init`, `debezium-connect-init`) and `dbt` will exit with code 0 after completion.
 - Trino may start successfully even if no Iceberg tables exist yet (expected until MinIO sink path is upgraded).
 
 ### Troubleshooting FAQ
@@ -389,9 +389,9 @@ Dev environment behavior:
 
 ### Kafka Connect and Lakehouse Layer
 
-- `connect` service runs S3 sink connectors for `sales_order`, `sales_order_line_item`, and `customer_sales` into MinIO object storage.
-- `connect` service also runs a JDBC sink connector for the same topics into Postgres `landing` schema.
-- Connector registration happens automatically in `connect-init` in Compose and via a Kubernetes Job in the Helm release.
+- `ods-connect` service runs S3 sink connectors for `sales_order`, `sales_order_line_item`, and `customer_sales` into MinIO object storage.
+- `ods-connect` service also runs a JDBC sink connector for the same topics into Postgres `landing` schema.
+- Connector registration happens automatically in `ods-connect-init` in Compose and via a Kubernetes Job in the Helm release.
 
 ### Trino Query Engine
 

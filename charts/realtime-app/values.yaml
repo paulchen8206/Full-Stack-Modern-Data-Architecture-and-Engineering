@@ -46,8 +46,8 @@ controlCenter:
     repository: confluentinc/cp-enterprise-control-center
     tag: 7.5.3
     pullPolicy: IfNotPresent
-  connectCluster: 'http://realtime-dev-realtime-app-connect:8083'
-  connectClusterName: 'connect'
+  connectCluster: 'http://realtime-dev-realtime-app-ods-connect:8083'
+  connectClusterName: 'ods-connect'
   schemaRegistryUrl: 'http://realtime-dev-realtime-app-schema-registry:8081'
   service:
     type: ClusterIP
@@ -91,7 +91,7 @@ postgres:
   service:
     type: ClusterIP
     port: 5432
-connect:
+odsConnect:
   enabled: false
   image:
     repository: realtime-sales-connect
@@ -104,7 +104,7 @@ connect:
   service:
     type: ClusterIP
     port: 8083
-  groupId: connect-cluster-1
+  groupId: ods-connect-cluster-1
   configStorageTopic: connect-configs
   offsetStorageTopic: connect-offsets
   statusStorageTopic: connect-status

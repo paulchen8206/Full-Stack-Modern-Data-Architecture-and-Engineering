@@ -414,6 +414,30 @@ flowchart TD
 
 This subsection describes realtime event processing from raw producer events to modeled analytics outputs.
 
+Diagram: Routine A realtime sales dataflow.
+
+```mermaid
+flowchart LR
+  P[producer] -->|raw_sales_orders| K[(Kafka cluster)]
+  K -->|consume| F[processor Spring Boot + Flink]
+  SR[schema-registry] -.Avro contracts.-> F
+
+  F -->|sales_order| K
+  F -->|sales_order_line_item| K
+  F -->|customer_sales| K
+
+  K --> ODS[ods-connect]
+  ODS --> PG[(Postgres landing)]
+  ODS --> M[(MinIO raw objects)]
+
+  K --> IW[iceberg-writer]
+  IW --> T[Trino]
+  T --> I[(Iceberg tables on MinIO)]
+
+  PG --> D[dbt medallion models]
+  A[Airflow] --> D
+```
+
 1. Python producer publishes composite sales events to `raw_sales_orders`.
 2. Java/Flink processor consumes raw events and fans out normalized streams:
    - `sales_order`
@@ -428,6 +452,25 @@ This subsection describes realtime event processing from raw producer events to 
 
 This subsection describes master data capture, CDC publication, and analytics synchronization.
 
+Diagram: Routine A MDM CDC dataflow.
+
+```mermaid
+flowchart LR
+  M[(mdm-source MySQL)] -->|binlog CDC| DBZ[debezium-connect]
+  DBZ -->|raw MDM CDC topics| K[(Kafka cluster)]
+
+  K -->|curate CDC| MCP[mdm-cdc-producer]
+  MCP -->|mdm_customer / mdm_product| K
+
+  K --> MDMK[mdm-connect]
+  MDMK --> PG[(Postgres landing mdm tables)]
+
+  M --> SP[mdm-pyspark-sync]
+  SP --> PG
+
+  PG --> DBT[dbt silver and gold joins]
+```
+
 1. MDM writer upserts `customer360` and `product_master` entities into MySQL.
 2. Debezium captures MySQL binlog changes and emits raw CDC topics.
 3. CDC publisher normalizes/curates CDC records into analytics-friendly topics (`mdm_customer`, `mdm_product`).
@@ -437,6 +480,44 @@ This subsection describes master data capture, CDC publication, and analytics sy
 ### 5.3 Data Cataloging and Observability Flow
 
 This subsection describes metadata ingestion and observability signal paths used for operational validation.
+
+Diagram: Routine A metadata and observability dataflow.
+
+```mermaid
+flowchart LR
+  subgraph Runtime[Runtime and analytics assets]
+    K[(Kafka cluster)]
+    T[Trino]
+    PG[(Postgres analytics)]
+    D[dbt artifacts]
+    A[Airflow metadata]
+  end
+
+  subgraph Metadata[Optional openmetadata profile]
+    OMI[openmetadata-ingestion]
+    OMS[openmetadata-server]
+  end
+
+  subgraph Observability[Monitoring stack]
+    BBX[blackbox-exporter]
+    PROM[Prometheus]
+    GRAF[Grafana]
+  end
+
+  K -.topic metadata.-> OMI
+  T -.table metadata.-> OMI
+  PG -.warehouse metadata.-> OMI
+  D -.lineage artifacts.-> OMI
+  A -.pipeline metadata.-> OMI
+  OMI --> OMS
+
+  BBX --> PROM
+  PROM --> GRAF
+  BBX -.endpoint probes.-> K
+  BBX -.endpoint probes.-> T
+  BBX -.endpoint probes.-> A
+  BBX -.endpoint probes.-> OMS
+```
 
 1. OpenMetadata ingestion workflows collect metadata from Trino, Postgres, dbt artifacts, Airflow pipelines, and Kafka topics.
 2. OpenMetadata stores searchable entities and lineage links for tables, topics, pipelines, and models.

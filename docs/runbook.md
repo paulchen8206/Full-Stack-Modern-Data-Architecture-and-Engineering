@@ -26,7 +26,7 @@ Use the troubleshooting sections in this document as the primary operational dia
 
 ## References
 
-- [../README.md](../README.md)
+- [../readme.md](../readme.md)
 - [architecture.md](architecture.md)
 - [adr/README.md](adr/README.md)
 
@@ -36,7 +36,7 @@ Architecture cross-reference:
 
 Documentation map:
 
-- Project entrypoint: [../README.md](../README.md)
+- Project entrypoint: [../readme.md](../readme.md)
 - Architecture reference: [architecture.md](architecture.md)
 - Architecture Decision Records (ADR): [adr/README.md](adr/README.md)
 
@@ -54,47 +54,31 @@ Documentation map:
 
 | Routine | Daily task | Copy-paste command bundle |
 | --- | --- | --- |
-| Docker Compose | Bootstrap local routine (stack + topics) | `make routine-a` |
-| Docker Compose | Start compose services only | `make up` |
-| Docker Compose | Run unified day-2 operations | `make routine-a-ops` |
-| Docker Compose | Fast health check | `docker compose ps && ./scripts/check-pipeline-topics.sh` |
+| Docker Compose | Bootstrap local routine (stack + topics) | `make docker-compose-up` |
+| Docker Compose | Start compose services only | `docker compose up -d` |
+| Docker Compose | Run MDM flow validation | `make mdm-flow-check` |
+| Docker Compose | Fast health check | `docker compose ps` |
 | Docker Compose | Tail app logs | `docker compose logs --tail=200 --no-color --since=10m producer processor` |
-| Docker Compose | Rebuild processor only + validate | `./scripts/compose-up.sh -d --build processor && docker compose logs --tail=120 --no-color --since=2m processor && ./scripts/consume-topic.sh sales_order 1 && ./scripts/consume-topic.sh sales_order_line_item 1 && ./scripts/consume-topic.sh customer_sales 1` |
+| Docker Compose | Rebuild processor only + validate | `docker compose up -d --build processor && docker compose logs --tail=120 --no-color --since=2m processor` |
 | Docker Compose | Validate MDM topic flow | `make mdm-topics-check` |
-| Docker Compose | Validate warehouse counts | `make verify-warehouse` |
-| Docker Compose | Check Trino health | `make trino-smoke` |
-| Docker Compose | Open Trino CLI shell | `make trino-shell` |
-| Docker Compose | Seed Trino demo Iceberg table | `make trino-seed-demo` |
-| Docker Compose | Bootstrap Iceberg from landing | `make trino-bootstrap-lakehouse` |
-| Docker Compose | Rebuild all demo Iceberg tables | `make trino-rebuild-lakehouse` |
-| Docker Compose | Incrementally sync Iceberg tables | `make trino-sync-lakehouse` |
-| Docker Compose | Run sample Trino queries | `make trino-sample-queries` |
-| Docker Compose | Validate streaming Iceberg tables received data | `make iceberg-streaming-smoke` |
-| Docker Compose | Re-run dbt models | `make dbt-run` |
-| Docker Compose | Start Airflow | `make airflow-up` |
-| Docker Compose | Reboot Airflow and run dbt | `make airflow-dbt-reboot` |
-| Docker Compose | Stop dbt if running | `make dbt-stop` |
-| Docker Compose | Start Kafka UI and validate dbt state | `make kafka-ui-up` |
-| Docker Compose | Runtime status snapshot | `make ops-status` |
-| Docker Compose | Trigger scheduled dbt DAG | `make airflow-trigger-dbt-dag` |
-| Docker Compose | Full clean reset | `docker compose down -v && ./scripts/compose-up.sh` |
-| kind + Helm + Argo CD | Bootstrap local cluster (Docker-like one command) | `make routine-b` |
-| kind + Helm + Argo CD | Run unified day-2 operations (Docker-path parity) | `make routine-b-ops` |
-| kind + Helm + Argo CD | Stop local cluster workloads | `make routine-b-down` |
-| kind + Helm + Argo CD | Bootstrap local cluster via Argo CD app | `make routine-b-argocd` |
+| Docker Compose | Verify Trino endpoint | `curl -fsS http://localhost:8086/v1/info | cat` |
+| Docker Compose | Start Airflow service | `docker compose up -d --build airflow` |
+| Docker Compose | Run dbt once | `docker compose run --rm dbt` |
+| Docker Compose | Full clean reset | `docker compose down -v && docker compose up -d --build` |
+| kind + Helm + Argo CD | Bootstrap local cluster | `./cicd/k8s/kind/bootstrap-kind.sh` |
+| kind + Helm + Argo CD | Build and load local images into kind | `./cicd/scripts/build-images.sh` |
+| kind + Helm + Argo CD | Bootstrap local cluster via Argo CD app | `kubectl apply -f cicd/argocd/dev.yaml` |
+| kind + Helm + Argo CD | Stop local cluster workloads | `kubectl -n argocd delete application realtime-dev || true && kubectl delete namespace realtime-dev || true` |
 | kind + Helm + Argo CD | Validate app and workloads | `kubectl -n argocd get application realtime-dev && kubectl -n realtime-dev get pods` |
-| kind + Helm + Argo CD | Reboot from local Helm | `make helm-reboot-dev` |
-| kind + Helm + Argo CD | Helm health snapshot | `make helm-health-dev` |
-| kind + Helm + Argo CD | Bootstrap Iceberg JDBC schema in k8s Postgres | `make helm-metastore-migrate-dev` |
-| kind + Helm + Argo CD | Runtime status snapshot | `make ops-status-dev` |
-| kind + Helm + Argo CD | Validate MDM topic flow | `make mdm-topics-check-dev` |
-| kind + Helm + Argo CD | Validate Airflow + dbt state | `make airflow-dbt-check-dev` |
+| kind + Helm + Argo CD | Runtime status snapshot | `kubectl -n realtime-dev get pods && kubectl -n realtime-dev get jobs` |
+| kind + Helm + Argo CD | Validate MDM topic flow | `kubectl -n realtime-dev logs deploy/realtime-dev-realtime-app-mdm-cdc-producer --tail=100` |
+| kind + Helm + Argo CD | Validate Airflow + dbt state | `kubectl -n realtime-dev get pods | grep -E 'airflow|dbt'` |
 | kind + Helm + Argo CD | Open Argo CD UI | `kubectl -n argocd port-forward svc/argocd-server 8443:443` |
 | kind + Helm + Argo CD | Open Kafka UI | `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-kafka-ui 8082:8080` |
 | kind + Helm + Argo CD | Open Airflow UI | `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-airflow 8084:8080` |
 | kind + Helm + Argo CD | Open MinIO Console | `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-minio 9001:9001` |
-| kind + Helm + Argo CD | Check Trino health | `make trino-smoke-dev` |
-| kind + Helm + Argo CD | Validate streaming Iceberg tables received data | `make iceberg-streaming-smoke-dev` |
+| kind + Helm + Argo CD | Check Trino health | `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-trino 8086:8080` |
+| kind + Helm + Argo CD | Validate streaming Iceberg tables received data | `kubectl -n realtime-dev logs deploy/realtime-dev-realtime-app-iceberg-writer --tail=100` |
 | kind + Helm + Argo CD | Open Postgres | `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-postgres 5433:5432` |
 | kind + Helm + Argo CD | Open Grafana | `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-grafana 3001:3000` |
 | kind + Helm + Argo CD | Cluster smoke check | `echo '--- app ---' && kubectl -n argocd get application realtime-dev && echo '--- pods ---' && kubectl -n realtime-dev get pods && echo '--- topics ---' && kubectl -n realtime-dev exec realtime-dev-kafka-controller-0 -- /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server realtime-dev-kafka:9092 --list` |
@@ -121,32 +105,13 @@ Architecture-to-command map:
 
 - See [Make Target Map (Architecture to Operations)](architecture.md#84-make-target-map-architecture-to-operations) for the rationale-to-target mapping used by this routine.
 
-First-time prerequisite (fresh clone or after checking out on a new machine):
+Start the stack:
 
 ```bash
-chmod +x scripts/*.sh
+make docker-compose-up
 ```
 
-Note: `make routine-a` (via the `up` target) also runs this automatically, so a manual pre-step is only needed if you call the scripts directly before running any Make target.
-
-```bash
-make routine-a
-```
-
-Run the unified day-2 operations workflow:
-
-```bash
-make routine-a-ops
-```
-
-Run shared target discovery and validation:
-
-```bash
-make help
-make validate
-```
-
-Use `./scripts/compose-up.sh ...` for raw Compose startup flows instead of `docker compose up ...`. The wrapper applies the Postgres-backed Iceberg JDBC metastore upgrade and restarts Trino and `iceberg-writer` when those services are part of the running stack.
+Use `docker compose up ...` directly for raw Compose startup flows.
 
 Expected local endpoints:
 
@@ -189,31 +154,35 @@ Note: This local Trino setup does not enable password authentication. If your DB
 docker compose ps
 ```
 
-Kubernetes-style observability snapshot for Docker Routine A:
+Docker Compose runtime snapshot:
 
 ```bash
-make ops-status
-make airflow-dbt-check
+docker compose ps
+make mdm-status
 ```
 
 All services should be Up, especially:
 
-- kafka
-- topic-init
+- kafka-1
+- kafka-2
+- kafka-3
+- kafka-init
 - producer
 - processor
-- kafka-ui
-- mysql-mdm
+- mdm-source
+- debezium-connect
 - mdm-connect
 - mdm-cdc-producer
 - mdm-pyspark-sync
 
 Expected completed containers:
 
-- `topic-init` exits with code 0 after creating topics.
+- `kafka-init` exits with code 0 after creating topics.
+- `schema-init` exits with code 0 after registering Avro subjects.
 - `minio-init` exits with code 0 after creating the object store bucket.
 - `ods-connect-init` exits with code 0 after registering connectors.
-- `mdm-connect-init` exits with code 0 after registering the Debezium MySQL source connector.
+- `debezium-connect-init` exits with code 0 after registering the Debezium MySQL source connector.
+- `mdm-connect-init` exits with code 0 after registering MDM sink connectors.
 - `dbt` exits with code 0 after `dbt run` completes.
 
 Those `Exited (0)` states are normal and should not be treated as failures.
@@ -221,31 +190,31 @@ Those `Exited (0)` states are normal and should not be treated as failures.
 ### A3. Validate topics and dataflow
 
 ```bash
-./scripts/list-topics.sh
-./scripts/consume-topic.sh raw_sales_orders 1
-./scripts/consume-topic.sh sales_order 1
-./scripts/consume-topic.sh sales_order_line_item 1
-./scripts/consume-topic.sh customer_sales 1
-./scripts/consume-topic.sh mdm_customer 1
-./scripts/consume-topic.sh mdm_product 1
+docker compose exec kafka-3 /usr/bin/kafka-topics --bootstrap-server kafka-3:19094 --list
+docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic raw_sales_orders --max-messages 1 --timeout-ms 15000
+docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic sales_order --max-messages 1 --timeout-ms 15000
+docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic sales_order_line_item --max-messages 1 --timeout-ms 15000
+docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic customer_sales --max-messages 1 --timeout-ms 15000
+docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic mdm_customer --max-messages 1 --timeout-ms 15000
+docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic mdm_product --max-messages 1 --timeout-ms 15000
 ```
 
 Quick full check:
 
 ```bash
-./scripts/check-pipeline-topics.sh
+make mdm-topics-check
 ```
 
 Warehouse layer check:
 
 ```bash
-make verify-warehouse
+docker compose exec -T snowflake-mimic psql -U analytics -d analytics -c "SELECT count(*) AS landing_sales_order FROM landing.sales_order; SELECT count(*) AS landing_sales_order_line_item FROM landing.sales_order_line_item; SELECT count(*) AS landing_customer_sales FROM landing.customer_sales;"
 ```
 
 Start Airflow for scheduled dbt runs:
 
 ```bash
-make airflow-up
+docker compose up -d --build airflow
 ```
 
 Open `http://localhost:8084` and sign in with `admin` / `admin`.
@@ -403,8 +372,10 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 - `ods-connect` loads Kafka Connect sink plugins and exposes the REST API on port 8083.
 - `ods-connect-init` registers the JDBC and object-storage sink connectors from `kafka-connect/ods-connect/connector-configs`.
 - `mdm-source` stores `mdm.customer360`, `mdm.product_master`, and `mdm_date` source tables and runs the built-in data generator.
-- `mdm-connect` runs Debezium MySQL source capture and publishes raw CDC topics.
-- `mdm-connect-init` registers the Debezium connector from `kafka-connect/mdm-connect/connector-configs/debezium-mysql-mdm.json`.
+- `debezium-connect` runs Debezium MySQL source capture and publishes raw CDC topics.
+- `debezium-connect-init` registers the Debezium connector from `kafka-connect/debezium-connect/connector-configs/debezium-mysql-mdm.json`.
+- `mdm-connect` loads Kafka Connect sink plugins for curated MDM topics.
+- `mdm-connect-init` registers MDM JDBC and object-storage sink connectors from `kafka-connect/mdm-connect/connector-configs`.
 - `mdm-cdc-producer` republishes curated `mdm_customer` and `mdm_product` topics.
 - `mdm-pyspark-sync` syncs MySQL MDM tables into Postgres landing MDM tables.
 - `snowflake-mimic` stores `landing`, `bronze`, `silver`, and `gold` schemas for analytics queries.
@@ -416,7 +387,7 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 ## Common Failure Patterns
 
 - No bronze rows with landing rows present:
-  Run `make dbt-run`, then recheck `bronze` counts.
+  Run `docker compose run --rm dbt`, then recheck `bronze` counts.
 - `dbt` shows `Exited (0)` in `docker compose ps -a`:
   This is expected for the one-shot dbt service after a successful run.
 - Kafka Connect is healthy but landing rows stay at zero:
@@ -424,7 +395,7 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 - MySQL has rows but MDM landing tables stay at zero:
   Check `docker compose logs --tail=200 mdm-pyspark-sync` and verify Postgres connectivity.
 - Debezium MDM connector is not producing raw CDC topics:
-  Check `docker compose logs --tail=200 mdm-connect` and ensure `mdm-connect-init` completed successfully.
+  Check `docker compose logs --tail=200 debezium-connect` and ensure `debezium-connect-init` completed successfully.
 - Full stack startup feels blocked around dbt:
   Compose may still be waiting for `ods-connect-init` or `snowflake-mimic` before launching the dbt container.
 - Airflow UI starts but no dbt runs appear:
@@ -437,8 +408,8 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
   ```
 
   Then check `docker compose logs --tail=20 airflow` and confirm `Listening at: http://0.0.0.0:8080`.
-- `make trino-smoke` fails right after `docker compose restart trino` with connection reset/refused:
-  Trino is still starting. Wait until `docker compose ps` shows Trino as healthy, then rerun `make trino-smoke`.
+- Trino checks fail right after `docker compose restart trino` with connection reset/refused:
+  Trino is still starting. Wait until `docker compose ps` shows Trino as healthy, then rerun `curl -fsS http://localhost:8086/v1/info | cat`.
 - Trino bootstrap/sync fails with `Column '<name>' cannot be resolved`:
   Source schema changed relative to bootstrap SQL. Run `DESCRIBE warehouse.landing.<table>` and update `trino/sql/bootstrap_lakehouse.sql` and `trino/sql/incremental_sync_lakehouse.sql` to match current columns.
 - `make trino-sync-lakehouse` fails with `One MERGE target table row matched more than one source row`:
@@ -454,24 +425,21 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 
 ### B1. Preferred bootstrap (one command)
 
-Use this as the default Routine B entrypoint:
+Use this as the default Routine B entrypoint sequence:
 
 ```bash
-make routine-b
+./cicd/k8s/kind/bootstrap-kind.sh
+./cicd/scripts/build-images.sh
+kubectl apply -f cicd/argocd/dev.yaml
 ```
 
-What it does:
-
-- Creates the kind cluster and installs Argo CD (`make kind-bootstrap`)
-- Builds and loads all local app images into kind (`make images`)
-- Deploys the dev stack with local Helm values (`make helm-reboot-dev`)
-
-Validate Trino after bootstrap:
+Validate rollout and Trino endpoint after bootstrap:
 
 ```bash
-make trino-smoke-dev
+kubectl -n argocd get application realtime-dev
+kubectl -n realtime-dev get pods
 kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-trino 8086:8080
-curl -fsS http://localhost:8086/v1/info
+curl -fsS http://localhost:8086/v1/info | cat
 ```
 
 ### B2. Manual bootstrap (equivalent step-by-step)
@@ -499,40 +467,44 @@ Use this only when you want to run each phase independently.
 1. Deploy via local Helm:
 
   ```bash
-  make helm-reboot-dev
+  kubectl apply -f cicd/argocd/dev.yaml
   ```
 
 1. Validate Trino:
 
   ```bash
-  make trino-smoke-dev
+  kubectl -n argocd get application realtime-dev
+  kubectl -n realtime-dev get pods
   kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-trino 8086:8080
-  curl -fsS http://localhost:8086/v1/info
+  curl -fsS http://localhost:8086/v1/info | cat
   ```
 
 Important image prerequisite:
 
-- `make helm-reboot-dev` requires local service images to already exist in the kind node.
-- If pods show `ErrImageNeverPull`, run `make images` and then rerun `make helm-reboot-dev`.
-- If `iceberg-writer` enters `CrashLoopBackOff` after a fresh deploy, the Iceberg JDBC metastore schema was not yet initialized in Postgres. Fix it with `make helm-metastore-migrate-dev`, which creates the required `iceberg_tables` and `iceberg_namespace_properties` tables and restarts Trino and `iceberg-writer`.
+- The deployment requires local service images to already exist in the kind node.
+- If pods show `ErrImageNeverPull`, rerun `./cicd/scripts/build-images.sh` and then re-apply `cicd/argocd/dev.yaml`.
+- If `iceberg-writer` enters `CrashLoopBackOff` after a fresh deploy, verify Postgres metastore initialization and Trino logs before restarting workloads.
 
 ### B3. Day-2 operations and shutdown
 
 Stop local cluster workloads:
 
 ```bash
-make routine-b-down
+kubectl -n argocd delete application realtime-dev || true
+kubectl delete namespace realtime-dev || true
 ```
 
-The one-command bootstrap in B1 mirrors the Docker `make routine-a` experience by performing cluster bootstrap, image build/load, and Helm deploy in one flow.
+The B1 sequence mirrors the Docker `make docker-compose-up` experience by performing cluster bootstrap, image build/load, and app deployment in one flow.
 
 Run unified day-2 operations (Docker-path parity):
 
 ```bash
-make routine-b-ops
+kubectl -n argocd get application realtime-dev
+kubectl -n realtime-dev get pods
+kubectl -n realtime-dev get jobs
 ```
 
-This mirrors the Docker `make routine-a-ops` flow with Kubernetes-native checks for status, MDM topics, Airflow/dbt state, and Trino/Iceberg smoke.
+This mirrors the Docker `make mdm-flow-check` validation concept with Kubernetes-native checks for application and workload state.
 
 ### B4. Optional Argo CD deployment mode
 
@@ -673,7 +645,9 @@ Docker-equivalent reset for Helm path:
 
 ```bash
 kubectl delete namespace realtime-dev --ignore-not-found
-make routine-b
+./cicd/k8s/kind/bootstrap-kind.sh
+./cicd/scripts/build-images.sh
+kubectl apply -f cicd/argocd/dev.yaml
 ```
 
 ### B8. Helm Lakehouse and Airflow health checks

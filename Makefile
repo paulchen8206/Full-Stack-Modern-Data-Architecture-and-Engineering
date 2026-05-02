@@ -33,15 +33,15 @@ images: docker-build
 
 # Show health for MDM CDC pipeline services and Debezium connector status
 mdm-status:
-	docker compose ps mdm_source mdm-connect mdm-connect-init mdm-cdc-producer
+	docker compose ps mdm_source debezium-connect debezium-connect-init mdm-connect mdm-connect-init mdm-cdc-producer
 	@echo ""
 	@echo "Debezium connector status (expects RUNNING):"
-	docker compose exec mdm-connect curl -fsS http://localhost:8083/connectors/debezium-mysql-mdm/status | cat
+	docker compose exec debezium-connect curl -fsS http://localhost:8083/connectors/debezium-mysql-mdm/status | cat
 
 # Consume sample messages from curated MDM topics
 mdm-topics-check:
-	docker compose exec kafka /usr/bin/kafka-console-consumer --bootstrap-server kafka:9092 --topic mdm_customer --max-messages 3 --timeout-ms 15000
-	docker compose exec kafka /usr/bin/kafka-console-consumer --bootstrap-server kafka:9092 --topic mdm_product --max-messages 3 --timeout-ms 15000
+	docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic mdm_customer --max-messages 3 --timeout-ms 15000
+	docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic mdm_product --max-messages 3 --timeout-ms 15000
 
 # Run complete MDM event-flow validation
 mdm-flow-check: mdm-status mdm-topics-check

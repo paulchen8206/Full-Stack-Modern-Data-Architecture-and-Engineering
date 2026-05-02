@@ -1,100 +1,69 @@
-# ADR-0009: Unified Metadata Catalog with OpenMetadata Across Trino, dbt, Airflow, and Kafka
+# ADR-0009: Unified Metadata Catalog with OpenMetadata
 
 - Status: Proposed
 - Date: 2026-04-20
 
-## Purpose
+## 1. Summary
 
-This section defines the purpose of this document.
-Record the decision to evaluate and adopt OpenMetadata as a unified metadata catalog and lineage surface for the local modern data platform.
+This ADR proposes OpenMetadata as the unified metadata and lineage control plane for Trino, dbt, Airflow, and Kafka assets.
 
-## Commands
+## 2. Context
 
-This section defines the primary commands for this document.
-Primary commands related to this decision:
+Metadata is currently distributed across multiple service UIs and artifacts. This creates discovery and lineage friction for engineers and analysts.
 
-- `make trino-smoke`
-- `./trino/scripts/trino-sql.sh "SHOW CATALOGS"`
-- `docker compose up -d openmetadata-server openmetadata-ingestion`
-- Shared targets: `make help`, `make validate`
+A unified catalog is needed for:
 
-## Validation
+- searchable entities
+- cross-system lineage
+- ownership and governance metadata
 
-This section defines the primary validation approach for this document.
-Validate this decision by confirming OpenMetadata can ingest metadata and lineage from Trino, Postgres warehouse catalogs, dbt artifacts, Airflow DAGs, and Kafka topics.
-Validation is successful when key entities are discoverable in the catalog UI and lineage paths match known architecture flows.
+## 3. Decision
 
-## Troubleshooting
+Adopt a phased OpenMetadata rollout in local runtime, then carry that pattern into promotion paths.
 
-This section defines the primary troubleshooting approach for this document.
-If entities do not appear, validate connector credentials and network routing first, then check ingestion workflow logs.
-If lineage is incomplete, verify naming consistency across Trino catalogs, dbt relation naming, and Airflow DAG/task metadata.
+Phase scope:
 
-## References
+1. bring up OpenMetadata server and ingestion runtime
+2. ingest Trino entities and verify catalog coverage
+3. ingest dbt and Airflow metadata for lineage depth
+4. ingest Kafka entities for streaming context
 
-This section defines the primary cross-references for this document.
+## 4. Operational References
 
+- docker compose up -d openmetadata-server openmetadata-ingestion
+- curl -fsS http://localhost:8086/v1/info | cat
+- trino/scripts/trino-sql.sh "SHOW CATALOGS"
+
+## 5. Validation
+
+Validation is successful when:
+
+- key entities from Trino, dbt, Airflow, and Kafka appear in OpenMetadata
+- lineage paths are consistent with architecture documentation
+- ingestion workflows complete without fatal connector failures
+
+## 6. Consequences
+
+Expected positive outcomes:
+
+- centralized metadata discovery
+- stronger governance and lineage visibility
+
+Expected trade-offs:
+
+- added service and ingestion maintenance overhead
+- naming consistency becomes stricter across systems
+
+## 7. Alternatives Considered
+
+- continue using isolated tool-specific UIs only: rejected for poor discoverability
+- custom internal metadata index scripts: rejected for maintenance burden
+
+## 8. References
+
+- [../openmetadata-deployment-plan.md](../openmetadata-deployment-plan.md)
+- [../../docker-compose.yml](../../docker-compose.yml)
 - [0004-trino-lakehouse-query-path-on-minio.md](0004-trino-lakehouse-query-path-on-minio.md)
 - [0005-medallion-elt-with-dbt.md](0005-medallion-elt-with-dbt.md)
 - [0006-airflow-scheduled-dbt-orchestration.md](0006-airflow-scheduled-dbt-orchestration.md)
 - [0008-unified-dbeaver-trino-query-surface.md](0008-unified-dbeaver-trino-query-surface.md)
-- [../runbook.md](../runbook.md)
-- [../openmetadata-deployment-plan.md](../openmetadata-deployment-plan.md)
-- [../../docker-compose.yml](../../docker-compose.yml)
-
-## Context
-
-The current platform has strong execution components and query paths but metadata is spread across tool-specific interfaces.
-
-Current state pain points:
-
-- Table and topic discovery is distributed across Trino, dbt artifacts, Kafka UI, and Airflow UI.
-- Cross-system lineage requires manual correlation between docs and multiple operational dashboards.
-- Ownership, descriptions, and governance tags are not centralized.
-
-The platform already standardized a unified query surface through Trino (ADR-0004 and ADR-0008). A metadata control plane is the next dependency-aligned step for governance and discoverability.
-
-## Decision
-
-Adopt OpenMetadata as the unified metadata catalog layer, integrated incrementally with existing services.
-
-Scope of integration:
-
-- Trino for lakehouse and warehouse metadata discovery
-- Postgres warehouse metadata through Trino and direct service ingestion where needed
-- dbt metadata and lineage from dbt artifacts
-- Airflow pipeline metadata and execution lineage
-- Kafka topic metadata for streaming context
-
-Rollout approach:
-
-1. Deploy OpenMetadata server and ingestion runner in Compose.
-2. Connect Trino and validate core table discovery.
-3. Add dbt and Airflow ingestion for lineage enrichment.
-4. Add Kafka ingestion for topic-level visibility.
-5. Harden ownership, tags, and glossary conventions.
-
-## Consequences
-
-- Positive:
-  - Single discovery surface for datasets, pipelines, and topics
-  - Improved lineage visibility from ingestion through transformation and consumption
-  - Better onboarding and governance through centralized metadata
-- Trade-offs:
-  - Additional service and ingestion workflows to operate
-  - Requires naming discipline to keep lineage accurate
-  - Integration quality depends on connector and artifact availability
-
-## Alternatives considered
-
-- Continue with tool-specific UIs only: rejected due to fragmented discovery and weak cross-system lineage
-- Build custom metadata index scripts: rejected due to maintenance overhead and limited feature depth
-- SaaS catalog only: deferred for local-first parity and reproducibility reasons
-
-## Detailed References
-
-- `docker-compose.yml` — local service topology where OpenMetadata components are added
-- `trino/etc/catalog/` — Trino catalogs used as primary metadata source
-- `analytics/dbt/target/manifest.json` and `analytics/dbt/target/run_results.json` — dbt artifact sources for lineage
-- `platform-services/airflow/dags/dbt_warehouse_schedule.py` — Airflow DAG metadata source
-- `kafka-connect/ods-connect/connector-configs/` — Kafka and connector context for streaming metadata

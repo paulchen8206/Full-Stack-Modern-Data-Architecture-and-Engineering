@@ -218,7 +218,7 @@ routine-a-observe:
 
 
 up: check-tools
-	./scripts/compose-up.sh -d
+	docker compose up -d --build
 
 down: check-tools
 	docker compose down
@@ -239,7 +239,7 @@ consume: ## [A]  Consume messages from a Kafka topic (consolidated)
 	./platform-services/kafka/kafka-topics.sh consume "$(TOPIC)" "$(MESSAGE_COUNT)"
 
 lakehouse-up: ## [A]  Start Kafka Connect + MinIO + Postgres + dbt layer
-	./scripts/compose-up.sh -d minio minio-init trino postgres ods-connect ods-connect-init iceberg-writer airflow
+	docker compose up -d minio minio-init trino postgres ods-connect ods-connect-init iceberg-writer airflow
 
 jdbc-metastore-migrate: ## [A]  Upgrade the Postgres-backed Iceberg JDBC metastore to the V1 schema and restart dependent services
 	docker compose exec -T postgres sh -lc 'until pg_isready -U analytics -d analytics >/dev/null 2>&1; do sleep 1; done; psql -U analytics -d analytics -c "ALTER TABLE IF EXISTS iceberg_tables ADD COLUMN IF NOT EXISTS iceberg_type varchar(5);"'
@@ -249,10 +249,10 @@ lakehouse-down: ## [A]  Stop Kafka Connect + MinIO + Postgres + dbt layer
 	docker compose stop airflow iceberg-writer ods-connect-init ods-connect postgres trino minio-init minio
 
 airflow-up: ## [A]  Start Apache Airflow for scheduled dbt runs
-	./scripts/compose-up.sh -d --build airflow
+	docker compose up -d --build airflow
 
 airflow-dbt-reboot: ## [A]  Rebuild/restart Airflow, run dbt once, then show airflow/dbt status
-	./scripts/compose-up.sh -d --build airflow
+	docker compose up -d --build airflow
 	docker compose run --rm dbt
 	docker compose ps airflow dbt
 

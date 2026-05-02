@@ -20,13 +20,13 @@ Use architecture notes in this document to diagnose design-level issues, then us
 
 ## References
 
-- [../README.md](../README.md)
+- [../readme.md](../readme.md)
 - [runbook.md](runbook.md)
 - [adr/README.md](adr/README.md)
 
 ## Documentation Map
 
-- Project entrypoint: [../README.md](../README.md)
+- Project entrypoint: [../readme.md](../readme.md)
 - Operations runbook: [runbook.md](runbook.md)
 - Architecture Decision Records (ADR): [adr/README.md](adr/README.md)
 
@@ -778,26 +778,21 @@ Use this quick map to connect architecture responsibilities in this document to 
 
 | Architecture responsibility | Primary routine | Make target(s) |
 | --- | --- | --- |
-| Discover available operational commands | Shared | `make help` |
-| Validate build and deployment templates | Shared | `make validate` |
-| Bring up local runtime services | Routine A (Docker Compose) | `make up`, `make lakehouse-up` |
-| Bootstrap local runtime services + Kafka topics | Routine A (Docker Compose) | `make routine-a` |
-| Validate realtime and lakehouse data flow | Routine A (Docker Compose) | `make topics-check`, `make iceberg-streaming-smoke` |
-| Run ELT transformations | Routine A (Docker Compose) | `make dbt-run`, `make verify-warehouse`, `make verify-dbt-relations` |
-| Operate Airflow-driven dbt scheduling | Routine A (Docker Compose) | `make airflow-up`, `make airflow-trigger-dbt-dag`, `make airflow-dbt-reboot` |
-| Run day-2 unified local operations | Routine A (Docker Compose) | `make routine-a-ops` |
-| Bootstrap GitOps-style local cluster | Routine B (kind + Helm + Argo CD) | `make routine-b`, `make routine-b-argocd` |
-| Recover missing Argo CD app object | Routine B (kind + Helm + Argo CD) | `kubectl apply -f cicd/argocd/dev.yaml`, `kubectl -n argocd get application realtime-dev` |
-| Run day-2 unified cluster operations | Routine B (kind + Helm + Argo CD) | `make routine-b-ops` |
-| Validate cluster health and app rollout | Routine B (kind + Helm + Argo CD) | `make ops-status-dev`, `make helm-health-dev`, `make airflow-dbt-check-dev`, `make mdm-topics-check-dev`, `make trino-smoke-dev`, `make iceberg-streaming-smoke-dev` |
-| Bootstrap Iceberg JDBC V1 metastore schema in k8s Postgres | Routine B (kind + Helm + Argo CD) | `make helm-metastore-migrate-dev` |
-| Access cluster web operational surfaces | Routine B (kind + Helm + Argo CD) | `kubectl -n argocd port-forward svc/argocd-server 8443:443`, `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-kafka-ui 8082:8080`, `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-grafana 3001:3000`, `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-airflow 8084:8080`, `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-minio 9001:9001`, `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-trino 8086:8080` |
+| Build runtime images | Shared | `make docker-build` |
+| Bring up local runtime services | Routine A (Docker Compose) | `make docker-compose-up` |
+| Stop local runtime services | Routine A (Docker Compose) | `make docker-compose-down` |
+| Clean Docker resources | Routine A (Docker Compose) | `make docker-clean` |
+| Validate Debezium connector and MDM services | Routine A (Docker Compose) | `make mdm-status` |
+| Validate curated MDM topic output | Routine A (Docker Compose) | `make mdm-topics-check` |
+| Run end-to-end MDM flow validation | Routine A (Docker Compose) | `make mdm-flow-check` |
+| Bootstrap GitOps-style local cluster | Routine B (kind + Helm + Argo CD) | `./cicd/k8s/kind/bootstrap-kind.sh`, `./cicd/scripts/build-images.sh`, `kubectl apply -f cicd/argocd/dev.yaml` |
+| Validate cluster health and app rollout | Routine B (kind + Helm + Argo CD) | `kubectl -n argocd get application realtime-dev`, `kubectl -n realtime-dev get pods` |
 
 Cross-reference note:
 
 - Architecture rationale stays in this document.
 - Step-by-step operator procedure stays in [docs/runbook.md](docs/runbook.md).
-- Command implementation source of truth stays in [Makefile](../Makefile).
+- Command implementation source of truth stays in [Makefile](../Makefile). Legacy command sets are retained in [Makefile.bak](../Makefile.bak) for historical reference.
 
 ## 9. CI/CD and GitOps Design
 
@@ -832,11 +827,11 @@ Diagram: tooling validation flowchart.
 
 ```mermaid
 flowchart LR
-  A[make validate] --> B[docker compose config]
+  A[make mdm-flow-check] --> B[docker compose config]
   A --> C[helm lint and render]
   D[make openmetadata-status] --> E[OpenMetadata health]
   F[make ops-status] --> G[Runtime endpoint checks]
-  H[make routine-b-ops] --> I[GitOps runtime parity checks]
+  H[kubectl get app and pods] --> I[GitOps runtime parity checks]
 ```
 
 ## 10. Non-Functional Considerations

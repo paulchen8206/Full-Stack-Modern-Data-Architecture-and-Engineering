@@ -3,69 +3,61 @@
 - Status: Accepted
 - Date: 2026-04-18
 
-## Purpose
+## 1. Summary
 
-This section defines the purpose of this document.
-Record the decision to center the local lakehouse query path on Trino with Iceberg-compatible tables on MinIO.
+Trino is the primary SQL query path for MinIO-backed Iceberg lakehouse datasets in local runtime.
 
-## Commands
+## 2. Context
 
-This section defines the primary commands for this document.
-Primary commands related to this decision:
+The project requires a lakehouse query layer that supports open table semantics while remaining fully local and reproducible.
 
-- `make trino-smoke`
-- `make trino-bootstrap-lakehouse`
-- `make trino-rebuild-lakehouse`
-- `make iceberg-streaming-smoke`
-- Shared targets: `make help`, `make validate`
+A direct object-store-only path is insufficient for governed SQL access and operational validation.
 
-## Validation
+## 3. Decision
 
-This section defines the primary validation approach for this document.
-Validate this decision by confirming Trino health and by verifying non-zero row counts in streaming Iceberg tables.
-Use `make help` to verify target discoverability and `make validate` to confirm baseline build/render checks pass.
+Adopt Trino as the query engine and entrypoint for lakehouse access.
 
-## Troubleshooting
+Support two ingestion patterns:
 
-This section defines the primary troubleshooting approach for this document.
-If query, metastore, or writer behavior fails, use Trino and Iceberg smoke checks before changing model or connector logic.
+- bridge path from landing tables into Iceberg
+- direct streaming path through iceberg-writer into Iceberg
 
-## References
+## 4. Operational References
 
-This section defines the primary cross-references for this document.
+- curl -fsS http://localhost:8086/v1/info | cat
+- trino/scripts/trino-sql.sh "SHOW CATALOGS"
+- trino/scripts/trino-sql.sh "SHOW SCHEMAS FROM lakehouse"
+- trino/scripts/trino-sql.sh "SHOW TABLES FROM lakehouse.streaming"
+
+## 5. Validation
+
+Validation is successful when:
+
+- Trino endpoint is reachable
+- lakehouse catalog is visible
+- streaming Iceberg tables are queryable
+- table row counts increase under active data flow
+
+## 6. Consequences
+
+Positive outcomes:
+
+- SQL-governed access to local lakehouse datasets
+- unified analytics access layer
+
+Trade-offs:
+
+- metastore and catalog configuration complexity
+- lakehouse path introduces additional operational dependencies
+
+## 7. Alternatives Considered
+
+- Postgres-only analytics path: rejected because it does not represent lakehouse behavior
+- object storage sink without SQL query layer: rejected because validation and consumption are weaker
+
+## 8. References
 
 - [../architecture.md](../architecture.md)
-- [../../README.md](../../README.md)
-
-## Context
-
-The platform needs a local lakehouse query layer with open-table-format semantics while staying compatible with MinIO for development.
-
-## Decision
-
-Use Trino as the query engine and operational entry point for Iceberg-compatible tables on MinIO.
-
-Adopt two complementary data paths:
-
-- Bridge path: materialize Iceberg tables from Postgres `landing` data
-- Streaming path: write Kafka topics directly to Iceberg through `iceberg-writer`
-
-## Consequences
-
-- Positive:
-  - SQL-accessible lakehouse layer during local development
-  - Supports both bootstrap and streaming ingestion patterns
-  - Keeps future cloud migration options open
-- Trade-offs:
-  - Additional operational complexity for metastore/schema compatibility
-  - Requires robust smoke checks to catch catalog/topic drift early
-
-## Alternatives considered
-
-- Postgres warehouse only: rejected because it does not demonstrate lakehouse query behavior
-- Object storage sink without query layer: rejected because it limits validation and analytics usage
-
-## Detailed References
-
-- ../architecture.md
-- ../../README.md
+- [../../trino/etc/catalog/lakehouse.properties](../../trino/etc/catalog/lakehouse.properties)
+- [../../trino/sql](../../trino/sql)
+- [../../processing-apps/iceberg-writer](../../processing-apps/iceberg-writer)

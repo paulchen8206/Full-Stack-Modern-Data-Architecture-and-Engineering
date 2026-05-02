@@ -3,74 +3,64 @@
 - Status: Accepted
 - Date: 2026-04-18
 
-## Purpose
+## 1. Summary
 
-This section defines the purpose of this document.
-Record the decision to standardize day-2 operations through Make targets across both local runtime modes.
+Day-2 local operations are standardized on a compact set of Make targets as the primary executable command interface.
 
-## Commands
+## 2. Context
 
-This section defines the primary commands for this document.
-Primary commands related to this decision:
+Operational guidance historically drifted between raw docker compose commands, helper scripts, and outdated Make targets.
 
-- `make routine-a-ops`
-- `make routine-b-ops`
-- `make trino-smoke`
-- `make trino-smoke-dev`
-- Shared targets: `make help`, `make validate`
+A narrow, stable command surface is required for repeatability.
 
-## Validation
+## 3. Decision
 
-This section defines the primary validation approach for this document.
-Validate this decision by confirming Make targets execute repeatable status, dataflow, and smoke checks for both routines.
-Use `make help` to verify target discoverability and `make validate` to confirm baseline build/render checks pass.
+Use Make targets in [../../Makefile](../../Makefile) as the canonical day-2 command interface for local runtime operations.
 
-## Troubleshooting
+Canonical target set:
 
-This section defines the primary troubleshooting approach for this document.
-If operational behavior drifts, troubleshoot target wrappers and underlying scripts together to keep a single command interface.
+- make docker-build
+- make docker-compose-up
+- make docker-compose-down
+- make docker-clean
+- make mdm-status
+- make mdm-topics-check
+- make mdm-flow-check
 
-## References
+## 4. Operational References
 
-This section defines the primary cross-references for this document.
+- make docker-compose-up
+- make mdm-flow-check
+- make docker-compose-down
+- make docker-clean
 
-- [../architecture.md](../architecture.md)
-- [../runbook.md](../runbook.md)
+## 5. Validation
+
+Validation is successful when:
+
+- all canonical targets execute successfully in a clean local environment
+- command usage in docs remains aligned with current Makefile
+- MDM status and topic checks provide expected validation signals
+
+## 6. Consequences
+
+Positive outcomes:
+
+- consistent operator command surface
+- easier onboarding and lower ambiguity
+
+Trade-offs:
+
+- Makefile changes must be treated as architecture-impacting changes
+- documentation must be updated in lockstep with command-surface updates
+
+## 7. Alternatives Considered
+
+- script-only interface: rejected due to discoverability and drift risk
+- runbook-only copy/paste commands with no canonical target layer: rejected due to weak consistency
+
+## 8. References
+
 - [../../Makefile](../../Makefile)
-
-## Context
-
-Operational workflows were historically fragmented across direct Docker, kubectl, and helper scripts. This made routine checks harder to reproduce and increased doc drift.
-
-## Decision
-
-Use Make targets as the normalized operational interface for day-2 checks and maintenance tasks across both local runtime modes.
-
-Key examples:
-
-- Routine A: `make routine-a-ops`
-- Routine B: `make routine-b-ops`
-- Trino smoke checks: `make trino-smoke` and `make trino-smoke-dev`
-- Iceberg streaming checks: `make iceberg-streaming-smoke` and `make iceberg-streaming-smoke-dev`
-- Shared discovery/validation checks: `make help` and `make validate`
-
-## Consequences
-
-- Positive:
-  - Repeatable operations with less command drift
-  - Easier onboarding and runbook consistency
-  - Clear architecture-to-operations mapping in documentation
-- Trade-offs:
-  - Makefile maintenance becomes part of architecture governance
-  - Underlying script behavior changes must be reflected in wrapper targets
-
-## Alternatives considered
-
-- Script-only interface: rejected due to discoverability and consistency gaps
-- Ad hoc command guidance in docs only: rejected due to low repeatability
-
-## Detailed References
-
-- ../architecture.md
-- ../runbook.md
-- ../../Makefile
+- [../runbook.md](../runbook.md)
+- [../architecture.md](../architecture.md)

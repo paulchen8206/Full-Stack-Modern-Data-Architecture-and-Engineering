@@ -3,67 +3,61 @@
 - Status: Accepted
 - Date: 2026-04-18
 
-## Purpose
+## 1. Summary
 
-This section defines the purpose of this document.
-Record the decision to use CDC-based MDM enrichment for master data propagation across streaming and analytics layers.
+Master-data propagation uses a CDC-driven pipeline from MySQL source tables through Debezium into curated MDM Kafka topics and downstream landing synchronization.
 
-## Commands
+## 2. Context
 
-This section defines the primary commands for this document.
-Primary commands related to this decision:
+Customer and product master data must remain synchronized across streaming and analytics targets with low-latency updates and clear lineage.
 
-- `make mdm-topics-check`
-- `make mdm-topics-check-dev`
-- Shared targets: `make help`, `make validate`
+Polling-only approaches are slower and less robust for change tracking.
 
-## Validation
+## 3. Decision
 
-This section defines the primary validation approach for this document.
-Validate this decision by confirming records flow through curated MDM topics and into landing tables used by downstream models.
-Use `make help` to verify target discoverability and `make validate` to confirm baseline build/render checks pass.
+Adopt this flow:
 
-## Troubleshooting
+1. mdm-source MySQL stores master entities
+2. debezium-connect captures row-level CDC events
+3. mdm-cdc-producer republishes curated topics such as mdm_customer and mdm_product
+4. mdm-pyspark-sync mirrors MDM source tables into Postgres landing schemas
 
-This section defines the primary troubleshooting approach for this document.
-If MDM topics or landing tables are empty, troubleshoot connector health and sync services before changing dbt logic.
+## 4. Operational References
 
-## References
+- make mdm-status
+- make mdm-topics-check
+- make mdm-flow-check
+- kafka-connect/scripts/register-debezium-connectors.sh
+- kafka-connect/scripts/register-mdm-connectors.sh
 
-This section defines the primary cross-references for this document.
+## 5. Validation
+
+Validation is successful when:
+
+- Debezium connector status is RUNNING
+- curated MDM topics contain records
+- downstream landing MDM tables receive synchronized rows
+
+## 6. Consequences
+
+Positive outcomes:
+
+- near-real-time master-data propagation
+- explicit separation of raw CDC and curated domain topics
+
+Trade-offs:
+
+- additional operational components to monitor
+- connector health becomes a hard runtime dependency
+
+## 7. Alternatives Considered
+
+- batch-only sync: rejected due to freshness lag
+- direct polling without CDC: rejected due to higher load and weaker change semantics
+
+## 8. References
 
 - [../runbook.md](../runbook.md)
 - [../../kafka-connect/debezium-connect/connector-configs/debezium-mysql-mdm.json](../../kafka-connect/debezium-connect/connector-configs/debezium-mysql-mdm.json)
-
-## Context
-
-Customer and product master data changes must be propagated consistently into streaming and analytics layers with low lag and clear lineage.
-
-## Decision
-
-Implement MDM enrichment through a CDC-driven flow:
-
-1. MySQL MDM stores source-of-truth master data.
-2. Debezium captures row-level changes.
-3. CDC events are republished into curated topics (`mdm_customer`, `mdm_product`).
-4. `mdm-pyspark-sync` mirrors MDM tables into Postgres landing tables for downstream dbt models.
-
-## Consequences
-
-- Positive:
-  - Near-realtime master data propagation
-  - Clear separation between source CDC events and curated domain topics
-  - Better downstream consistency for dbt dimensions and facts
-- Trade-offs:
-  - More moving parts and connector operational dependencies
-  - Requires connector/topic health checks in routine operations
-
-## Alternatives considered
-
-- Batch-only master data sync: rejected due to slower freshness and weaker event lineage
-- Direct table polling without CDC: rejected due to higher load and less robust change capture semantics
-
-## Detailed References
-
-- ../runbook.md
-- ../../kafka-connect/debezium-connect/connector-configs/debezium-mysql-mdm.json
+- [../../processing-apps/mdm-cdc-producer](../../processing-apps/mdm-cdc-producer)
+- [../../processing-apps/mdm-pyspark-sync](../../processing-apps/mdm-pyspark-sync)

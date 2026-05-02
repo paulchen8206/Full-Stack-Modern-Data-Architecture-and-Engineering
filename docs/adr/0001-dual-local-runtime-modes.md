@@ -1,72 +1,72 @@
-# ADR-0001: Local Runtime Strategy with Compose and kind+Helm+Argo CD
+# ADR-0001: Dual Local Runtime Strategy (Compose and kind + Helm + Argo CD)
 
 - Status: Accepted
 - Date: 2026-04-18
 
-## Purpose
+## 1. Summary
 
-This section defines the purpose of this document.
-Record the decision to support both Compose and kind plus Helm plus Argo CD as first-class local runtime modes.
+The platform supports two first-class local runtime modes: Docker Compose for rapid iteration and kind + Helm + Argo CD for GitOps-oriented parity validation.
 
-## Commands
+## 2. Context
 
-This section defines the primary commands for this document.
-Primary commands related to this decision:
+A single local runtime mode does not satisfy both needs:
 
-- `make routine-a-ops`
-- `make routine-b`
-- `make routine-b-ops`
-- Shared targets: `make help`, `make validate`
+- fast feedback for daily development
+- Kubernetes and GitOps workflow rehearsal before environment promotion
 
-## Validation
+Teams need a quick inner loop and a deployment-like rehearsal path in the same repository.
 
-This section defines the primary validation approach for this document.
-Validate this decision by confirming both routines remain operational and documented with matched day-2 workflows.
-Use `make help` to verify target discoverability and `make validate` to confirm baseline build/render checks pass.
+## 3. Decision
 
-## Troubleshooting
+Adopt a dual runtime strategy:
 
-This section defines the primary troubleshooting approach for this document.
-If one routine drifts from the other in behavior or docs, resolve command and runbook parity before adding new routine-specific logic.
+- Routine A: Docker Compose as the default local development runtime
+- Routine B: kind cluster plus Helm charts plus Argo CD application reconciliation for GitOps-style validation
 
-## References
+Both paths are officially supported and documented.
 
-This section defines the primary cross-references for this document.
+## 4. Operational References
+
+Routine A baseline commands:
+
+- make docker-compose-up
+- make docker-compose-down
+- make mdm-flow-check
+
+Routine B baseline sequence:
+
+- ./cicd/k8s/kind/bootstrap-kind.sh
+- ./cicd/scripts/build-images.sh
+- kubectl apply -f cicd/argocd/dev.yaml
+
+## 5. Validation
+
+Validation is successful when:
+
+- Compose services start and pass flow checks
+- kind + Argo CD path deploys workloads successfully
+- documentation remains consistent across both routines
+
+## 6. Consequences
+
+Positive outcomes:
+
+- faster day-to-day coding loop
+- better production-style rollout simulation
+
+Trade-offs:
+
+- two operational paths to maintain
+- greater documentation drift risk if updates are not synchronized
+
+## 7. Alternatives Considered
+
+- Compose only: rejected due to lack of Kubernetes/GitOps rehearsal
+- Kubernetes only: rejected due to slower developer feedback loop
+
+## 8. References
 
 - [../runbook.md](../runbook.md)
-- [../../README.md](../../README.md)
-
-## Context
-
-The project needs a fast inner loop for local development and a Kubernetes/GitOps loop that mirrors production-style operations.
-
-A single runtime mode cannot optimize both developer speed and deployment parity.
-
-## Decision
-
-Support two first-class local runtime modes:
-
-- Routine A: Docker Compose for fast local iteration
-- Routine B: kind + Helm + Argo CD for Kubernetes and GitOps simulation
-
-Both modes are treated as supported paths, with matched day-2 operation targets.
-
-## Consequences
-
-- Positive:
-  - Faster feature iteration in Compose
-  - Better deployment parity testing in kind/Argo CD
-  - Lower friction for onboarding teams with different workflow needs
-- Trade-offs:
-  - Duplicate operational surface area
-  - Ongoing requirement to keep docs and commands aligned across both routines
-
-## Alternatives considered
-
-- Compose only: rejected because it does not validate cluster/GitOps behavior
-- Kubernetes only: rejected because local development loop becomes slower for frequent code changes
-
-## Detailed References
-
-- ../runbook.md
-- ../../README.md
+- [../../readme.md](../../readme.md)
+- [../../docker-compose.yml](../../docker-compose.yml)
+- [../../cicd/argocd/dev.yaml](../../cicd/argocd/dev.yaml)

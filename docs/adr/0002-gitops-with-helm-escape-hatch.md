@@ -1,71 +1,66 @@
-# ADR-0002: GitOps Delivery via Argo CD with Local Helm Validation Path
+# ADR-0002: GitOps Delivery with Argo CD and Local Helm Validation Escape Hatch
 
 - Status: Accepted
 - Date: 2026-04-18
 
-## Purpose
+## 1. Summary
 
-This section defines the purpose of this document.
-Record the decision to use Argo CD as the GitOps reconciler while retaining direct local Helm commands for rapid validation.
+Argo CD is the reconciliation authority for Kubernetes runtime state, with an explicit local Helm validation escape hatch for rapid chart debugging.
 
-## Commands
+## 2. Context
 
-This section defines the primary commands for this document.
-Primary commands related to this decision:
+Pure GitOps flows are reproducible but can slow iterative chart debugging. Pure local Helm flows are faster but can introduce source-of-truth drift.
 
-- `kubectl apply -f cicd/argocd/dev.yaml`
-- `make helm-reboot-dev`
-- `make helm-health-dev`
-- Shared targets: `make help`, `make validate`
+The platform needs both:
 
-## Validation
+- Git-defined desired state
+- practical local chart iteration before commit
 
-This section defines the primary validation approach for this document.
-Validate this decision by confirming Argo CD sync health and by verifying local Helm changes can be tested before commit and sync.
-Use `make help` to verify target discoverability and `make validate` to confirm baseline build/render checks pass.
+## 3. Decision
 
-## Troubleshooting
+Use Argo CD as the default delivery mechanism for environment state. Allow direct local Helm rendering and validation only as a temporary debugging path.
 
-This section defines the primary troubleshooting approach for this document.
-If GitOps and local Helm behavior diverge, re-align by committing chart changes and reconciling through Argo CD.
+Any local Helm-only change must be committed and reconciled through Argo CD.
 
-## References
+## 4. Operational References
 
-This section defines the primary cross-references for this document.
+Primary GitOps path:
+
+- kubectl apply -f cicd/argocd/dev.yaml
+- kubectl -n argocd get application realtime-dev
+
+Local validation path:
+
+- helm dependency build cicd/charts/realtime-app
+- helm template realtime-dev cicd/charts/realtime-app -f cicd/k8s/helm/values/values-dev.yaml
+
+## 5. Validation
+
+Validation is successful when:
+
+- Argo CD application status is healthy and synced
+- rendered Helm manifests are valid for the selected values file
+- runtime workloads in namespace realtime-dev are healthy
+
+## 6. Consequences
+
+Positive outcomes:
+
+- reproducible desired-state deployment model
+- faster local troubleshooting for chart logic
+
+Trade-offs:
+
+- temporary drift risk when using local Helm path
+- additional process discipline required to converge back to GitOps
+
+## 7. Alternatives Considered
+
+- Argo CD only with no local Helm path: rejected due to slow debug loops
+- local Helm only with no Argo CD: rejected due to weaker reconciliation guarantees
+
+## 8. References
 
 - [../runbook.md](../runbook.md)
 - [../../cicd/argocd/dev.yaml](../../cicd/argocd/dev.yaml)
-
-## Context
-
-Routine B uses Argo CD to reconcile Helm state from Git. During local chart iteration, immediate validation is still needed before committing and syncing via Argo CD.
-
-## Decision
-
-Use Argo CD as the source-of-truth reconciler for Routine B, while keeping direct local Helm commands as an explicit temporary escape hatch for fast validation.
-
-Primary commands:
-
-- `kubectl apply -f cicd/argocd/dev.yaml`
-- `make helm-reboot-dev`
-- `make helm-health-dev`
-- Shared targets: `make help`, `make validate`
-
-## Consequences
-
-- Positive:
-  - Preserves GitOps discipline for declared environments
-  - Keeps local chart debugging fast and practical
-- Trade-offs:
-  - Risk of temporary drift if local Helm changes are not committed and re-synced through Argo CD
-  - Requires explicit runbook guidance on when to use each path
-
-## Alternatives considered
-
-- Argo CD only with no direct Helm path: rejected due to slow local troubleshooting loops
-- Helm only with no Argo CD reconciliation: rejected because it weakens GitOps validation and promotion workflow
-
-## Detailed References
-
-- ../runbook.md
-- ../../cicd/argocd/dev.yaml
+- [../../cicd/charts/realtime-app](../../cicd/charts/realtime-app)

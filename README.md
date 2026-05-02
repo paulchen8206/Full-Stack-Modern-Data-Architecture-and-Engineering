@@ -20,6 +20,7 @@ A reference implementation of a production-grade modern data platform covering r
 - [Lakehouse/Warehouse Target Options](#lakehousewarehouse-target-options)
 - [Build Commands](#build-commands)
 - [Documentation Map](#documentation-map)
+- [Subproject READMEs](#subproject-readmes)
 - [Notes](#notes)
 
 ## What This Project Demonstrates
@@ -105,6 +106,19 @@ For full migration detail and workflow, see [docs/architecture.md](docs/architec
 | [docs/runbook.md](docs/runbook.md) | Day-2 operations procedures for Compose and Argo CD workflows |
 | [docs/adr/README.md](docs/adr/README.md) | Architecture Decision Records (ADRs) |
 
+## Subproject READMEs
+
+| Subproject | README |
+| --- | --- |
+| Source applications | [source-apps/readme.md](source-apps/readme.md) |
+| Processing applications | [processing-apps/readme.md](processing-apps/readme.md) |
+| Kafka Connect integration | [kafka-connect/readme.md](kafka-connect/readme.md) |
+| Platform services | [platform-services/readme.md](platform-services/readme.md) |
+| CI/CD and GitOps | [cicd/readme.md](cicd/readme.md) |
+| Analytics | [analytics/readme.md](analytics/readme.md) |
+| Trino integration | [trino/readme.md](trino/readme.md) |
+| Observability stack | [observability/readme.md](observability/readme.md) |
+
 ## Complete Tooling Inventory
 
 The table below lists the tooling used across local runtime, data processing, orchestration, deployment, and observability.
@@ -173,41 +187,40 @@ All local development, validation, and troubleshooting flows are now consolidate
 ### Start the Full Stack (Routine A)
 
 ```bash
-make routine-a         # Brings up the stack and creates topics
+make docker-compose-up
 ```
 
-Or, to start only the Compose stack (no topic bootstrap):
+Build images explicitly when needed:
 
 ```bash
-make up
+make docker-build
 ```
 
-Or, use the script wrapper (enforces metastore upgrade):
+Run Docker Compose directly (equivalent runtime path):
 
 ```bash
-./scripts/compose-up.sh
+docker compose up -d --build
 ```
 
 ### Validate and Operate
 
 ```bash
-make routine-a-ops     # Unified day-2 operations
-make help              # List all available targets
-make validate          # Run local validation bundle
+make mdm-status
+make mdm-topics-check
+make mdm-flow-check
 ```
 
 ### Common Operations
 
 | Command | Purpose |
 | --- | --- |
-| `make dbt-run` | Run dbt models |
-| `make airflow-up` | Start Airflow |
-| `make kafka-ui-up` | Start Kafka UI |
-| `make mdm-up` | Start MDM services |
-| `make ops-status` | Show overall service health |
-| `make trino-smoke` | Quick Trino health check |
-| `make trino-bootstrap-lakehouse` | Bootstrap Iceberg tables |
-| `make iceberg-streaming-smoke` | Validate streaming Iceberg tables |
+| `make docker-build` | Build all runtime images |
+| `make docker-compose-up` | Start the compose stack |
+| `make docker-compose-down` | Stop the compose stack |
+| `make docker-clean` | Remove compose resources and prune unused Docker artifacts |
+| `make mdm-status` | Check MDM CDC service and Debezium connector status |
+| `make mdm-topics-check` | Consume sample curated MDM topic records |
+| `make mdm-flow-check` | Run combined MDM status plus topic validation |
 
 ### Endpoints
 
@@ -227,7 +240,7 @@ make validate          # Run local validation bundle
 
 ### Container Behavior
 
-- One-shot init containers (`topic-init`, `minio-init`, `debezium-connect-init`) and `dbt` will exit with code 0 after completion.
+- One-shot init containers (`kafka-init`, `schema-init`, `minio-init`, `debezium-connect-init`, `ods-connect-init`, `mdm-connect-init`) and `dbt` will exit with code 0 after completion.
 - Trino may start successfully even if no Iceberg tables exist yet (expected until MinIO sink path is upgraded).
 
 ### Troubleshooting FAQ
@@ -245,7 +258,7 @@ make validate          # Run local validation bundle
 For Kubernetes/GitOps simulation, use:
 
 ```bash
-make routine-b
+./cicd/k8s/kind/bootstrap-kind.sh
 ```
 
 See [docs/runbook.md](docs/runbook.md) for full Routine B and k8s flows.
@@ -253,19 +266,22 @@ See [docs/runbook.md](docs/runbook.md) for full Routine B and k8s flows.
 Bootstrap local cluster via Argo CD app:
 
 ```bash
-make routine-b-argocd
+./cicd/scripts/build-images.sh
+kubectl apply -f cicd/argocd/dev.yaml
 ```
 
 Stop local cluster workloads:
 
 ```bash
-make routine-b-down
+kubectl -n argocd delete application realtime-dev || true
+kubectl delete namespace realtime-dev || true
 ```
 
 Run unified day-2 operations (Docker-path parity):
 
 ```bash
-make routine-b-ops
+kubectl -n argocd get application realtime-dev
+kubectl -n realtime-dev get pods
 ```
 
 Recommended command order (matches the runbook):
@@ -273,7 +289,7 @@ Recommended command order (matches the runbook):
 1. Create kind cluster and install Argo CD:
 
    ```bash
-   ./scripts/bootstrap-kind.sh
+   ./cicd/k8s/kind/bootstrap-kind.sh
    ```
 
 2. Build and load local images into kind:
@@ -312,10 +328,12 @@ Recommended command order (matches the runbook):
    make helm-health-dev
    ```
 
-5. Run unified day-2 operations:
+5. Run cluster validation checks:
 
    ```bash
-   make routine-b-ops
+   kubectl -n argocd get application realtime-dev
+   kubectl -n realtime-dev get pods
+   kubectl -n realtime-dev get jobs
    ```
 
 6. Validate processor pipeline logs:
@@ -452,17 +470,18 @@ SELECT * FROM lakehouse.demo.sample_orders LIMIT 10;
 
 ### MDM CDC Layer
 
-- `mysql-mdm` stores MDM entities:
+- `mdm-source` stores MDM entities:
   - `mdm.customer360` aligned to customer dimension semantics.
   - `mdm.product_master` aligned to product dimension semantics.
 - `mdm-source` continuously inserts and updates those master records through its built-in data generator.
-- `mdm-connect` runs Debezium MySQL source connector (`debezium-mysql-mdm`).
+- `debezium-connect` runs Debezium MySQL source connector (`debezium-mysql-mdm`).
 - Debezium raw CDC topics:
   - `mdm_mysql.mdm.customer360`
   - `mdm_mysql.mdm.product_master`
 - `mdm-cdc-producer` consumes raw CDC and republishes curated MDM topics:
   - `mdm_customer`
   - `mdm_product`
+- `mdm-connect` runs MDM sink connectors to downstream stores.
 - `mdm-pyspark-sync` periodically reads MySQL MDM source tables and writes them into Postgres `landing.mdm_customer360`, `landing.mdm_product_master`, and `landing.mdm_date`.
 
 ### dbt and Warehouse Layer
@@ -496,34 +515,31 @@ Run these checks after startup to validate each pipeline layer.
 Validate Kafka topic fan-out:
 
 ```bash
-./scripts/check-pipeline-topics.sh
+docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic raw_sales_orders --max-messages 1 --timeout-ms 15000
+docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic sales_order --max-messages 1 --timeout-ms 15000
+docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic sales_order_line_item --max-messages 1 --timeout-ms 15000
+docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic customer_sales --max-messages 1 --timeout-ms 15000
 ```
 
 Validate landing, bronze, silver, and gold row counts in Postgres:
 
 ```bash
-make verify-warehouse
-```
-
-List dbt-created relations and materializations:
-
-```bash
-make verify-dbt-relations
+docker compose exec -T snowflake-mimic psql -U analytics -d analytics -c "SELECT count(*) AS landing_sales_order FROM landing.sales_order; SELECT count(*) AS landing_sales_order_line_item FROM landing.sales_order_line_item; SELECT count(*) AS landing_customer_sales FROM landing.customer_sales;"
 ```
 
 Rerun dbt manually if needed:
 
 ```bash
-make dbt-run
+docker compose run --rm dbt
 ```
 
-Trigger the scheduled Airflow DAG immediately:
+Start Airflow for scheduled runs:
 
 ```bash
-make airflow-trigger-dbt-dag
+docker compose up -d --build airflow
 ```
 
-> `make dbt-run` uses `docker compose run --rm dbt`, so Compose may briefly wait on dependencies before the dbt command starts.
+> `docker compose run --rm dbt` may briefly wait on dependencies before the dbt command starts.
 
 ## Validation Snapshot (2026-04-20)
 
@@ -537,23 +553,21 @@ Static validation:
 
 Runtime validation (Routine A — Docker Compose):
 
-- `make routine-a` completed successfully. All containers Running or Exited (0).
-- `make verify-warehouse` confirmed row counts: `landing_sales_order=1847`, `landing_sales_order_line_item=4548`, `landing_customer_sales=1847`, `bronze_sales_order=1847`, `bronze_sales_order_line_item=4548`, `bronze_customer_sales=1847`, `silver_fact_sales_order=4059`, `gold_customer_sales_summary=1649`.
-- `make trino-smoke` passed: Trino coordinator healthy (`uptime` reported, `starting=false`).
-- `make iceberg-streaming-smoke` passed: `sales_order`, `sales_order_line_item`, `customer_sales` all had non-zero row counts in `lakehouse.streaming`.
+- `make docker-compose-up` completed successfully. Core containers were Running and one-shot init/dbt containers exited with code 0.
+- Landing row counts were confirmed in `snowflake-mimic` for `landing.sales_order`, `landing.sales_order_line_item`, and `landing.customer_sales`.
+- Trino coordinator endpoint check passed: `curl -fsS http://localhost:8086/v1/info | cat`.
+- Curated MDM topic checks passed via `make mdm-topics-check`.
 - `make mdm-topics-check` consumed records from `mdm_customer` and `mdm_product`.
-- Airflow UI reachable at `http://localhost:8084` after `make airflow-up`.
-- `make trino-bootstrap-lakehouse` passed after aligning bootstrap SQL with current landing column names.
-- `make trino-sync-lakehouse` currently fails when MERGE keys are duplicated in source rows (known caveat; see runbook troubleshooting).
+- Airflow UI reachable at `http://localhost:8084` after `docker compose up -d --build airflow`.
 - OpenMetadata hardening checks passed after enabling query stats and local schema registry: `docker compose up -d snowflake-mimic schema-registry`, `make openmetadata-ingest-postgres` completed with `GetQueries` passed, and `make openmetadata-ingest-kafka` completed with `CheckSchemaRegistry` passed and Kafka workflow `Warnings: 0`.
 
 Runtime validation (Routine B cluster — 2026-04-18):
 
 - `kubectl -n argocd get application realtime-dev` reported `SYNC=Synced`, `HEALTH=Healthy`.
-- `make routine-b-ops` completed successfully end-to-end.
-- `make airflow-dbt-check-dev` confirmed dbt job success (`PASS=11 WARN=0 ERROR=0`).
-- `make mdm-topics-check-dev` consumed records from `mdm_customer` and `mdm_product`.
-- `make iceberg-streaming-smoke-dev` passed with non-zero row counts in `lakehouse.streaming` tables.
+- `kubectl -n realtime-dev get pods` showed core workloads in `Running`.
+- `kubectl -n realtime-dev get jobs` confirmed initialization jobs completed.
+- `kubectl -n realtime-dev logs deploy/realtime-dev-realtime-app-mdm-cdc-producer --tail=100` showed curated MDM topic publication.
+- `kubectl -n realtime-dev logs deploy/realtime-dev-realtime-app-iceberg-writer --tail=100` showed streaming Iceberg writes.
 
 Important GitOps note:
 

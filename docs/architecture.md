@@ -266,51 +266,63 @@ Diagram: logical architecture component diagram.
 
 ```mermaid
 flowchart LR
-  subgraph RT[Realtime Ingestion and Processing]
-    PR[Python Producer]
-    K[(Kafka)]
-    FL[Java Spring Boot + Flink Processor]
+  subgraph Bootstrap[Compose Bootstrap and Contracts]
+    KI[kafka-init topics]
+    MI[minio-init bucket]
+    SI[schema-init Avro subjects]
+    OI[ods-connect-init sink registration]
+    DI[debezium-connect-init source registration]
+    MCI[mdm-connect-init sink registration]
+  end
+
+  subgraph Stream[Realtime Streaming Plane]
+    PR[producer]
+    FL[processor Spring Boot + Flink]
+    K[(Kafka cluster kafka-1/kafka-2/kafka-3)]
+    SR[schema-registry]
     PR -->|raw_sales_orders| K
     K -->|consume| FL
     FL -->|sales_order / sales_order_line_item / customer_sales| K
+    SR -.schema contracts.-> FL
   end
 
-  subgraph MDM[Master Data and CDC]
-    MW[MDM Writer]
-    MY[(MySQL MDM)]
-    DBZ[Debezium Connect]
-    MCP[MDM CDC Publisher]
-    MW --> MY
-    MY -->|binlog CDC| DBZ
+  subgraph Connectors[Kafka Connect and CDC Plane]
+    ODS[ods-connect]
+    DBZ[debezium-connect]
+    MDMK[mdm-connect]
+    MCP[mdm-cdc-producer]
+    MDM[(MySQL mdm-source)]
+    MDM -->|binlog CDC| DBZ
     DBZ -->|raw MDM CDC topics| K
-    K --> MCP
+    K -->|curate CDC| MCP
     MCP -->|mdm_customer / mdm_product| K
+    K --> ODS
+    K --> MDMK
   end
 
-  subgraph Lake[Lakehouse and Warehouse]
-    KC[Kafka Connect Sinks]
-    IO[(MinIO Object Storage)]
-    PG[(Postgres Landing + Analytics)]
+  subgraph Analytics[Lakehouse and Warehouse Plane]
+    IO[(MinIO)]
+    PG[(Postgres snowflake-mimic)]
     SP[PySpark MDM Sync]
-    TQ[Trino Query Engine]
-    IW[Kafka to Iceberg Writer]
-    DBT[dbt Medallion Models]
-    AF[Airflow Scheduler]
-    K --> KC
-    KC --> IO
-    KC --> PG
-    MY --> SP
+    TQ[Trino]
+    IW[iceberg-writer]
+    DBT[dbt bootstrap job]
+    AF[Airflow scheduler]
+    ODS --> PG
+    ODS --> IO
+    MDMK --> PG
+    MDM --> SP
     SP --> PG
     K --> IW
-    IW -->|Iceberg tables via Trino| TQ
+    IW -->|write via Trino catalog| TQ
     TQ --> IO
     PG --> DBT
     AF --> DBT
   end
 
-  subgraph Meta[Metadata Cataloging]
-    OMI[OpenMetadata Ingestion]
-    OM[OpenMetadata Server]
+  subgraph Meta[Metadata Plane Optional profile openmetadata]
+    OMI[openmetadata-ingestion]
+    OM[openmetadata-server]
     OMI --> OM
     TQ -.metadata and lineage.-> OMI
     PG -.metadata and lineage.-> OMI
@@ -319,18 +331,27 @@ flowchart LR
     K -.topic metadata.-> OMI
   end
 
-  subgraph Obs[Observability]
+  subgraph Ops[Observability and Operations]
     PROM[Prometheus]
-    BBX[Blackbox Exporter]
+    BBX[blackbox-exporter]
     GRAF[Grafana]
-    KUI[Kafka UI]
+    KUI[Kafka UI or Conduktor]
     BBX --> PROM
     PROM --> GRAF
+    K --> KUI
   end
 
-  Obs -.health and metrics.-> RT
-  Obs -.health and metrics.-> Lake
-  Obs -.health and metrics.-> Meta
+  KI --> K
+  MI --> IO
+  SI --> SR
+  OI --> ODS
+  DI --> DBZ
+  MCI --> MDMK
+
+  Ops -.health and metrics.-> Stream
+  Ops -.health and metrics.-> Connectors
+  Ops -.health and metrics.-> Analytics
+  Ops -.health and metrics.-> Meta
 ```
 
 ## 5. End-to-End Data Flow
@@ -341,37 +362,52 @@ Diagram: end-to-end dataflow diagram.
 
 ```mermaid
 flowchart TD
-  A[Producer emits raw_sales_orders] --> B[(Kafka)]
-  B --> C[Flink processor normalizes events]
-  C --> D[sales_order]
-  C --> E[sales_order_line_item]
-  C --> F[customer_sales]
-  D --> G[Kafka Connect sinks]
-  E --> G
-  F --> G
-  G --> H[(Postgres landing)]
-  G --> I[(MinIO raw objects)]
-  B --> J[Iceberg writer]
-  J --> K[(Trino managed Iceberg on MinIO)]
-  L[MySQL MDM updates] --> M[Debezium CDC]
-  M --> B
-  B --> N[MDM CDC publisher]
-  N --> O[mdm_customer and mdm_product]
-  L --> P[PySpark sync]
-  P --> H
-  H --> Q[dbt bronze silver gold]
-  R[Airflow schedule] --> Q
-  S[OpenMetadata ingestion] --> T[OpenMetadata catalog]
-  K -.metadata.-> S
-  H -.metadata.-> S
-  Q -.lineage.-> S
-  R -.pipeline metadata.-> S
-  B -.topic metadata.-> S
-  U[Prometheus and Blackbox] --> V[Grafana dashboards]
-  U -.runtime signals.-> A
-  U -.runtime signals.-> C
-  U -.runtime signals.-> Q
-  U -.runtime signals.-> T
+  A0[kafka-init creates required topics] --> K[(Kafka cluster)]
+  A1[schema-init registers Avro subjects] --> SR[schema-registry]
+
+  A[producer emits raw_sales_orders] --> K
+  K --> B[processor consumes and normalizes]
+  SR -.schema lookup.-> B
+  B --> C[sales_order]
+  B --> D[sales_order_line_item]
+  B --> E[customer_sales]
+  C --> K
+  D --> K
+  E --> K
+
+  K --> F[ods-connect sink tasks]
+  F --> G[(Postgres landing)]
+  F --> H[(MinIO raw objects)]
+
+  K --> I[iceberg-writer consumer]
+  I --> J[Trino SQL writes to lakehouse.streaming]
+  J --> L[(Iceberg tables on MinIO)]
+
+  M[mdm-source MySQL updates] --> N[debezium-connect]
+  N -->|raw CDC topics| K
+  K --> O[mdm-cdc-producer]
+  O -->|mdm_customer / mdm_product| K
+  K --> P[mdm-connect sink tasks]
+  P --> G
+  M --> Q[mdm-pyspark-sync]
+  Q --> G
+
+  G --> R[dbt run builds bronze/silver/gold]
+  S[Airflow dag trigger] --> R
+
+  T[openmetadata-ingestion optional] --> U[openmetadata-server]
+  J -.metadata.-> T
+  G -.metadata.-> T
+  R -.lineage.-> T
+  S -.pipeline metadata.-> T
+  K -.topic metadata.-> T
+
+  V[blackbox-exporter and Prometheus] --> W[Grafana dashboards]
+  V -.endpoint checks.-> A
+  V -.endpoint checks.-> B
+  V -.endpoint checks.-> N
+  V -.endpoint checks.-> R
+  V -.endpoint checks.-> U
 ```
 
 ### 5.1 Realtime Sales Domain Flow
@@ -452,6 +488,90 @@ Modeling benefits:
 - Primary objective: rapid local feedback loop.
 - Includes producer, processor, Kafka, Kafka Connect, MinIO, Trino, MDM services, Postgres, dbt bootstrap job, and Airflow.
 - One-shot init jobs (topic init, connector registration, bucket creation, dbt run) support idempotent startup.
+
+Diagram: Routine A Docker Compose runtime topology.
+
+```mermaid
+flowchart LR
+  subgraph Init[One-shot init jobs]
+    KI[kafka-init]
+    MI[minio-init]
+    SI[schema-init]
+    OI[ods-connect-init]
+    DI[debezium-connect-init]
+    MCI[mdm-connect-init]
+    DBTJ[dbt bootstrap job]
+  end
+
+  subgraph Core[Always-on compose services]
+    ZK[zookeeper]
+    K1[kafka-1]
+    K2[kafka-2]
+    K3[kafka-3]
+    K[(Kafka cluster)]
+    SR[schema-registry]
+    PR[producer]
+    PROC[processor]
+    ODS[ods-connect]
+    DBZ[debezium-connect]
+    MDMK[mdm-connect]
+    MCP[mdm-cdc-producer]
+    SP[mdm-pyspark-sync]
+    MDM[(mdm-source MySQL)]
+    PG[(snowflake-mimic Postgres)]
+    MINIO[(MinIO)]
+    TRINO[Trino]
+    IW[iceberg-writer]
+    AF[Airflow]
+    PROM[Prometheus]
+    BBX[blackbox-exporter]
+    GRAF[Grafana]
+    KUI[Kafka UI or Conduktor]
+  end
+
+  ZK --> K1
+  ZK --> K2
+  ZK --> K3
+  K1 --> K
+  K2 --> K
+  K3 --> K
+
+  KI --> K
+  SI --> SR
+  MI --> MINIO
+  OI --> ODS
+  DI --> DBZ
+  MCI --> MDMK
+
+  PR --> K
+  K --> PROC
+  PROC --> K
+  SR -.schemas.-> PROC
+
+  K --> ODS
+  K --> MDMK
+  MDM --> DBZ
+  DBZ --> K
+  K --> MCP
+  MCP --> K
+
+  ODS --> PG
+  ODS --> MINIO
+  MDMK --> PG
+  MDM --> SP
+  SP --> PG
+
+  K --> IW
+  IW --> TRINO
+  TRINO --> MINIO
+
+  DBTJ --> PG
+  AF --> DBTJ
+
+  BBX --> PROM
+  PROM --> GRAF
+  K --> KUI
+```
 
 ### 8.2 Kubernetes Runtime (kind + Helm + Argo CD)
 

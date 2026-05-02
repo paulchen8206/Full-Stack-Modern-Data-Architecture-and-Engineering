@@ -1,0 +1,39 @@
+version: 2
+models:
+- name: gold_customer_sales_summary
+  description: "Customer-level gold summary that blends curated customer sales aggregates with MDM-backed customer attributes and fact-level purchase rollups."
+  columns:
+  - name: customer_id
+    description: "Customer business key shared across the sales staging layer, MDM customer dimension, and aggregated fact rollups."
+    tests:
+    - not_null
+  - name: customer_name
+    description: "Preferred customer name, taking the MDM customer dimension value when available and falling back to the latest curated sales snapshot otherwise."
+  - name: customer_email
+    description: "Preferred customer email, sourced from the MDM customer dimension with fallback to curated sales data when MDM does not provide a value."
+  - name: customer_segment
+    description: "Preferred customer segment from the MDM customer dimension, with fallback to curated sales data when needed."
+  - name: currency
+    description: "Preferred reporting currency for the customer, sourced from MDM when present and otherwise from curated sales data."
+  - name: latest_order_count
+    description: "Latest customer order count captured in the curated customer sales staging feed."
+  - name: latest_total_spent
+    description: "Latest total spend captured in the curated customer sales staging feed."
+  - name: recomputed_total_from_line_items
+    description: "Recomputed customer spend based on summed line-item amounts from the MDM-aligned fact table."
+  - name: total_line_items
+    description: "Total number of line items observed for the customer in the fact table."
+  - name: distinct_products_purchased
+    description: "Count of distinct MDM-aligned products purchased by the customer."
+  - name: observed_orders
+    description: "Count of distinct orders observed for the customer in the fact table."
+  - name: last_order_timestamp
+    description: "Latest order timestamp observed from fact line items for the customer."
+  - name: last_order_date
+    description: "Latest order calendar date observed from the fact table after alignment to the MDM-backed date dimension."
+  - name: projection_updated_at
+    description: "Reserved timestamp for future projection refresh metadata; currently null in this local model."
+  - name: last_line_item_timestamp
+    description: "Latest line-item event timestamp observed for the customer in the fact table."
+  - name: mdm_customer_updated_at
+    description: "Reserved timestamp for future propagation of MDM customer update metadata; currently null in this local model."

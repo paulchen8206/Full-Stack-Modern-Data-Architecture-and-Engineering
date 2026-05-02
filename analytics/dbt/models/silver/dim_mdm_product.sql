@@ -1,7 +1,11 @@
--- No product master data available. Use distinct products from sales order line items.
 select
-  sku as product_id,
+  product_id,
   product_name,
-  currency
-from {{ ref('stg_sales_order_line_item') }}
-group by 1, 2, 3
+  currency,
+  first_seen_at,
+  last_seen_at,
+  orders_count,
+  units_sold,
+  avg_unit_price,
+  updated_at
+from {{ ref('stg_mdm_product_master') }}

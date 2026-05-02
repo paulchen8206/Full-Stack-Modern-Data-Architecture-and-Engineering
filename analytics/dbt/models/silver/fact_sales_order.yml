@@ -11,6 +11,10 @@ models:
     description: "Unique line item identifier within an order."
     tests:
     - not_null
+  - name: order_timestamp
+    description: "Raw event timestamp for the line item."
+  - name: order_date
+    description: "Calendar date derived from order_timestamp for date dimension alignment."
   - name: customer_id
     description: "Customer business key joined to the MDM customer dimension."
     tests:
@@ -22,6 +26,12 @@ models:
         arguments:
           to: ref('dim_mdm_customer')
           field: customer_id
+  - name: customer_name
+    description: "Customer name enriched from the MDM customer dimension, with sales-order fallback when needed."
+  - name: customer_email
+    description: "Customer email enriched from the MDM customer dimension, with sales-order fallback when needed."
+  - name: customer_segment
+    description: "Customer segment enriched from the MDM customer dimension, with sales-order fallback when needed."
   - name: product_id
     description: "Product business key joined to the MDM product dimension."
     tests:
@@ -30,6 +40,18 @@ models:
         arguments:
           to: ref('dim_mdm_product')
           field: product_id
+  - name: product_name
+    description: "Product name enriched from the MDM product dimension, with line-item fallback when needed."
+  - name: quantity
+    description: "Ordered quantity for the line item."
+  - name: unit_price
+    description: "Unit selling price recorded for the line item."
+  - name: line_total
+    description: "Extended line amount for the line item."
+  - name: order_total
+    description: "Full order amount from the order header associated with the line item."
+  - name: line_item_count
+    description: "Total number of line items recorded on the order header."
   - name: date_key
     description: "Calendar key from the MDM date dimension."
     tests:
@@ -38,14 +60,14 @@ models:
           to: ref('dim_mdm_date')
           field: date_key
   - name: currency
-    description: "Transaction currency code."
+    description: "Transaction currency code enriched from event data and dimension fallbacks."
     tests:
     - not_null
     - accepted_values:
         arguments:
           values: ['USD']
   - name: is_weekend
-    description: "True when the order date is on a weekend."
+    description: "True when the joined MDM date dimension marks the order date as a weekend."
     tests:
     - accepted_values:
         arguments:

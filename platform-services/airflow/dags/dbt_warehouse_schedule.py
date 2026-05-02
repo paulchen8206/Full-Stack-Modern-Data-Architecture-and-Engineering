@@ -8,7 +8,7 @@ from airflow.operators.bash import BashOperator
 
 with DAG(
     dag_id="dbt_warehouse_schedule",
-    description="Run dbt models against the local Postgres warehouse on a schedule.",
+    description="Run dbt models against Trino and Postgres on a schedule.",
     start_date=datetime(2026, 4, 17),
     schedule="*/5 * * * *",
     catchup=False,
@@ -21,7 +21,7 @@ with DAG(
         bash_command=(
             "cd /opt/airflow/dbt && "
             "dbt deps --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt && "
-            "dbt run --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt"
+            "dbt run --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt --target trino"
         ),
     )
 
@@ -30,9 +30,18 @@ with DAG(
         bash_command=(
             "cd /opt/airflow/dbt && "
             "dbt run --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt "
+            "--target trino "
             "--select stg_mdm_customer360 stg_mdm_product_master stg_mdm_date "
             "dim_mdm_customer dim_mdm_product dim_mdm_date"
         ),
     )
 
-    run_dbt_mdm >> run_dbt
+    run_dbt_postgres = BashOperator(
+        task_id="run_dbt_postgres",
+        bash_command=(
+            "cd /opt/airflow/dbt && "
+            "dbt run --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt --target dev"
+        ),
+    )
+
+    run_dbt_mdm >> run_dbt >> run_dbt_postgres

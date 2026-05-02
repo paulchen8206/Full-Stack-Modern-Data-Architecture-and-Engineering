@@ -3,7 +3,7 @@ realtime_analytics:
   outputs:
     dev:
       type: postgres
-      host: postgres
+      host: snowflake-mimic
       port: 5432
       user: analytics
       password: analytics

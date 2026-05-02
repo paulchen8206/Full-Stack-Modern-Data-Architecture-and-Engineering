@@ -219,7 +219,7 @@ services:
     depends_on:
       minio-init:
         condition: service_completed_successfully
-      postgres:
+      snowflake-mimic:
         condition: service_started
     ports:
       - "8086:8080"
@@ -254,8 +254,8 @@ services:
       ICEBERG_SCHEMA: streaming
     restart: on-failure
 
-  postgres:
-    container_name: postgres
+  snowflake-mimic:
+    container_name: snowflake-mimic
     image: postgres:14
     command:
       - postgres
@@ -345,7 +345,7 @@ services:
     entrypoint:
       - "/bin/sh"
       - "-c"
-      - "apk add --no-cache jq curl && /scripts/register-debezium-connectors.sh"
+      - "apk add --no-cache jq curl && sh /scripts/register-debezium-connectors.sh"
     volumes:
       - ./kafka-connect/scripts/register-debezium-connectors.sh:/scripts/register-debezium-connectors.sh:ro
       - ./kafka-connect/debezium-connect/connector-configs:/connectors:ro
@@ -367,7 +367,7 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
-      postgres:
+      snowflake-mimic:
         condition: service_started
       schema-init:
         condition: service_completed_successfully
@@ -403,7 +403,7 @@ services:
     entrypoint:
       - "/bin/sh"
       - "-c"
-      - "apk add --no-cache jq curl && /scripts/register-mdm-connectors.sh"
+      - "apk add --no-cache jq curl && sh /scripts/register-mdm-connectors.sh"
     volumes:
       - ./kafka-connect/scripts/register-mdm-connectors.sh:/scripts/register-mdm-connectors.sh:ro
       - ./kafka-connect/mdm-connect/connector-configs:/connectors:ro
@@ -427,7 +427,7 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
-      postgres:
+      snowflake-mimic:
         condition: service_started
       schema-init:
         condition: service_completed_successfully
@@ -464,7 +464,7 @@ services:
     entrypoint:
       - "/bin/sh"
       - "-c"
-      - "apk add --no-cache jq curl && /scripts/register-ods-connectors.sh"
+      - "apk add --no-cache jq curl && sh /scripts/register-ods-connectors.sh"
     volumes:
       - ./kafka-connect/scripts/register-ods-connectors.sh:/scripts/register-ods-connectors.sh:ro
       - ./kafka-connect/ods-connect/connector-configs:/connectors:ro
@@ -494,7 +494,7 @@ services:
     depends_on:
       mdm-source:
         condition: service_healthy
-      postgres:
+      snowflake-mimic:
         condition: service_started
     environment:
       MDM_MYSQL_HOST: mdm-source
@@ -502,7 +502,7 @@ services:
       MDM_MYSQL_DB: mdm
       MDM_MYSQL_USER: root
       MDM_MYSQL_PASSWORD: mdmroot
-      POSTGRES_HOST: postgres
+      POSTGRES_HOST: snowflake-mimic
       POSTGRES_PORT: 5432
       POSTGRES_DB: analytics
       POSTGRES_USER: analytics
@@ -523,7 +523,7 @@ services:
       context: ./analytics/dbt
       dockerfile: Dockerfile
     depends_on:
-      postgres:
+      snowflake-mimic:
         condition: service_started
       ods-connect-init:
         condition: service_completed_successfully
@@ -539,7 +539,7 @@ services:
       context: ./platform-services/airflow
       dockerfile: Dockerfile
     depends_on:
-      postgres:
+      snowflake-mimic:
         condition: service_started
     ports:
       - "8084:8080"

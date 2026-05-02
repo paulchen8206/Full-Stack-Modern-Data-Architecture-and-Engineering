@@ -41,7 +41,7 @@ def main() -> None:
     mysql_user = env("MDM_MYSQL_USER", "root")
     mysql_password = env("MDM_MYSQL_PASSWORD", "mdmroot")
 
-    pg_host = env("POSTGRES_HOST", "postgres")
+    pg_host = env("POSTGRES_HOST", "snowflake-mimic")
     pg_port = env("POSTGRES_PORT", "5432")
     pg_db = env("POSTGRES_DB", "analytics")
     pg_user = env("POSTGRES_USER", "analytics")

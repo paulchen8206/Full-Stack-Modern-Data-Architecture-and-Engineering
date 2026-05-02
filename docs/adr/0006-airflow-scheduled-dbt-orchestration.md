@@ -35,7 +35,7 @@ If no dbt runs appear in the Airflow UI, check that the DAG is unpaused and that
 This section defines the primary cross-references for this document.
 
 - [../runbook.md](../runbook.md)
-- [../../airflow/dags/dbt_warehouse_schedule.py](../../airflow/dags/dbt_warehouse_schedule.py)
+- [../../platform-services/airflow/dags/dbt_warehouse_schedule.py](../../platform-services/airflow/dags/dbt_warehouse_schedule.py)
 
 ## Context
 
@@ -50,7 +50,7 @@ Use Apache Airflow to schedule and orchestrate recurring dbt runs.
 Key design choices:
 
 - DAG ID: `dbt_warehouse_schedule`
-- DAG location: `airflow/dags/dbt_warehouse_schedule.py`
+- DAG location: `platform-services/airflow/dags/dbt_warehouse_schedule.py`
 - Schedule: every 5 minutes
 - Each DAG run executes `dbt deps` followed by `dbt run` against the local Postgres warehouse
 - Airflow runs inside the same Docker Compose stack (Routine A) or the same Helm release (Routine B) as the rest of the platform
@@ -77,6 +77,6 @@ Key design choices:
 
 ## Detailed References
 
-- `airflow/dags/dbt_warehouse_schedule.py` — DAG definition
-- `airflow/Dockerfile` — Airflow image with dbt installed
+- `platform-services/airflow/dags/dbt_warehouse_schedule.py` — DAG definition
+- `platform-services/airflow/Dockerfile` — Airflow image with dbt installed
 - ADR-0005: Medallion ELT Modeling with dbt

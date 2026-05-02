@@ -542,7 +542,7 @@ Use this quick map to connect architecture responsibilities in this document to 
 | Operate Airflow-driven dbt scheduling | Routine A (Docker Compose) | `make airflow-up`, `make airflow-trigger-dbt-dag`, `make airflow-dbt-reboot` |
 | Run day-2 unified local operations | Routine A (Docker Compose) | `make routine-a-ops` |
 | Bootstrap GitOps-style local cluster | Routine B (kind + Helm + Argo CD) | `make routine-b`, `make routine-b-argocd` |
-| Recover missing Argo CD app object | Routine B (kind + Helm + Argo CD) | `kubectl apply -f argocd/dev.yaml`, `kubectl -n argocd get application realtime-dev` |
+| Recover missing Argo CD app object | Routine B (kind + Helm + Argo CD) | `kubectl apply -f cicd/argocd/dev.yaml`, `kubectl -n argocd get application realtime-dev` |
 | Run day-2 unified cluster operations | Routine B (kind + Helm + Argo CD) | `make routine-b-ops` |
 | Validate cluster health and app rollout | Routine B (kind + Helm + Argo CD) | `make ops-status-dev`, `make helm-health-dev`, `make airflow-dbt-check-dev`, `make mdm-topics-check-dev`, `make trino-smoke-dev`, `make iceberg-streaming-smoke-dev` |
 | Bootstrap Iceberg JDBC V1 metastore schema in k8s Postgres | Routine B (kind + Helm + Argo CD) | `make helm-metastore-migrate-dev` |
@@ -629,7 +629,7 @@ Current local setup favors simplicity. Production hardening should include:
 Data cataloging design:
 
 - OpenMetadata is the metadata control plane for Trino, Postgres, dbt, Airflow, and Kafka.
-- Connector workflows are versioned under `metadata/openmetadata/workflows` and executed through Make targets.
+- Connector workflows are versioned under `platform-services/metadata/openmetadata/workflows` and executed through Make targets.
 - dbt lineage is derived from sanitized local artifacts (`manifest.json` and `run_results.json` under the OpenMetadata-compatible target path).
 - Catalog validation requires connector test steps to pass (`GetQueries`, `CheckSchemaRegistry`) and workflow success rate to remain healthy.
 

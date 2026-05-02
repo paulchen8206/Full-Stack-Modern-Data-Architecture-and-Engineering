@@ -98,7 +98,7 @@ Documentation map:
 | kind + Helm + Argo CD | Open Postgres | `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-postgres 5433:5432` |
 | kind + Helm + Argo CD | Open Grafana | `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-grafana 3001:3000` |
 | kind + Helm + Argo CD | Cluster smoke check | `echo '--- app ---' && kubectl -n argocd get application realtime-dev && echo '--- pods ---' && kubectl -n realtime-dev get pods && echo '--- topics ---' && kubectl -n realtime-dev exec realtime-dev-kafka-controller-0 -- /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server realtime-dev-kafka:9092 --list` |
-| kind + Helm + Argo CD | Recreate app + namespace | `kubectl -n argocd delete application realtime-dev && kubectl delete namespace realtime-dev && kubectl apply -f argocd/dev.yaml` |
+| kind + Helm + Argo CD | Recreate app + namespace | `kubectl -n argocd delete application realtime-dev && kubectl delete namespace realtime-dev && kubectl apply -f cicd/argocd/dev.yaml` |
 
 ## Scope and Goals
 
@@ -164,12 +164,14 @@ Use this setup to query Trino from DBeaver in Routine A.
 1. Open DBeaver and select New Database Connection.
 2. Search for and select `Trino`.
 3. Set connection parameters:
-  - Host: `localhost`
-  - Port: `8086`
-  - Catalog: `lakehouse`
-  - Schema: `streaming` (optional default)
-  - Username: `analytics`
-  - Password: leave empty
+
+   - Host: `localhost`
+   - Port: `8086`
+   - Catalog: `lakehouse`
+   - Schema: `streaming` (optional default)
+   - Username: `analytics`
+   - Password: leave empty
+
 4. If prompted, allow DBeaver to download the Trino JDBC driver.
 5. Click Test Connection, then Finish.
 
@@ -202,7 +204,6 @@ All services should be Up, especially:
 - processor
 - kafka-ui
 - mysql-mdm
-- mdm-writer
 - mdm-connect
 - mdm-cdc-producer
 - mdm-pyspark-sync
@@ -287,7 +288,7 @@ Open a shell-based Trino CLI or run ad hoc SQL without calling Python directly:
 
 ```bash
 make trino-shell
-./scripts/trino-sql.sh "SHOW TABLES FROM lakehouse.streaming"
+./trino/scripts/trino-sql.sh "SHOW TABLES FROM lakehouse.streaming"
 ```
 
 Bootstrap real Iceberg tables on MinIO through Trino:
@@ -305,9 +306,9 @@ Trino dataset onboarding workflow (manual SQL path):
 
 ```bash
 make trino-shell
-./scripts/trino-sql.sh "DESCRIBE warehouse.landing.sales_order"
-./scripts/trino-sql.sh "DESCRIBE warehouse.landing.sales_order_line_item"
-./scripts/trino-sql.sh "DESCRIBE warehouse.landing.customer_sales"
+./trino/scripts/trino-sql.sh "DESCRIBE warehouse.landing.sales_order"
+./trino/scripts/trino-sql.sh "DESCRIBE warehouse.landing.sales_order_line_item"
+./trino/scripts/trino-sql.sh "DESCRIBE warehouse.landing.customer_sales"
 ```
 
 Use `DESCRIBE` first, then align `SELECT` lists in `trino/sql/bootstrap_lakehouse.sql` and `trino/sql/incremental_sync_lakehouse.sql` to the actual landing columns before running bootstrap/sync.
@@ -318,8 +319,8 @@ Second Postgres catalog operations (optional):
 # add file trino/etc/catalog/<catalog>.properties, then reload Trino
 docker compose restart trino
 make trino-smoke
-./scripts/trino-sql.sh "SHOW CATALOGS"
-./scripts/trino-sql.sh "SHOW SCHEMAS FROM <catalog>"
+./trino/scripts/trino-sql.sh "SHOW CATALOGS"
+./trino/scripts/trino-sql.sh "SHOW SCHEMAS FROM <catalog>"
 ```
 
 If a temporary catalog is no longer needed, delete its `trino/etc/catalog/<catalog>.properties` file, restart Trino, and re-run `SHOW CATALOGS` to confirm removal.
@@ -359,10 +360,10 @@ MDM Debezium Connect logs:
 docker compose logs --tail=200 mdm-connect
 ```
 
-MDM writer + CDC publisher logs:
+MDM CDC and sync logs:
 
 ```bash
-docker compose logs --tail=200 mdm-writer mdm-cdc-producer mdm-pyspark-sync
+docker compose logs --tail=200 mdm-cdc-producer mdm-pyspark-sync
 ```
 
 Manual dbt rerun:
@@ -400,11 +401,11 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 - `producer` publishes composite order events to `raw_sales_orders`.
 - `processor` runs the Spring Boot application with the embedded Flink topology.
 - `ods-connect` loads Kafka Connect sink plugins and exposes the REST API on port 8083.
-- `ods-connect-init` registers the JDBC and object-storage sink connectors from `ods-connect/connector-configs`.
+- `ods-connect-init` registers the JDBC and object-storage sink connectors from `kafka-connect/ods-connect/connector-configs`.
 - `mysql-mdm` stores `mdm.customer360`, `mdm.product_master`, and `mdm_date` source tables.
-- `mdm-writer` upserts customer and product master rows into MySQL.
+- `mdm-source` also runs the built-in data generator that upserts customer, product, and date rows into MySQL.
 - `mdm-connect` runs Debezium MySQL source capture and publishes raw CDC topics.
-- `mdm-connect-init` registers the Debezium connector from `mdm-connect/connector-configs/debezium-mysql-mdm.json`.
+- `mdm-connect-init` registers the Debezium connector from `kafka-connect/mdm-connect/connector-configs/debezium-mysql-mdm.json`.
 - `mdm-cdc-producer` republishes curated `mdm_customer` and `mdm_product` topics.
 - `mdm-pyspark-sync` syncs MySQL MDM tables into Postgres landing MDM tables.
 - `postgres` stores `landing`, `bronze`, `silver`, and `gold` schemas for analytics queries.
@@ -431,9 +432,11 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
   Check `make airflow-logs` and verify the `dbt_warehouse_schedule` DAG is enabled.
 - Airflow webserver fails to start with `Error: Already running on PID ... (or pid file ... is stale)`:
   A stale PID file from a previous container restart is blocking the webserver. Fix with:
+
   ```bash
   docker compose exec airflow rm -f /opt/airflow/airflow-webserver.pid && docker compose restart airflow
   ```
+
   Then check `docker compose logs --tail=20 airflow` and confirm `Listening at: http://0.0.0.0:8080`.
 - `make trino-smoke` fails right after `docker compose restart trino` with connection reset/refused:
   Trino is still starting. Wait until `docker compose ps` shows Trino as healthy, then rerun `make trino-smoke`.
@@ -441,9 +444,11 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
   Source schema changed relative to bootstrap SQL. Run `DESCRIBE warehouse.landing.<table>` and update `trino/sql/bootstrap_lakehouse.sql` and `trino/sql/incremental_sync_lakehouse.sql` to match current columns.
 - `make trino-sync-lakehouse` fails with `One MERGE target table row matched more than one source row`:
   One or more source MERGE keys are duplicated. Diagnose with:
+
   ```bash
-  ./scripts/trino-sql.sh "SELECT 'sales_order' AS table_name, count(*) AS dup_keys FROM (SELECT orderid FROM warehouse.landing.sales_order GROUP BY orderid HAVING count(*) > 1) UNION ALL SELECT 'sales_order_line_item' AS table_name, count(*) AS dup_keys FROM (SELECT lineitemid FROM warehouse.landing.sales_order_line_item GROUP BY lineitemid HAVING count(*) > 1) UNION ALL SELECT 'customer_sales' AS table_name, count(*) AS dup_keys FROM (SELECT customerid FROM warehouse.landing.customer_sales GROUP BY customerid HAVING count(*) > 1)"
+  ./trino/scripts/trino-sql.sh "SELECT 'sales_order' AS table_name, count(*) AS dup_keys FROM (SELECT orderid FROM warehouse.landing.sales_order GROUP BY orderid HAVING count(*) > 1) UNION ALL SELECT 'sales_order_line_item' AS table_name, count(*) AS dup_keys FROM (SELECT lineitemid FROM warehouse.landing.sales_order_line_item GROUP BY lineitemid HAVING count(*) > 1) UNION ALL SELECT 'customer_sales' AS table_name, count(*) AS dup_keys FROM (SELECT customerid FROM warehouse.landing.customer_sales GROUP BY customerid HAVING count(*) > 1)"
   ```
+
   Then deduplicate source rows before MERGE (for example, keep the latest row per key).
 
 ## Routine B: kind + Helm + Argo CD
@@ -476,35 +481,35 @@ Use this only when you want to run each phase independently.
 
 1. Bootstrap kind and Argo CD:
 
-```bash
-k8s/kind/bootstrap-kind.sh
-```
+  ```bash
+  cicd/k8s/kind/bootstrap-kind.sh
+  ```
 
-2. Wait until Argo CD pods are Ready:
+1. Wait until Argo CD pods are Ready:
 
-```bash
-kubectl -n argocd get pods
-```
+  ```bash
+  kubectl -n argocd get pods
+  ```
 
-3. Build and load app images into kind:
+1. Build and load app images into kind:
 
-```bash
-./scripts/build-images.sh
-```
+  ```bash
+  ./cicd/scripts/build-images.sh
+  ```
 
-4. Deploy via local Helm:
+1. Deploy via local Helm:
 
-```bash
-make helm-reboot-dev
-```
+  ```bash
+  make helm-reboot-dev
+  ```
 
-5. Validate Trino:
+1. Validate Trino:
 
-```bash
-make trino-smoke-dev
-kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-trino 8086:8080
-curl -fsS http://localhost:8086/v1/info
-```
+  ```bash
+  make trino-smoke-dev
+  kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-trino 8086:8080
+  curl -fsS http://localhost:8086/v1/info
+  ```
 
 Important image prerequisite:
 
@@ -535,13 +540,13 @@ This mirrors the Docker `make routine-a-ops` flow with Kubernetes-native checks 
 Choose this mode if you want Argo CD to manage the `realtime-dev` app object directly instead of local Helm reconciliation.
 
 ```bash
-kubectl apply -f argocd/dev.yaml
+kubectl apply -f cicd/argocd/dev.yaml
 ```
 
 If the Argo CD UI does not show `realtime-dev`, re-apply and validate:
 
 ```bash
-kubectl apply -f argocd/dev.yaml
+kubectl apply -f cicd/argocd/dev.yaml
 kubectl -n argocd get application realtime-dev
 ```
 
@@ -647,14 +652,14 @@ Repeat the consumer command for:
 Force refresh app object:
 
 ```bash
-kubectl apply -f argocd/dev.yaml
+kubectl apply -f cicd/argocd/dev.yaml
 ```
 
 Delete and recreate app only:
 
 ```bash
 kubectl -n argocd delete application realtime-dev
-kubectl apply -f argocd/dev.yaml
+kubectl apply -f cicd/argocd/dev.yaml
 ```
 
 Full namespace reset:
@@ -662,7 +667,7 @@ Full namespace reset:
 ```bash
 kubectl -n argocd delete application realtime-dev
 kubectl delete namespace realtime-dev
-kubectl apply -f argocd/dev.yaml
+kubectl apply -f cicd/argocd/dev.yaml
 ```
 
 Docker-equivalent reset for Helm path:
@@ -696,7 +701,7 @@ make helm-health-dev
 
 Expected healthy state:
 
-- Deployments in `Running`: producer, processor, kafka-ui, minio, postgres, connect, airflow, mysql-mdm, mdm-writer, mdm-connect, mdm-cdc-producer, mdm-pyspark-sync, prometheus, loki, grafana.
+- Deployments in `Running`: producer, processor, kafka-ui, minio, postgres, connect, airflow, mysql-mdm, mdm-connect, mdm-cdc-producer, mdm-pyspark-sync, prometheus, loki, grafana.
 - One-shot Jobs in `Complete`: `realtime-dev-realtime-app-minio-init`, `realtime-dev-realtime-app-ods-connect-init`, `realtime-dev-realtime-app-mdm-connect-init`, `realtime-dev-realtime-app-dbt`.
 
 Validate MDM topic flow in cluster:
@@ -734,7 +739,7 @@ Use this routine when deploying the same Helm chart through Argo CD to non-local
 ### C1. Prerequisites
 
 - Container images for producer, processor, connect, dbt, and airflow are published to a registry reachable by the target cluster.
-- QA and PRD values are maintained in `k8s/helm/values/values-qa.yaml` and `k8s/helm/values/values-prd.yaml`.
+- QA and PRD values are maintained in `cicd/k8s/helm/values/values-qa.yaml` and `cicd/k8s/helm/values/values-prd.yaml`.
 - Argo CD is installed and reachable in the control cluster.
 - Your kubeconfig includes contexts for the QA and PRD target clusters.
 
@@ -781,13 +786,13 @@ argocd cluster list
 
 ### C4. Point QA/PRD applications at the right destination cluster
 
-`argocd/qa.yaml` and `argocd/prd.yaml` currently target `https://kubernetes.default.svc`.
+`cicd/argocd/qa.yaml` and `cicd/argocd/prd.yaml` currently target `https://kubernetes.default.svc`.
 For multi-cluster deployment, set each `spec.destination.server` to the corresponding QA/PRD cluster API server from `argocd cluster list`.
 
 ### C5. Deploy and sync QA first
 
 ```bash
-kubectl apply -f argocd/qa.yaml
+kubectl apply -f cicd/argocd/qa.yaml
 kubectl -n argocd get application realtime-qa
 ```
 
@@ -810,7 +815,7 @@ kubectl --context <qa-context> -n realtime-qa get svc
 After QA validation, apply PRD:
 
 ```bash
-kubectl apply -f argocd/prd.yaml
+kubectl apply -f cicd/argocd/prd.yaml
 kubectl -n argocd get application realtime-prd
 ```
 
@@ -872,7 +877,7 @@ Rollback decision gates:
 ```bash
 kubectl config current-context
 kubectl -n argocd get applications
-kubectl apply -f argocd/dev.yaml
+kubectl apply -f cicd/argocd/dev.yaml
 ```
 
 ### Port-forward exits immediately

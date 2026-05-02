@@ -3,12 +3,12 @@
 *.iml
 .idea/
 .vscode/
-producer/.venv/
-processor/target/
+source-apps/sales_order_source/.venv/
+processing-apps/sales_order_processor/target/
 analytics/dbt/target/
 __pycache__/
 *.pyc
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-charts/realtime-app/charts/
+cicd/charts/realtime-app/charts/

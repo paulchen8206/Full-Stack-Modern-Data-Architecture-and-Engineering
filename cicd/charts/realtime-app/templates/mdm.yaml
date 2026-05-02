@@ -1,0 +1,355 @@
+{{- if .Values.mdm.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-mdm-config
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: mdm
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS mdm;
+
+    USE mdm;
+
+    CREATE TABLE IF NOT EXISTS customer360 (
+      customer_id VARCHAR(64) PRIMARY KEY,
+      customer_name VARCHAR(255) NOT NULL,
+      customer_email VARCHAR(255) NOT NULL,
+      customer_segment VARCHAR(64) NOT NULL,
+      currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+      first_order_timestamp DATETIME NULL,
+      last_order_timestamp DATETIME NULL,
+      projected_order_count INT NOT NULL DEFAULT 0,
+      projected_total_spent DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+      projection_updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS product_master (
+      product_id VARCHAR(64) PRIMARY KEY,
+      product_name VARCHAR(255) NOT NULL,
+      currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+      first_seen_at DATETIME NULL,
+      last_seen_at DATETIME NULL,
+      orders_count INT NOT NULL DEFAULT 0,
+      units_sold INT NOT NULL DEFAULT 0,
+      avg_unit_price DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS mdm_date (
+      date_key INT PRIMARY KEY,
+      full_date DATE NOT NULL,
+      day_of_month TINYINT NOT NULL,
+      day_of_week TINYINT NOT NULL,
+      day_name VARCHAR(16) NOT NULL,
+      week_of_year TINYINT NOT NULL,
+      month_of_year TINYINT NOT NULL,
+      month_name VARCHAR(16) NOT NULL,
+      quarter_of_year TINYINT NOT NULL,
+      year_number SMALLINT NOT NULL,
+      is_weekend BOOLEAN NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_mdm_date_full_date (full_date)
+    );
+
+    INSERT IGNORE INTO customer360 (
+      customer_id,
+      customer_name,
+      customer_email,
+      customer_segment,
+      currency,
+      first_order_timestamp,
+  debezium-mysql-mdm.json: |
+    {
+      "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+      "tasks.max": "1",
+      "database.hostname": "{{ include "realtime-app.fullname" . }}-mysql-mdm",
+      "database.port": "3306",
+      "database.user": "root",
+      "database.password": "{{ .Values.mdm.mysql.rootPassword }}",
+      "database.server.id": "5401",
+      "topic.prefix": "mdm_mysql",
+      "database.include.list": "{{ .Values.mdm.mysql.database }}",
+      "table.include.list": "{{ .Values.mdm.mysql.database }}.customer360,{{ .Values.mdm.mysql.database }}.product_master",
+      "include.schema.changes": "false",
+      "snapshot.mode": "initial",
+      "decimal.handling.mode": "string",
+      "time.precision.mode": "connect",
+      "schema.history.internal": "io.debezium.storage.file.history.FileSchemaHistory",
+      "schema.history.internal.file.filename": "/tmp/debezium-mdm-schemahistory.dat"
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-mysql-mdm
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: mysql-mdm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: mysql-mdm
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: mysql-mdm
+    spec:
+      containers:
+        - name: mysql-mdm
+          image: {{ .Values.mdm.mysql.image.repository }}:{{ .Values.mdm.mysql.image.tag }}
+          imagePullPolicy: {{ .Values.mdm.mysql.image.pullPolicy }}
+          args:
+            - --server-id={{ .Values.mdm.mysql.serverId }}
+            - --log-bin=mysql-bin
+            - --binlog-format=ROW
+            - --binlog-row-image=FULL
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: {{ .Values.mdm.mysql.rootPassword | quote }}
+            - name: MYSQL_DATABASE
+              value: {{ .Values.mdm.mysql.database | quote }}
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d/init.sql
+              subPath: init.sql
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: init
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-mdm-config
+            items:
+              - key: init.sql
+                path: init.sql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-mysql-mdm
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: mysql-mdm
+spec:
+  type: {{ .Values.mdm.mysql.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: mysql-mdm
+  ports:
+    - name: mysql
+      port: {{ .Values.mdm.mysql.service.port }}
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-mdm-connect
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: mdm-connect
+spec:
+  replicas: {{ .Values.mdm.connect.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: mdm-connect
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: mdm-connect
+    spec:
+      containers:
+        - name: mdm-connect
+          image: {{ .Values.mdm.connect.image.repository }}:{{ .Values.mdm.connect.image.tag }}
+          imagePullPolicy: {{ .Values.mdm.connect.image.pullPolicy }}
+          ports:
+            - containerPort: 8083
+          env:
+            - name: BOOTSTRAP_SERVERS
+              value: {{ .Values.kafkaBootstrapServers | quote }}
+            - name: GROUP_ID
+              value: {{ .Values.mdm.connect.groupId | quote }}
+            - name: CONFIG_STORAGE_TOPIC
+              value: {{ .Values.mdm.connect.configStorageTopic | quote }}
+            - name: OFFSET_STORAGE_TOPIC
+              value: {{ .Values.mdm.connect.offsetStorageTopic | quote }}
+            - name: STATUS_STORAGE_TOPIC
+              value: {{ .Values.mdm.connect.statusStorageTopic | quote }}
+            - name: KEY_CONVERTER
+              value: org.apache.kafka.connect.storage.StringConverter
+            - name: VALUE_CONVERTER
+              value: org.apache.kafka.connect.json.JsonConverter
+            - name: VALUE_CONVERTER_SCHEMAS_ENABLE
+              value: "false"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-mdm-connect
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: mdm-connect
+spec:
+  type: {{ .Values.mdm.connect.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: mdm-connect
+  ports:
+    - name: http
+      port: {{ .Values.mdm.connect.service.port }}
+      targetPort: 8083
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-mdm-connect-init
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: mdm-connect-init
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: mdm-connect-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mdm-connect-init
+          image: {{ .Values.mdm.connect.curlImage.repository }}:{{ .Values.mdm.connect.curlImage.tag }}
+          imagePullPolicy: {{ .Values.mdm.connect.curlImage.pullPolicy }}
+          command: ["/bin/sh", "/scripts/register-mdm-connectors.sh"]
+          volumeMounts:
+            - name: mdm-config
+              mountPath: /scripts/register-mdm-connectors.sh
+              subPath: register-mdm-connectors.sh
+            - name: connector-configs
+              mountPath: /connector-configs
+      volumes:
+        - name: mdm-config
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-mdm-config
+            defaultMode: 0755
+            items:
+              - key: register-mdm-connectors.sh
+                path: register-mdm-connectors.sh
+        - name: connector-configs
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-mdm-config
+            items:
+              - key: debezium-mysql-mdm.json
+                path: debezium-mysql-mdm.json
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-mdm-cdc-producer
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: mdm-cdc-producer
+spec:
+  replicas: {{ .Values.mdm.cdcProducer.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: mdm-cdc-producer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: mdm-cdc-producer
+    spec:
+      containers:
+        - name: mdm-cdc-producer
+          image: {{ .Values.mdm.cdcProducer.image.repository }}:{{ .Values.mdm.cdcProducer.image.tag }}
+          imagePullPolicy: {{ .Values.mdm.cdcProducer.image.pullPolicy }}
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.kafkaBootstrapServers | quote }}
+            - name: MDM_CDC_GROUP_ID
+              value: {{ .Values.mdm.cdcProducer.groupId | quote }}
+            - name: CDC_CONSUMER_OFFSET_RESET
+              value: {{ .Values.mdm.cdcProducer.offsetReset | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-mdm-pyspark-sync
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: mdm-pyspark-sync
+spec:
+  replicas: {{ .Values.mdm.pysparkSync.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: mdm-pyspark-sync
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: mdm-pyspark-sync
+    spec:
+      containers:
+        - name: mdm-pyspark-sync
+          image: {{ .Values.mdm.pysparkSync.image.repository }}:{{ .Values.mdm.pysparkSync.image.tag }}
+          imagePullPolicy: {{ .Values.mdm.pysparkSync.image.pullPolicy }}
+          command:
+            - /opt/spark/bin/spark-submit
+            - --conf
+            - spark.jars.ivy=/tmp/.ivy
+            - --packages
+            - org.postgresql:postgresql:42.7.4,com.mysql:mysql-connector-j:8.4.0
+            - /app/main.py
+          env:
+            - name: MDM_MYSQL_HOST
+              value: {{ printf "%s-mysql-mdm" (include "realtime-app.fullname" .) | quote }}
+            - name: MDM_MYSQL_PORT
+              value: {{ .Values.mdm.mysql.service.port | quote }}
+            - name: MDM_MYSQL_DB
+              value: {{ .Values.mdm.mysql.database | quote }}
+            - name: MDM_MYSQL_USER
+              value: root
+            - name: MDM_MYSQL_PASSWORD
+              value: {{ .Values.mdm.mysql.rootPassword | quote }}
+            - name: POSTGRES_HOST
+              value: {{ printf "%s-postgres" (include "realtime-app.fullname" .) | quote }}
+            - name: POSTGRES_PORT
+              value: {{ .Values.postgres.service.port | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.auth.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.auth.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.auth.password | quote }}
+            - name: MDM_SYNC_INTERVAL_SEC
+              value: {{ .Values.mdm.pysparkSync.syncIntervalSec | quote }}
+{{- end }}

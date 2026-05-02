@@ -13,7 +13,7 @@ Record the decision to use Argo CD as the GitOps reconciler while retaining dire
 This section defines the primary commands for this document.
 Primary commands related to this decision:
 
-- `kubectl apply -f argocd/dev.yaml`
+- `kubectl apply -f cicd/argocd/dev.yaml`
 - `make helm-reboot-dev`
 - `make helm-health-dev`
 - Shared targets: `make help`, `make validate`
@@ -34,7 +34,7 @@ If GitOps and local Helm behavior diverge, re-align by committing chart changes 
 This section defines the primary cross-references for this document.
 
 - [../runbook.md](../runbook.md)
-- [../../argocd/dev.yaml](../../argocd/dev.yaml)
+- [../../cicd/argocd/dev.yaml](../../cicd/argocd/dev.yaml)
 
 ## Context
 
@@ -46,7 +46,7 @@ Use Argo CD as the source-of-truth reconciler for Routine B, while keeping direc
 
 Primary commands:
 
-- `kubectl apply -f argocd/dev.yaml`
+- `kubectl apply -f cicd/argocd/dev.yaml`
 - `make helm-reboot-dev`
 - `make helm-health-dev`
 - Shared targets: `make help`, `make validate`
@@ -68,4 +68,4 @@ Primary commands:
 ## Detailed References
 
 - ../runbook.md
-- ../../argocd/dev.yaml
+- ../../cicd/argocd/dev.yaml

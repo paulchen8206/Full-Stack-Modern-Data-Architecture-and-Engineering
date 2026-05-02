@@ -39,7 +39,7 @@ make routine-a-ops     # Unified day-2 operations
 
 All topic management is now handled by a single script:
 ```sh
-./scripts/kafka-topics.sh <create|list|consume|check-pipeline> [options]
+./platform-services/kafka/kafka-topics.sh <create|list|consume|check-pipeline> [options]
 ## Routine A: Unified Stack Startup & Operations
 
 Routine A is the primary workflow for starting, validating, and operating the full GenAI-Enabled Data Platform stack in local development. All procedures are consolidated for simplicity and reliability.
@@ -66,26 +66,26 @@ Routine A brings up all core services (Kafka, Schema Registry, Connect, MinIO, T
 
 3. **Kafka Topic Management:**
   ```sh
-  ./scripts/kafka-topics.sh <create|list|consume|check-pipeline> [options]
+  ./platform-services/kafka/kafka-topics.sh <create|list|consume|check-pipeline> [options]
   # Examples:
-  ./scripts/kafka-topics.sh create
-  ./scripts/kafka-topics.sh list
-  ./scripts/kafka-topics.sh consume sales_order 10
-  ./scripts/kafka-topics.sh check-pipeline --count 2
+  ./platform-services/kafka/kafka-topics.sh create
+  ./platform-services/kafka/kafka-topics.sh list
+  ./platform-services/kafka/kafka-topics.sh consume sales_order 10
+  ./platform-services/kafka/kafka-topics.sh check-pipeline --count 2
   ```
 
 4. **Connector Registration:**
   ```sh
-  ./scripts/consolidated-register-connector.sh --config <config.json> --name <connector-name> [--url <connect-url>] [--k8s <namespace> <deployment>]
+  ./cicd/scripts/consolidated-register-connector.sh --config <config.json> --name <connector-name> [--url <connect-url>] [--k8s <namespace> <deployment>]
   # Example:
-  ./scripts/consolidated-register-connector.sh --config connector-configs/my-connector.json --name my-connector --url http://localhost:8083
+  ./cicd/scripts/consolidated-register-connector.sh --config connector-configs/my-connector.json --name my-connector --url http://localhost:8083
   ```
 
 5. **Smoke Test Iceberg/Trino:**
   ```sh
-  ./scripts/check-iceberg-streaming-unified.sh
+  ./trino/scripts/check-iceberg-streaming-unified.sh
   # Or for Kubernetes:
-  ./scripts/check-iceberg-streaming-unified.sh --k8s --namespace <ns> --deployment <deploy>
+  ./trino/scripts/check-iceberg-streaming-unified.sh --k8s --namespace <ns> --deployment <deploy>
   ```
 
 ### Important Points

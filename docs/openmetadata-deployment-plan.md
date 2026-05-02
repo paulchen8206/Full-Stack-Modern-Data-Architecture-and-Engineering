@@ -114,7 +114,7 @@ Add this as a starting point to `docker-compose.yml` (adjust versions to your po
       - openmetadata-server
     entrypoint: ["/bin/bash", "-lc", "sleep infinity"]
     volumes:
-      - ./metadata/openmetadata:/opt/openmetadata/metadata
+      - ./platform-services/metadata/openmetadata:/opt/openmetadata/metadata
 ```
 
 Volumes (sample):
@@ -127,11 +127,11 @@ volumes:
 
 ## Connector Workflow Files (Sample YAMLs)
 
-Store workflow YAMLs under `metadata/openmetadata/workflows/`.
+Store workflow YAMLs under `platform-services/metadata/openmetadata/workflows/`.
 
 ### 1) Trino Metadata Ingestion
 
-File: `metadata/openmetadata/workflows/trino_ingestion.yaml`
+File: `platform-services/metadata/openmetadata/workflows/trino_ingestion.yaml`
 
 ```yaml
 source:
@@ -168,7 +168,7 @@ workflowConfig:
 
 ### 2) Postgres Warehouse Metadata Ingestion
 
-File: `metadata/openmetadata/workflows/postgres_ingestion.yaml`
+File: `platform-services/metadata/openmetadata/workflows/postgres_ingestion.yaml`
 
 ```yaml
 source:
@@ -208,7 +208,7 @@ workflowConfig:
 
 ### 3) dbt Metadata and Lineage Ingestion
 
-File: `metadata/openmetadata/workflows/dbt_ingestion.yaml`
+File: `platform-services/metadata/openmetadata/workflows/dbt_ingestion.yaml`
 
 ```yaml
 source:
@@ -239,7 +239,7 @@ workflowConfig:
 
 ### 4) Airflow Pipeline Metadata Ingestion
 
-File: `metadata/openmetadata/workflows/airflow_ingestion.yaml`
+File: `platform-services/metadata/openmetadata/workflows/airflow_ingestion.yaml`
 
 ```yaml
 source:
@@ -272,7 +272,7 @@ workflowConfig:
 
 ### 5) Kafka Topic Metadata Ingestion
 
-File: `metadata/openmetadata/workflows/kafka_ingestion.yaml`
+File: `platform-services/metadata/openmetadata/workflows/kafka_ingestion.yaml`
 
 ```yaml
 source:

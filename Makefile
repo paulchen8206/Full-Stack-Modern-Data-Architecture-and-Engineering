@@ -6,15 +6,14 @@
 
 # Build all Docker images
 docker-build:
-	docker build -t realtime-sales-producer:0.1.0 ./producer
-	docker build -t realtime-sales-processor:0.1.0 ./processor
-	docker build -t realtime-sales-connect:0.1.0 ./ods-connect
+	docker build -t realtime-sales-producer:0.1.0 ./source-apps/sales_order_source
+	docker build -t realtime-sales-processor:0.1.0 ./processing-apps/sales_order_processor
+	docker build -t realtime-sales-connect:0.1.0 ./kafka-connect/ods-connect
 	docker build -t realtime-sales-dbt:0.1.0 ./analytics/dbt
-	docker build -t realtime-sales-airflow:0.1.0 ./airflow
-	docker build -t realtime-sales-mdm-writer:0.1.0 ./mdm-writer
-	docker build -t realtime-sales-mdm-cdc-producer:0.1.0 ./mdm-cdc-producer
-	docker build -t realtime-sales-mdm-pyspark-sync:0.1.0 ./mdm-pyspark-sync
-	docker build -t realtime-sales-iceberg-writer:0.1.0 ./iceberg-writer
+	docker build -t realtime-sales-airflow:0.1.0 ./platform-services/airflow
+	docker build -t realtime-sales-mdm-cdc-producer:0.1.0 ./processing-apps/mdm-cdc-producer
+	docker build -t realtime-sales-mdm-pyspark-sync:0.1.0 ./processing-apps/mdm-pyspark-sync
+	docker build -t realtime-sales-iceberg-writer:0.1.0 ./processing-apps/iceberg-writer
 
 # Start all services using Docker Compose
 docker-compose-up:
@@ -34,7 +33,7 @@ images: docker-build
 
 # Show health for MDM CDC pipeline services and Debezium connector status
 mdm-status:
-	docker compose ps mdm_source mdm-writer mdm-connect mdm-connect-init mdm-cdc-producer
+	docker compose ps mdm_source mdm-connect mdm-connect-init mdm-cdc-producer
 	@echo ""
 	@echo "Debezium connector status (expects RUNNING):"
 	docker compose exec mdm-connect curl -fsS http://localhost:8083/connectors/debezium-mysql-mdm/status | cat

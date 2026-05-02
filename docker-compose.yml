@@ -12,6 +12,15 @@ services:
     volumes:
       - minio-data:/data
 
+  minio-init:
+    container_name: minio_init
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: [ "/bin/sh", "/scripts/init-minio.sh" ]
+    volumes:
+      - ./platform-services/minio/init-minio.sh:/scripts/init-minio.sh:ro
+
   zookeeper:
     container_name: zookeeper
     image: confluentinc/cp-zookeeper:7.6.1
@@ -22,7 +31,7 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     healthcheck:
-      test: ["CMD-SHELL", "echo srvr | nc localhost 2181 | grep -q Mode"]
+      test: [ "CMD-SHELL", "echo srvr | nc localhost 2181 | grep -q Mode" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -127,7 +136,7 @@ services:
         condition: service_healthy
     entrypoint: [ "/bin/bash", "/scripts/docker-create-topics.sh" ]
     volumes:
-      - ./scripts/docker-create-topics.sh:/scripts/docker-create-topics.sh:ro
+      - ./platform-services/kafka/docker-create-topics.sh:/scripts/docker-create-topics.sh:ro
     environment:
       KAFKA_HEAP_OPTS: "-Xmx256m -Xms128m"
 
@@ -145,7 +154,7 @@ services:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka-1:19092,PLAINTEXT://kafka-2:19093,PLAINTEXT://kafka-3:19094
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/subjects >/dev/null"]
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:8081/subjects >/dev/null" ]
       interval: 10s
       timeout: 5s
       retries: 20
@@ -153,7 +162,7 @@ services:
 
   schema-init:
     build:
-      context: ./schemas
+      context: ./platform-services/schemas
       dockerfile: Dockerfile
     image: schema-init:latest
     container_name: schema_init
@@ -161,12 +170,12 @@ services:
       schema-registry:
         condition: service_healthy
     volumes:
-      - ./schemas:/schemas:ro
+      - ./platform-services/schemas:/schemas:ro
 
   producer:
     container_name: producer
     build:
-      context: ./producer
+      context: ./source-apps/sales_order_source
     depends_on:
       kafka-1:
         condition: service_healthy
@@ -181,7 +190,7 @@ services:
   processor:
     container_name: processor
     build:
-      context: ./processor
+      context: ./processing-apps/sales_order_processor
     depends_on:
       kafka-1:
         condition: service_healthy
@@ -204,15 +213,6 @@ services:
     volumes:
       - minio-data:/data
 
-  minio-init:
-    container_name: minio_init
-    image: minio/mc:latest
-    depends_on:
-      - minio
-    entrypoint: [ "/bin/sh", "/scripts/init-minio.sh" ]
-    volumes:
-      - ./scripts/init-minio.sh:/scripts/init-minio.sh:ro
-
   trino:
     container_name: trino
     image: trinodb/trino:latest
@@ -232,7 +232,7 @@ services:
   iceberg-writer:
     container_name: iceberg_writer
     build:
-      context: ./iceberg-writer
+      context: ./processing-apps/iceberg-writer
     depends_on:
       kafka-1:
         condition: service_healthy
@@ -273,11 +273,10 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./analytics/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
-
   mdm-source:
     container_name: mdm_source
     build:
-      context: ./mdm-source
+      context: ./source-apps/mdm-source
       dockerfile: Dockerfile
     ports:
       - "${MDM_SOURCE_HOST_PORT:-3307}:3306"
@@ -290,33 +289,22 @@ services:
     volumes:
       - mdm-source-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -uroot -p$$MYSQL_ROOT_PASSWORD --protocol=socket --silent"]
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -uroot -p$$MYSQL_ROOT_PASSWORD --protocol=socket
+            --silent",
+        ]
       interval: 5s
       timeout: 10s
       retries: 20
       start_period: 20s
     restart: on-failure
 
-  mdm-writer:
-    container_name: mdm_writer
-    build:
-      context: ./mdm-writer
-    depends_on:
-      mdm-source:
-        condition: service_healthy
-    environment:
-      MDM_MYSQL_HOST: mdm-source
-      MDM_MYSQL_PORT: 3306
-      MDM_MYSQL_USER: root
-      MDM_MYSQL_PASSWORD: mdmroot
-      MDM_MYSQL_DB: mdm
-      MDM_WRITE_INTERVAL_MS: 3000
-    restart: on-failure
-
   debezium-connect:
     container_name: debezium_connect
     build:
-      context: ./debezium-connect
+      context: ./kafka-connect/debezium-connect
       dockerfile: Dockerfile
     depends_on:
       kafka-1:
@@ -357,19 +345,18 @@ services:
     entrypoint:
       - "/bin/sh"
       - "-c"
-      - "apk add --no-cache jq curl && /scripts/docker-register-connectors.sh"
+      - "apk add --no-cache jq curl && /scripts/register-debezium-connectors.sh"
     volumes:
-      - ./scripts/docker-register-connectors.sh:/scripts/docker-register-connectors.sh:ro
-      - ./debezium-connect/connector-configs:/connectors:ro
+      - ./kafka-connect/scripts/register-debezium-connectors.sh:/scripts/register-debezium-connectors.sh:ro
+      - ./kafka-connect/debezium-connect/connector-configs:/connectors:ro
     environment:
       CONNECT_URL: http://debezium-connect:8083
-      CONNECTOR_FILES: debezium-mysql-mdm.json
     restart: on-failure
 
   ods-connect:
     container_name: ods-connect
     build:
-      context: ./ods-connect
+      context: ./kafka-connect/ods-connect
       dockerfile: Dockerfile
     depends_on:
       kafka-1:
@@ -407,24 +394,6 @@ services:
         aliases:
           - connect
 
-  ods-connect-init:
-    image: alpine:3.19
-    container_name: ods-connect-init
-    depends_on:
-      ods-connect:
-        condition: service_started
-    entrypoint:
-      - "/bin/sh"
-      - "-c"
-      - "apk add --no-cache jq curl && /scripts/docker-register-connectors.sh"
-    volumes:
-      - ./scripts/docker-register-connectors.sh:/scripts/docker-register-connectors.sh:ro
-      - ./ods-connect/connector-configs:/connectors:ro
-    environment:
-      CONNECT_URL: http://ods-connect:8083
-      CONNECTOR_FILES: s3-sales-order.json,s3-sales-order-line-item.json,s3-customer-sales.json,jdbc-sales-warehouse.json
-    restart: on-failure
-
   mdm-connect-init:
     image: alpine:3.19
     container_name: mdm_connect_init
@@ -434,19 +403,18 @@ services:
     entrypoint:
       - "/bin/sh"
       - "-c"
-      - "apk add --no-cache jq curl && ls -l /scripts && /scripts/docker-register-connectors.sh"
+      - "apk add --no-cache jq curl && /scripts/register-mdm-connectors.sh"
     volumes:
-      - ./scripts/docker-register-connectors.sh:/scripts/docker-register-connectors.sh:ro
-      - ./mdm-connect/connector-configs:/connectors:ro
+      - ./kafka-connect/scripts/register-mdm-connectors.sh:/scripts/register-mdm-connectors.sh:ro
+      - ./kafka-connect/mdm-connect/connector-configs:/connectors:ro
     environment:
       CONNECT_URL: http://mdm-connect:8083
-      CONNECTOR_FILES: s3-mdm-customer.json,s3-mdm-product.json,s3-mdm-date.json,jdbc-mdm-warehouse.json
     restart: on-failure
 
   mdm-connect:
     container_name: mdm_connect
     build:
-      context: ./mdm-connect
+      context: ./kafka-connect/mdm-connect
       dockerfile: Dockerfile
     ports:
       - "8085:8083"
@@ -481,16 +449,33 @@ services:
       CONNECT_REST_ADVERTISED_HOST_NAME: mdm-connect
       CONNECT_PLUGIN_PATH: /usr/share/confluent-hub-components,/usr/share/java
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8083/connectors >/dev/null"]
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:8083/connectors >/dev/null" ]
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 30s
 
+  ods-connect-init:
+    image: alpine:3.19
+    container_name: ods-connect-init
+    depends_on:
+      ods-connect:
+        condition: service_started
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+      - "apk add --no-cache jq curl && /scripts/register-ods-connectors.sh"
+    volumes:
+      - ./kafka-connect/scripts/register-ods-connectors.sh:/scripts/register-ods-connectors.sh:ro
+      - ./kafka-connect/ods-connect/connector-configs:/connectors:ro
+    environment:
+      CONNECT_URL: http://ods-connect:8083
+    restart: on-failure
+
   mdm-cdc-producer:
     container_name: mdm_cdc_producer
     build:
-      context: ./mdm-cdc-producer
+      context: ./processing-apps/mdm-cdc-producer
     depends_on:
       kafka-1:
         condition: service_healthy
@@ -505,13 +490,11 @@ services:
   mdm-pyspark-sync:
     container_name: mdm_pyspark_sync
     build:
-      context: ./mdm-pyspark-sync
+      context: ./processing-apps/mdm-pyspark-sync
     depends_on:
       mdm-source:
         condition: service_healthy
       postgres:
-        condition: service_started
-      mdm-writer:
         condition: service_started
     environment:
       MDM_MYSQL_HOST: mdm-source
@@ -553,7 +536,7 @@ services:
   airflow:
     container_name: airflow
     build:
-      context: ./airflow
+      context: ./platform-services/airflow
       dockerfile: Dockerfile
     depends_on:
       postgres:
@@ -571,9 +554,9 @@ services:
       AIRFLOW_ADMIN_PASSWORD: admin
     volumes:
       - airflow-data:/opt/airflow
-      - ./airflow/dags:/opt/airflow/dags:ro
+      - ./platform-services/airflow/dags:/opt/airflow/dags:ro
       - ./analytics/dbt:/opt/airflow/dbt
-      - ./scripts/start-airflow.sh:/opt/airflow/scripts/start-airflow.sh:ro
+      - ./platform-services/airflow/start-airflow.sh:/opt/airflow/scripts/start-airflow.sh:ro
     entrypoint: [ "/bin/sh", "/opt/airflow/scripts/start-airflow.sh" ]
 
   prometheus:
@@ -682,7 +665,7 @@ services:
       - openmetadata-server
     entrypoint: [ "/bin/bash", "-lc", "sleep infinity" ]
     volumes:
-      - ./metadata/openmetadata:/opt/openmetadata/metadata
+      - ./platform-services/metadata/openmetadata:/opt/openmetadata/metadata
       - ./analytics/dbt:/opt/openmetadata/metadata/analytics/dbt:ro
       - airflow-data:/opt/airflow:ro
 

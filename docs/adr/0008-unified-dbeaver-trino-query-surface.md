@@ -14,11 +14,11 @@ This section defines the primary commands for this document.
 Primary commands related to this decision:
 
 - `make trino-smoke`
-- `./scripts/trino-sql.sh "SHOW CATALOGS"`
-- `./scripts/trino-sql.sh "SHOW SCHEMAS FROM lakehouse"`
-- `./scripts/trino-sql.sh "SHOW SCHEMAS FROM warehouse"`
-- `./scripts/trino-sql.sh "SELECT * FROM lakehouse.streaming.customer_sales LIMIT 10"`
-- `./scripts/trino-sql.sh "SELECT * FROM warehouse.landing.customer_sales LIMIT 10"`
+- `./trino/scripts/trino-sql.sh "SHOW CATALOGS"`
+- `./trino/scripts/trino-sql.sh "SHOW SCHEMAS FROM lakehouse"`
+- `./trino/scripts/trino-sql.sh "SHOW SCHEMAS FROM warehouse"`
+- `./trino/scripts/trino-sql.sh "SELECT * FROM lakehouse.streaming.customer_sales LIMIT 10"`
+- `./trino/scripts/trino-sql.sh "SELECT * FROM warehouse.landing.customer_sales LIMIT 10"`
 - Shared targets: `make help`, `make validate`
 
 ## Validation
@@ -73,7 +73,7 @@ Key design choices:
 - Use one DBeaver Trino connection to `localhost:8086`
 - Query lakehouse and warehouse datasets through catalogs rather than separate client connections
 - Treat Parquet-backed data as part of the Trino lakehouse path (Iceberg table storage format is PARQUET)
-- Preserve CLI parity via `scripts/trino-sql.sh` for repeatable automation and troubleshooting
+- Preserve CLI parity via `trino/scripts/trino-sql.sh` for repeatable automation and troubleshooting
 
 DBeaver connection baseline:
 
@@ -99,7 +99,7 @@ DBeaver connection baseline:
 ## Alternatives considered
 
 - Separate DBeaver connections per source (direct Postgres plus separate lakehouse tooling): rejected because it fragments query workflows and weakens governance through a single SQL layer
-- Trino CLI only (`./scripts/trino-sql.sh`) without GUI standardization: rejected because exploratory analytics and schema browsing are slower for many users
+- Trino CLI only (`./trino/scripts/trino-sql.sh`) without GUI standardization: rejected because exploratory analytics and schema browsing are slower for many users
 - Direct object-store inspection for Parquet files: rejected because it bypasses SQL governance and does not provide consistent relational semantics
 
 ## Detailed References
@@ -108,4 +108,4 @@ DBeaver connection baseline:
 - `trino/etc/catalog/lakehouse.properties` — Iceberg catalog and PARQUET table format configuration
 - `trino/etc/catalog/warehouse.properties` — Postgres warehouse catalog configuration
 - `docs/runbook.md` — catalog onboarding and optional second-catalog workflow
-- `scripts/trino-sql.sh` — script-based query path used for validation and troubleshooting
+- `trino/scripts/trino-sql.sh` — script-based query path used for validation and troubleshooting

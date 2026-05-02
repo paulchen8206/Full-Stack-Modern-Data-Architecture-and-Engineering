@@ -10,8 +10,8 @@ A reference implementation of a production-grade modern data platform covering r
 - [What This Project Demonstrates](#what-this-project-demonstrates)
 - [End-to-End Flow](#end-to-end-flow-high-level)
 - [Repository Layout](#repository-layout)
-- [Quick Start — Option A: Docker Compose](#option-a-docker-compose)
-- [Quick Start — Option B: kind + Helm + Argo CD](#option-b-kind--helm--argo-cd)
+- [Quick Start — Option A: Docker Compose](#option-a-docker-compose-routine-a)
+- [Quick Start — Option B: kind + Helm + Argo CD](#option-b-kind--helm--argo-cd-routine-b)
 - [Environment Strategy](#environment-strategy)
 - [Configuration](#configuration)
 - [Data Validation](#data-validation)
@@ -130,39 +130,43 @@ Related source locations:
 
 - Runtime services: [docker-compose.yml](docker-compose.yml)
 - Build and ops entrypoints: [Makefile](Makefile)
-- Kubernetes and GitOps artifacts: [charts/realtime-app/Chart.yaml](charts/realtime-app/Chart.yaml), [argocd/dev.yaml](argocd/dev.yaml)
+- Kubernetes and GitOps artifacts: [cicd/charts/realtime-app/Chart.yaml](cicd/charts/realtime-app/Chart.yaml), [cicd/argocd/dev.yaml](cicd/argocd/dev.yaml)
 - dbt project and adapter setup: [analytics/dbt/Dockerfile](analytics/dbt/Dockerfile), [analytics/dbt/dbt_project.yml](analytics/dbt/dbt_project.yml)
-- Processor stack: [processor/pom.xml](processor/pom.xml)
+- Processor stack: [processing-apps/sales_order_processor/pom.xml](processing-apps/sales_order_processor/pom.xml)
 - Observability provisioning: [observability/prometheus/prometheus.yml](observability/prometheus/prometheus.yml), [observability/grafana/provisioning/datasources/prometheus.yml](observability/grafana/provisioning/datasources/prometheus.yml)
 
 ## Repository Layout
 
 - `docker-compose.yml`: Local Routine A service topology for the full stack.
 - `Makefile`: Unified operational entrypoints for build, run, validation, and troubleshooting flows.
-- `producer`: Python Kafka producer for composite sales orders.
-- `processor`: Spring Boot application that launches the Flink topology.
-- `connect`: Kafka Connect image and connector configurations (object-storage + JDBC sinks).
-- `mdm-writer`: Python app that inserts and updates MySQL MDM master data.
-- `mdm-cdc-producer`: Python app that consumes Debezium CDC topics and publishes `mdm_customer` and `mdm_product`.
-- `mdm-pyspark-sync`: PySpark app that continuously syncs MySQL MDM tables into Postgres landing tables.
-- `iceberg-writer`: Python service that consumes Kafka topics and writes directly to Iceberg tables through Trino.
-- `airflow`: Apache Airflow image and DAGs for scheduled dbt orchestration.
+- `source-apps/`: Source-side applications.
+- `source-apps/sales_order_source`: Python Kafka producer for composite sales orders.
+- `source-apps/mdm-source`: MySQL-backed MDM source system simulator for CDC testing.
+- `processing-apps/`: Downstream processing and synchronization applications.
+- `processing-apps/sales_order_processor`: Spring Boot application that launches the Flink topology.
+- `processing-apps/mdm-cdc-producer`: Python app that consumes Debezium CDC topics and publishes `mdm_customer` and `mdm_product`.
+- `processing-apps/mdm-pyspark-sync`: PySpark app that continuously syncs MySQL MDM tables into Postgres landing tables.
+- `processing-apps/iceberg-writer`: Python service that consumes Kafka topics and writes directly to Iceberg tables through Trino.
+- `kafka-connect/`: Kafka Connect images and connector configurations.
+- `platform-services/`: Platform support images and bootstrap assets.
+- `platform-services/airflow`: Apache Airflow image and DAGs for scheduled dbt orchestration.
+- `platform-services/metadata`: OpenMetadata workflow definitions and metadata-service support assets.
+- `platform-services/schemas`: Schema Registry bootstrap image and Avro schema assets.
 - `analytics/dbt`: dbt project for bronze, silver, and gold models in Postgres.
 - `analytics/sql`: Postgres bootstrap SQL for landing and MDM sync targets.
 - `mdm/sql`: MySQL bootstrap SQL for MDM `customer360` and `product_master` tables.
 - `trino/etc`: Trino coordinator and catalog configuration.
 - `trino/sql`: Trino bootstrap and incremental lakehouse SQL scripts.
 - `observability`: Prometheus, Grafana, and Blackbox Exporter configuration and dashboards.
-- `charts/realtime-app`: Helm chart for Routine B Kubernetes deployment.
+- `cicd/charts/realtime-app`: Helm chart for Routine B Kubernetes deployment.
 - `environments`: Helm values for `dev`, `qa`, and `prd`.
-- `argocd`: Argo CD Application manifests.
+- `cicd`: CI/CD and GitOps assets, including Argo CD manifests, Helm charts, and Kubernetes helpers.
 - `scripts`: Local bootstrap, image build, topic, and query helpers.
 - `docs/architecture.md`: Architecture diagrams and modern data engineering framework/patterns.
 - `docs/runbook.md`: Day-2 operations procedures for Compose and Argo CD workflows.
 - `docs/adr`: Architecture Decision Records (ADRs).
 
-
-## 🚀 Quick Start: Unified Docker Routine (Routine A)
+## Option A: Docker Compose (Routine A)
 
 All local development, validation, and troubleshooting flows are now consolidated under unified scripts and Make targets. **Deprecated scripts will print a warning and exit.**
 
@@ -236,7 +240,7 @@ make validate          # Run local validation bundle
 
 ---
 
-## 🐳 Option B: kind + Helm + Argo CD (Routine B)
+## Option B: kind + Helm + Argo CD (Routine B)
 
 For Kubernetes/GitOps simulation, use:
 
@@ -275,19 +279,19 @@ Recommended command order (matches the runbook):
 2. Build and load local images into kind:
 
    ```bash
-   ./scripts/build-images.sh
+   ./cicd/scripts/build-images.sh
    ```
 
 3. Apply Argo CD application:
 
    ```bash
-   kubectl apply -f argocd/dev.yaml
+   kubectl apply -f cicd/argocd/dev.yaml
    ```
 
    If the Argo CD UI does not show `realtime-dev`, re-apply and validate:
 
    ```bash
-   kubectl apply -f argocd/dev.yaml
+   kubectl apply -f cicd/argocd/dev.yaml
    kubectl -n argocd get application realtime-dev
    ```
 
@@ -300,7 +304,7 @@ Recommended command order (matches the runbook):
    ```
 
    If Argo CD shows `SYNC STATUS: Unknown` with a `ComparisonError` about repository access,
-   register Git credentials in Argo CD for the configured source repo in `argocd/dev.yaml`.
+   register Git credentials in Argo CD for the configured source repo in `cicd/argocd/dev.yaml`.
    You can still validate local chart changes immediately with direct Helm commands:
 
    ```bash
@@ -359,7 +363,7 @@ Dev environment behavior:
 - Uses in-cluster Kafka from the Helm dependency (`kafka.enabled=true` in `environments/dev/values.yaml`).
 - Uses locally built producer, processor, Kafka Connect, dbt, and Airflow images already loaded into kind (`imagePullPolicy: Never`).
 - Deploys MinIO, Trino, Postgres, Kafka Connect, a one-shot dbt bootstrap Job, and Airflow in the same Helm release.
-- Argo CD tracks `https://github.com/paulchen8206/Full-Stack-Modern-Data-Architecture-and-Engineering.git` on branch `main` and syncs `charts/realtime-app` with `environments/dev/values.yaml`.
+- Argo CD tracks `https://github.com/paulchen8206/Full-Stack-Modern-Data-Architecture-and-Engineering.git` on branch `main` and syncs `cicd/charts/realtime-app` with `environments/dev/values.yaml`.
 
 ## Environment Strategy
 
@@ -398,8 +402,8 @@ Dev environment behavior:
 - `trino` exposes a SQL query engine endpoint for MinIO-backed Iceberg-compatible data.
 - Local Compose endpoint: `http://localhost:8086`
 - Kubernetes endpoint: port-forward `svc/realtime-dev-realtime-app-trino 8086:8080`
-- The repository includes a repeatable SQL runner: `python3 scripts/trino_query.py --server http://localhost:8086 --file <sql-file>`
-- The repository also includes a shell helper for ad hoc SQL without calling Python directly: `./scripts/trino-sql.sh "SHOW TABLES FROM lakehouse.streaming"`
+- The repository includes a repeatable SQL runner: `python3 trino/scripts/trino_query.py --server http://localhost:8086 --file <sql-file>`
+- The repository also includes a shell helper for ad hoc SQL without calling Python directly: `./trino/scripts/trino-sql.sh "SHOW TABLES FROM lakehouse.streaming"`
 - `make trino-shell` opens the Trino CLI inside the Compose service, or runs a SQL file when `SQL_FILE=<path>` is provided
 | Make target | Action |
 | --- | --- |
@@ -451,7 +455,7 @@ SELECT * FROM lakehouse.demo.sample_orders LIMIT 10;
 - `mysql-mdm` stores MDM entities:
   - `mdm.customer360` aligned to customer dimension semantics.
   - `mdm.product_master` aligned to product dimension semantics.
-- `mdm-writer` continuously inserts and updates those master records.
+- `mdm-source` continuously inserts and updates those master records through its built-in data generator.
 - `mdm-connect` runs Debezium MySQL source connector (`debezium-mysql-mdm`).
 - Debezium raw CDC topics:
   - `mdm_mysql.mdm.customer360`
@@ -479,7 +483,7 @@ SELECT * FROM lakehouse.demo.sample_orders LIMIT 10;
 
 ### Airflow Scheduling Layer
 
-- Airflow DAG location: `airflow/dags/dbt_warehouse_schedule.py`
+- Airflow DAG location: `platform-services/airflow/dags/dbt_warehouse_schedule.py`
 - DAG ID: `dbt_warehouse_schedule`
 - Schedule: every 5 minutes
 - The DAG runs `dbt deps` and `dbt run` against the same local Postgres warehouse used by the manual `dbt` service
@@ -528,8 +532,8 @@ The following checks were validated against the current workspace and local dev 
 Static validation:
 
 - `docker compose config` rendered successfully.
-- `helm dependency build charts/realtime-app` completed successfully.
-- `helm template realtime-dev charts/realtime-app -f environments/dev/values.yaml` rendered successfully.
+- `helm dependency build cicd/charts/realtime-app` completed successfully.
+- `helm template realtime-dev cicd/charts/realtime-app -f environments/dev/values.yaml` rendered successfully.
 
 Runtime validation (Routine A — Docker Compose):
 
@@ -541,10 +545,7 @@ Runtime validation (Routine A — Docker Compose):
 - Airflow UI reachable at `http://localhost:8084` after `make airflow-up`.
 - `make trino-bootstrap-lakehouse` passed after aligning bootstrap SQL with current landing column names.
 - `make trino-sync-lakehouse` currently fails when MERGE keys are duplicated in source rows (known caveat; see runbook troubleshooting).
-- OpenMetadata hardening checks passed after enabling query stats and local schema registry:
-   - `docker compose up -d postgres schema-registry`
-   - `make openmetadata-ingest-postgres` completed with `GetQueries` passed.
-   - `make openmetadata-ingest-kafka` completed with `CheckSchemaRegistry` passed and Kafka workflow `Warnings: 0`.
+- OpenMetadata hardening checks passed after enabling query stats and local schema registry: `docker compose up -d postgres schema-registry`, `make openmetadata-ingest-postgres` completed with `GetQueries` passed, and `make openmetadata-ingest-kafka` completed with `CheckSchemaRegistry` passed and Kafka workflow `Warnings: 0`.
 
 Runtime validation (Routine B cluster — 2026-04-18):
 
@@ -557,7 +558,7 @@ Runtime validation (Routine B cluster — 2026-04-18):
 Important GitOps note:
 
 - If Argo CD owns the release, treat Git as source of truth and sync through Argo CD after committing chart changes.
-- If the app is missing in Argo CD UI, re-apply `argocd/dev.yaml` and validate with `kubectl -n argocd get application realtime-dev`.
+- If the app is missing in Argo CD UI, re-apply `cicd/argocd/dev.yaml` and validate with `kubectl -n argocd get application realtime-dev`.
 
 ## Build Commands
 

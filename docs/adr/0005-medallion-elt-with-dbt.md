@@ -56,7 +56,7 @@ Implement a four-layer medallion architecture using dbt:
 
 Use `analytics/dbt/macros/generate_schema_name.sql` to disable dbt's default `target_schema + custom_schema` concatenation so models materialize directly in `bronze`, `silver`, and `gold` rather than `public_bronze`, etc.
 
-Schedule recurring dbt runs through Airflow (`airflow/dags/dbt_warehouse_schedule.py`, DAG ID `dbt_warehouse_schedule`, every 5 minutes).
+Schedule recurring dbt runs through Airflow (`platform-services/airflow/dags/dbt_warehouse_schedule.py`, DAG ID `dbt_warehouse_schedule`, every 5 minutes).
 
 ## Consequences
 
@@ -81,4 +81,4 @@ Schedule recurring dbt runs through Airflow (`airflow/dags/dbt_warehouse_schedul
 - `analytics/dbt/models/silver/` — dimension and fact tables
 - `analytics/dbt/models/gold/` — presentation aggregates
 - `analytics/dbt/macros/generate_schema_name.sql` — schema name macro override
-- `airflow/dags/dbt_warehouse_schedule.py` — Airflow DAG for scheduled refresh
+- `platform-services/airflow/dags/dbt_warehouse_schedule.py` — Airflow DAG for scheduled refresh

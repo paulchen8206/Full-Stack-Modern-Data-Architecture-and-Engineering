@@ -14,7 +14,7 @@ This section defines the primary commands for this document.
 Primary commands related to this decision:
 
 - `make trino-smoke`
-- `./scripts/trino-sql.sh "SHOW CATALOGS"`
+- `./trino/scripts/trino-sql.sh "SHOW CATALOGS"`
 - `docker compose up -d openmetadata-server openmetadata-ingestion`
 - Shared targets: `make help`, `make validate`
 
@@ -96,5 +96,5 @@ Rollout approach:
 - `docker-compose.yml` — local service topology where OpenMetadata components are added
 - `trino/etc/catalog/` — Trino catalogs used as primary metadata source
 - `analytics/dbt/target/manifest.json` and `analytics/dbt/target/run_results.json` — dbt artifact sources for lineage
-- `airflow/dags/dbt_warehouse_schedule.py` — Airflow DAG metadata source
-- `ods-connect/connector-configs/` — Kafka and connector context for streaming metadata
+- `platform-services/airflow/dags/dbt_warehouse_schedule.py` — Airflow DAG metadata source
+- `kafka-connect/ods-connect/connector-configs/` — Kafka and connector context for streaming metadata

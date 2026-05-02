@@ -361,53 +361,69 @@ This section describes the end-to-end movement of data across runtime, analytics
 Diagram: end-to-end dataflow diagram.
 
 ```mermaid
-flowchart TD
-  A0[kafka-init creates required topics] --> K[(Kafka cluster)]
-  A1[schema-init registers Avro subjects] --> SR[schema-registry]
+flowchart LR
+  subgraph S[Sources]
+    SRC1[Sales source app producer]
+    SRC2[MDM source MySQL]
+    BOOT1[kafka-init topics]
+    BOOT2[schema-init contracts]
+  end
 
-  A[producer emits raw_sales_orders] --> K
-  K --> B[processor consumes and normalizes]
-  SR -.schema lookup.-> B
-  B --> C[sales_order]
-  B --> D[sales_order_line_item]
-  B --> E[customer_sales]
-  C --> K
-  D --> K
-  E --> K
+  subgraph P[Pipeline processing]
+    K[(Kafka cluster)]
+    SR[schema-registry]
+    PROC[Spring Boot plus Flink processor]
+    ODS[ods-connect sink tasks]
+    DBZ[debezium-connect]
+    MCP[mdm-cdc-producer]
+    MDMK[mdm-connect sink tasks]
+    SP[mdm-pyspark-sync]
+    IW[iceberg-writer]
+    TR[Trino SQL write path]
+    DBT[dbt medallion build]
+    AF[Airflow schedule trigger]
+  end
 
-  K --> F[ods-connect sink tasks]
-  F --> G[(Postgres landing)]
-  F --> H[(MinIO raw objects)]
+  subgraph T[Targets]
+    TGT1[(Postgres landing and analytics)]
+    TGT2[(MinIO raw objects)]
+    TGT3[(Iceberg tables on MinIO)]
+    TGT4[OpenMetadata catalog optional]
+    TGT5[Grafana dashboards]
+  end
 
-  K --> I[iceberg-writer consumer]
-  I --> J[Trino SQL writes to lakehouse.streaming]
-  J --> L[(Iceberg tables on MinIO)]
+  BOOT1 --> K
+  BOOT2 --> SR
+  SRC1 -->|raw_sales_orders| K
+  K --> PROC
+  SR -.schema lookup.-> PROC
+  PROC -->|sales_order plus sales_order_line_item plus customer_sales| K
+  K --> ODS
+  ODS --> TGT1
+  ODS --> TGT2
 
-  M[mdm-source MySQL updates] --> N[debezium-connect]
-  N -->|raw CDC topics| K
-  K --> O[mdm-cdc-producer]
-  O -->|mdm_customer / mdm_product| K
-  K --> P[mdm-connect sink tasks]
-  P --> G
-  M --> Q[mdm-pyspark-sync]
-  Q --> G
+  SRC2 --> DBZ
+  DBZ -->|raw CDC topics| K
+  K --> MCP
+  MCP -->|mdm_customer plus mdm_product| K
+  K --> MDMK
+  MDMK --> TGT1
+  SRC2 --> SP
+  SP --> TGT1
 
-  G --> R[dbt run builds bronze/silver/gold]
-  S[Airflow dag trigger] --> R
+  K --> IW
+  IW --> TR
+  TR --> TGT3
 
-  T[openmetadata-ingestion optional] --> U[openmetadata-server]
-  J -.metadata.-> T
-  G -.metadata.-> T
-  R -.lineage.-> T
-  S -.pipeline metadata.-> T
-  K -.topic metadata.-> T
+  TGT1 --> DBT
+  AF --> DBT
 
-  V[blackbox-exporter and Prometheus] --> W[Grafana dashboards]
-  V -.endpoint checks.-> A
-  V -.endpoint checks.-> B
-  V -.endpoint checks.-> N
-  V -.endpoint checks.-> R
-  V -.endpoint checks.-> U
+  K -.topic metadata.-> TGT4
+  TR -.table metadata.-> TGT4
+  TGT1 -.warehouse metadata.-> TGT4
+  DBT -.lineage metadata.-> TGT4
+
+  OBS[blackbox-exporter plus Prometheus] --> TGT5
 ```
 
 ### 5.1 Realtime Sales Domain Flow
@@ -418,24 +434,39 @@ Diagram: Routine A realtime sales dataflow.
 
 ```mermaid
 flowchart LR
-  P[producer] -->|raw_sales_orders| K[(Kafka cluster)]
-  K -->|consume| F[processor Spring Boot + Flink]
-  SR[schema-registry] -.Avro contracts.-> F
+  subgraph S[Source]
+    P[Sales producer]
+  end
 
-  F -->|sales_order| K
-  F -->|sales_order_line_item| K
-  F -->|customer_sales| K
+  subgraph P1[Pipeline]
+    K[(Kafka cluster)]
+    F[Spring Boot plus Flink processor]
+    SR[schema-registry]
+    ODS[ods-connect]
+    IW[iceberg-writer]
+    T[Trino]
+    A[Airflow]
+    D[dbt medallion models]
+  end
 
-  K --> ODS[ods-connect]
-  ODS --> PG[(Postgres landing)]
-  ODS --> M[(MinIO raw objects)]
+  subgraph T1[Targets]
+    PG[(Postgres landing)]
+    M[(MinIO raw objects)]
+    I[(Iceberg tables on MinIO)]
+  end
 
-  K --> IW[iceberg-writer]
-  IW --> T[Trino]
-  T --> I[(Iceberg tables on MinIO)]
-
-  PG --> D[dbt medallion models]
-  A[Airflow] --> D
+  P -->|raw_sales_orders| K
+  K -->|consume| F
+  SR -.Avro contracts.-> F
+  F -->|sales_order plus sales_order_line_item plus customer_sales| K
+  K --> ODS
+  ODS --> PG
+  ODS --> M
+  K --> IW
+  IW --> T
+  T --> I
+  PG --> D
+  A --> D
 ```
 
 1. Python producer publishes composite sales events to `raw_sales_orders`.
@@ -456,19 +487,32 @@ Diagram: Routine A MDM CDC dataflow.
 
 ```mermaid
 flowchart LR
-  M[(mdm-source MySQL)] -->|binlog CDC| DBZ[debezium-connect]
-  DBZ -->|raw MDM CDC topics| K[(Kafka cluster)]
+  subgraph S2[Source]
+    M[(MDM source MySQL)]
+  end
 
-  K -->|curate CDC| MCP[mdm-cdc-producer]
-  MCP -->|mdm_customer / mdm_product| K
+  subgraph P2[Pipeline]
+    DBZ[debezium-connect]
+    K[(Kafka cluster)]
+    MCP[mdm-cdc-producer]
+    MDMK[mdm-connect]
+    SP[mdm-pyspark-sync]
+    DBT[dbt silver and gold joins]
+  end
 
-  K --> MDMK[mdm-connect]
-  MDMK --> PG[(Postgres landing mdm tables)]
+  subgraph T2[Target]
+    PG[(Postgres landing mdm tables)]
+  end
 
-  M --> SP[mdm-pyspark-sync]
+  M -->|binlog CDC| DBZ
+  DBZ -->|raw MDM CDC topics| K
+  K -->|curate CDC| MCP
+  MCP -->|mdm_customer plus mdm_product| K
+  K --> MDMK
+  MDMK --> PG
+  M --> SP
   SP --> PG
-
-  PG --> DBT[dbt silver and gold joins]
+  PG --> DBT
 ```
 
 1. MDM writer upserts `customer360` and `product_master` entities into MySQL.
@@ -485,7 +529,7 @@ Diagram: Routine A metadata and observability dataflow.
 
 ```mermaid
 flowchart LR
-  subgraph Runtime[Runtime and analytics assets]
+  subgraph S3[Source assets]
     K[(Kafka cluster)]
     T[Trino]
     PG[(Postgres analytics)]
@@ -493,14 +537,14 @@ flowchart LR
     A[Airflow metadata]
   end
 
-  subgraph Metadata[Optional openmetadata profile]
+  subgraph P3[Metadata and monitoring pipeline]
     OMI[openmetadata-ingestion]
-    OMS[openmetadata-server]
-  end
-
-  subgraph Observability[Monitoring stack]
     BBX[blackbox-exporter]
     PROM[Prometheus]
+  end
+
+  subgraph T3[Target systems]
+    OMS[openmetadata-server]
     GRAF[Grafana]
   end
 

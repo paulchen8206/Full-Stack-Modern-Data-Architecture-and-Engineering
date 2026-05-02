@@ -28,7 +28,7 @@ The local implementation now includes two connector hardening updates that shoul
 Validation commands:
 
 ```bash
-docker compose up -d postgres schema-registry
+docker compose up -d snowflake-mimic schema-registry
 make openmetadata-ingest-postgres
 make openmetadata-ingest-kafka
 ```
@@ -44,7 +44,7 @@ Expected validation outcomes:
 Existing services relevant to metadata ingestion:
 
 - Trino query endpoint: `http://trino:8080` (host port `8086`)
-- Postgres warehouse: `postgres:5432`
+- Postgres warehouse: `snowflake-mimic:5432`
 - Kafka broker: `kafka:9092`
 - Airflow UI/API: `http://airflow:8080` (host port `8084`)
 - dbt project path: `analytics/dbt`
@@ -177,7 +177,7 @@ source:
   serviceConnection:
     config:
       type: Postgres
-      hostPort: postgres:5432
+      hostPort: snowflake-mimic:5432
       username: analytics
       authType:
         password: analytics
@@ -397,7 +397,7 @@ Tooling checks:
 
 ```bash
 docker compose config > /dev/null && echo "compose-config-ok"
-docker compose ps postgres schema-registry openmetadata-server openmetadata-ingestion
+docker compose ps snowflake-mimic schema-registry openmetadata-server openmetadata-ingestion
 curl -fsS http://localhost:8585 >/dev/null && echo "openmetadata: healthy"
 ```
 

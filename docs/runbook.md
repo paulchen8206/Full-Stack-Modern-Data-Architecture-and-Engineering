@@ -265,7 +265,7 @@ make trino-smoke
 OpenMetadata hardening validation (Postgres query stats + Kafka schema registry):
 
 ```bash
-docker compose up -d postgres schema-registry
+docker compose up -d snowflake-mimic schema-registry
 make openmetadata-ingest-postgres
 make openmetadata-ingest-kafka
 ```
@@ -273,7 +273,7 @@ make openmetadata-ingest-kafka
 Optional explicit checks:
 
 ```bash
-docker compose exec -T postgres psql -U analytics -d analytics -c "SELECT extname FROM pg_extension WHERE extname = 'pg_stat_statements';"
+docker compose exec -T snowflake-mimic psql -U analytics -d analytics -c "SELECT extname FROM pg_extension WHERE extname = 'pg_stat_statements';"
 docker compose --profile openmetadata exec -T openmetadata-ingestion metadata ingest -c /opt/openmetadata/metadata/workflows/postgres_ingestion.yaml | grep -E "GetQueries|passed=True"
 docker compose --profile openmetadata exec -T openmetadata-ingestion metadata ingest -c /opt/openmetadata/metadata/workflows/kafka_ingestion.yaml | grep -E "CheckSchemaRegistry|Warnings:"
 ```
@@ -378,7 +378,7 @@ Manual Airflow DAG trigger:
 make airflow-trigger-dbt-dag
 ```
 
-Note: `docker compose run --rm dbt` may appear to pause while Compose waits for `postgres` and `ods-connect-init`. That is dependency startup behavior, not an interactive prompt.
+Note: `docker compose run --rm dbt` may appear to pause while Compose waits for `snowflake-mimic` and `ods-connect-init`. That is dependency startup behavior, not an interactive prompt.
 
 ### A5. Stop and clean
 
@@ -402,13 +402,12 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 - `processor` runs the Spring Boot application with the embedded Flink topology.
 - `ods-connect` loads Kafka Connect sink plugins and exposes the REST API on port 8083.
 - `ods-connect-init` registers the JDBC and object-storage sink connectors from `kafka-connect/ods-connect/connector-configs`.
-- `mysql-mdm` stores `mdm.customer360`, `mdm.product_master`, and `mdm_date` source tables.
-- `mdm-source` also runs the built-in data generator that upserts customer, product, and date rows into MySQL.
+- `mdm-source` stores `mdm.customer360`, `mdm.product_master`, and `mdm_date` source tables and runs the built-in data generator.
 - `mdm-connect` runs Debezium MySQL source capture and publishes raw CDC topics.
 - `mdm-connect-init` registers the Debezium connector from `kafka-connect/mdm-connect/connector-configs/debezium-mysql-mdm.json`.
 - `mdm-cdc-producer` republishes curated `mdm_customer` and `mdm_product` topics.
 - `mdm-pyspark-sync` syncs MySQL MDM tables into Postgres landing MDM tables.
-- `postgres` stores `landing`, `bronze`, `silver`, and `gold` schemas for analytics queries.
+- `snowflake-mimic` stores `landing`, `bronze`, `silver`, and `gold` schemas for analytics queries.
 - `dbt` transforms landing data into bronze views, silver tables, and gold tables.
 - `airflow` schedules and triggers recurring dbt runs for the warehouse layer.
 - `trino` exposes a SQL query endpoint and bootstrap path for real Iceberg tables on MinIO.
@@ -427,7 +426,7 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 - Debezium MDM connector is not producing raw CDC topics:
   Check `docker compose logs --tail=200 mdm-connect` and ensure `mdm-connect-init` completed successfully.
 - Full stack startup feels blocked around dbt:
-  Compose may still be waiting for `ods-connect-init` or `postgres` before launching the dbt container.
+  Compose may still be waiting for `ods-connect-init` or `snowflake-mimic` before launching the dbt container.
 - Airflow UI starts but no dbt runs appear:
   Check `make airflow-logs` and verify the `dbt_warehouse_schedule` DAG is enabled.
 - Airflow webserver fails to start with `Error: Already running on PID ... (or pid file ... is stale)`:

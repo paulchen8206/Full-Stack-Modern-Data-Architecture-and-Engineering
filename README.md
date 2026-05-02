@@ -119,7 +119,7 @@ Versions are shown when they are explicitly pinned in this repository.
 | Data integration and CDC | Kafka Connect (Confluent Platform image `7.6.1`), Debezium Connect `3.0`, JDBC and S3 sink connectors |
 | Object storage and lakehouse path | MinIO, Trino `472`, Iceberg-compatible table path via Trino catalog configuration |
 | Databases | PostgreSQL `16`, MySQL `8.4` |
-| ELT and analytics modeling | dbt with `dbt-postgres==1.8.2` |
+| ELT and analytics modeling | dbt with `dbt-postgres==1.8.2` and `dbt-trino==1.8.2` |
 | Workflow orchestration | Apache Airflow `2.10.5` (Python `3.11`) |
 | Python services | Python `>=3.11`, `kafka-python==2.0.2`, `mysql-connector-python==9.0.0`, Hatchling build backend |
 | Spark-based sync | PySpark job (`spark-submit`) for MDM to Postgres sync |
@@ -152,14 +152,14 @@ Related source locations:
 - `platform-services/airflow`: Apache Airflow image and DAGs for scheduled dbt orchestration.
 - `platform-services/metadata`: OpenMetadata workflow definitions and metadata-service support assets.
 - `platform-services/schemas`: Schema Registry bootstrap image and Avro schema assets.
-- `analytics/dbt`: dbt project for bronze, silver, and gold models in Postgres.
+- `analytics/dbt`: dbt project for bronze, silver, and gold models targeting Trino and the Compose Postgres warehouse (`snowflake-mimic`).
 - `analytics/sql`: Postgres bootstrap SQL for landing and MDM sync targets.
-- `mdm/sql`: MySQL bootstrap SQL for MDM `customer360` and `product_master` tables.
+- `source-apps/mdm-source/sql`: MySQL bootstrap SQL for MDM `customer360` and `product_master` tables.
 - `trino/etc`: Trino coordinator and catalog configuration.
 - `trino/sql`: Trino bootstrap and incremental lakehouse SQL scripts.
 - `observability`: Prometheus, Grafana, and Blackbox Exporter configuration and dashboards.
 - `cicd/charts/realtime-app`: Helm chart for Routine B Kubernetes deployment.
-- `environments`: Helm values for `dev`, `qa`, and `prd`.
+- `cicd/k8s/helm/values`: Helm values for `dev`, `qa`, and `prd`.
 - `cicd`: CI/CD and GitOps assets, including Argo CD manifests, Helm charts, and Kubernetes helpers.
 - `scripts`: Local bootstrap, image build, topic, and query helpers.
 - `docs/architecture.md`: Architecture diagrams and modern data engineering framework/patterns.
@@ -486,7 +486,7 @@ SELECT * FROM lakehouse.demo.sample_orders LIMIT 10;
 - Airflow DAG location: `platform-services/airflow/dags/dbt_warehouse_schedule.py`
 - DAG ID: `dbt_warehouse_schedule`
 - Schedule: every 5 minutes
-- The DAG runs `dbt deps` and `dbt run` against the same local Postgres warehouse used by the manual `dbt` service
+- The DAG runs `dbt deps` and `dbt run` against both Trino and the local Compose Postgres warehouse service (`snowflake-mimic`)
 - In the dev Helm path, Airflow runs inside the same release and serves its UI through the `realtime-dev-realtime-app-airflow` service
 
 ## Data Validation
@@ -545,7 +545,7 @@ Runtime validation (Routine A — Docker Compose):
 - Airflow UI reachable at `http://localhost:8084` after `make airflow-up`.
 - `make trino-bootstrap-lakehouse` passed after aligning bootstrap SQL with current landing column names.
 - `make trino-sync-lakehouse` currently fails when MERGE keys are duplicated in source rows (known caveat; see runbook troubleshooting).
-- OpenMetadata hardening checks passed after enabling query stats and local schema registry: `docker compose up -d postgres schema-registry`, `make openmetadata-ingest-postgres` completed with `GetQueries` passed, and `make openmetadata-ingest-kafka` completed with `CheckSchemaRegistry` passed and Kafka workflow `Warnings: 0`.
+- OpenMetadata hardening checks passed after enabling query stats and local schema registry: `docker compose up -d snowflake-mimic schema-registry`, `make openmetadata-ingest-postgres` completed with `GetQueries` passed, and `make openmetadata-ingest-kafka` completed with `CheckSchemaRegistry` passed and Kafka workflow `Warnings: 0`.
 
 Runtime validation (Routine B cluster — 2026-04-18):
 

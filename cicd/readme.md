@@ -18,7 +18,7 @@ The `cicd` folder is the delivery control plane for this repository. It includes
   - `dev.yaml`
   - `qa.yaml`
   - `prd.yaml`
-- `charts/realtime-app/`
+- `charts/`
   - `Chart.yaml`
   - `values.yaml`
   - `templates/`
@@ -39,7 +39,7 @@ The `cicd` folder is the delivery control plane for this repository. It includes
 ## Deployment Model
 
 1. Build and publish/load images for runtime services.
-2. Render and deploy the Helm chart (`charts/realtime-app`) with environment values.
+2. Render and deploy the Helm chart (`charts`) with environment values.
 3. Reconcile desired state through Argo CD Application manifests.
 4. Validate workloads and runtime health with runbook checks.
 

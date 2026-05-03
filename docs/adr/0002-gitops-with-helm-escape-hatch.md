@@ -31,8 +31,8 @@ Primary GitOps path:
 
 Local validation path:
 
-- helm dependency build cicd/charts/realtime-app
-- helm template realtime-dev cicd/charts/realtime-app -f cicd/k8s/helm/values/values-dev.yaml
+- helm dependency build cicd/charts
+- helm template realtime-dev cicd/charts -f cicd/k8s/helm/values/values-dev.yaml
 
 ## 5. Validation
 
@@ -63,7 +63,7 @@ Trade-offs:
 
 - [../runbook.md](../runbook.md)
 - [../../cicd/argocd/dev.yaml](../../cicd/argocd/dev.yaml)
-- [../../cicd/charts/realtime-app](../../cicd/charts/realtime-app)
+- [../../cicd/charts](../../cicd/charts)
 
 ## 9. Diagrams
 

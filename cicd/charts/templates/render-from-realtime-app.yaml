@@ -1,0 +1,12 @@
+{{ tpl (.Files.Get "realtime-app/templates/connect.yaml") . }}
+{{ tpl (.Files.Get "realtime-app/templates/control-center.yaml") . }}
+{{ tpl (.Files.Get "realtime-app/templates/deployments.yaml") . }}
+{{ tpl (.Files.Get "realtime-app/templates/lakehouse.yaml") . }}
+{{ tpl (.Files.Get "realtime-app/templates/mdm.yaml") . }}
+{{ tpl (.Files.Get "realtime-app/templates/observability.yaml") . }}
+{{ tpl (.Files.Get "realtime-app/templates/query-engine.yaml") . }}
+{{ tpl (.Files.Get "realtime-app/templates/register-connectors-job.yaml") . }}
+{{ tpl (.Files.Get "realtime-app/templates/register-schemas-job.yaml") . }}
+{{ tpl (.Files.Get "realtime-app/templates/schema-registry.yaml") . }}
+{{ tpl (.Files.Get "realtime-app/templates/schemas-configmap.yaml") . }}
+{{ tpl (.Files.Get "realtime-app/templates/zookeeper-kafka.yaml") . }}

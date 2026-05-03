@@ -11,4 +11,4 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-cicd/charts/realtime-app/charts/
+cicd/charts/charts/

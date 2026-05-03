@@ -186,7 +186,7 @@ Related source locations:
 
 - Runtime services: [compose.yml](compose.yml)
 - Build and ops entrypoints: [Makefile](Makefile)
-- Kubernetes and GitOps artifacts: [cicd/charts/realtime-app/Chart.yaml](cicd/charts/realtime-app/Chart.yaml), [cicd/argocd/dev.yaml](cicd/argocd/dev.yaml)
+- Kubernetes and GitOps artifacts: [cicd/charts/Chart.yaml](cicd/charts/Chart.yaml), [cicd/argocd/dev.yaml](cicd/argocd/dev.yaml)
 - dbt project and adapter setup: [analytics/dbt/Dockerfile](analytics/dbt/Dockerfile), [analytics/dbt/dbt_project.yml](analytics/dbt/dbt_project.yml)
 - Processor stack: [process-apps/ods_processor/pom.xml](process-apps/ods_processor/pom.xml)
 - Observability provisioning: [observability/prometheus/prometheus.yml](observability/prometheus/prometheus.yml), [observability/grafana/provisioning/datasources/prometheus.yml](observability/grafana/provisioning/datasources/prometheus.yml)
@@ -214,7 +214,7 @@ Related source locations:
 - `trino/etc`: Trino coordinator and catalog configuration.
 - `trino/sql`: Trino bootstrap and incremental lakehouse SQL scripts.
 - `observability`: Prometheus, Grafana, and Blackbox Exporter configuration and dashboards.
-- `cicd/charts/realtime-app`: Helm chart for Routine B Kubernetes deployment.
+- `cicd/charts`: Helm chart for Routine B Kubernetes deployment.
 - `cicd/k8s/helm/values`: Helm values for `dev`, `qa`, and `prd`.
 - `cicd`: CI/CD and GitOps assets, including Argo CD manifests, Helm charts, and Kubernetes helpers.
 - `scripts`: Local bootstrap, image build, topic, and query helpers.
@@ -423,7 +423,7 @@ Dev environment behavior:
 - Uses in-cluster Kafka from the Helm dependency (`kafka.enabled=true` in `environments/dev/values.yaml`).
 - Uses locally built producer, processor, Kafka Connect, dbt, and Airflow images already loaded into kind (`imagePullPolicy: Never`).
 - Deploys MinIO, Trino, Postgres, Kafka Connect, a one-shot dbt bootstrap Job, and Airflow in the same Helm release.
-- Argo CD tracks `https://github.com/paulchen8206/Full-Stack-Modern-Data-Architecture-and-Engineering.git` on branch `main` and syncs `cicd/charts/realtime-app` with `environments/dev/values.yaml`.
+- Argo CD tracks `https://github.com/paulchen8206/Full-Stack-Modern-Data-Architecture-and-Engineering.git` on branch `main` and syncs `cicd/charts` with `environments/dev/values.yaml`.
 
 ## Environment Strategy
 
@@ -590,8 +590,8 @@ The following checks were validated against the current workspace and local dev 
 Static validation:
 
 - `docker compose config` rendered successfully.
-- `helm dependency build cicd/charts/realtime-app` completed successfully.
-- `helm template realtime-dev cicd/charts/realtime-app -f environments/dev/values.yaml` rendered successfully.
+- `helm dependency build cicd/charts` completed successfully.
+- `helm template realtime-dev cicd/charts -f environments/dev/values.yaml` rendered successfully.
 
 Runtime validation (Routine A — Docker Compose):
 

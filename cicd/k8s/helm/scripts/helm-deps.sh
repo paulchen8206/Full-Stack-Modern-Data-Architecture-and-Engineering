@@ -1,3 +1,3 @@
 #!/bin/sh
 # Helm dependency build helper
-helm dependency build ../../charts/realtime-app
+helm dependency build ../../charts

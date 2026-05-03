@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/paulchen8206/Full-Stack-Modern-Data-Architecture-and-Engineering.git
     targetRevision: main
-    path: cicd/charts/realtime-app
+    path: cicd/charts
     helm:
       releaseName: realtime-prd
       valueFiles:

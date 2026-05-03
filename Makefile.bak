@@ -443,25 +443,25 @@ argocd-apply: ## [B]  Apply the Argo CD Application manifest for ENV (default: d
 	kubectl apply -f cicd/argocd/$(ENV).yaml
 
 helm-deps: ## [B]  Download / update Helm chart dependencies
-	helm dependency build cicd/charts/realtime-app
+	helm dependency build cicd/charts
 
 helm-lint: helm-deps ## [B]  Lint the Helm chart
-	helm lint cicd/charts/realtime-app
+	helm lint cicd/charts
 
 
 helm-render-dev: helm-deps ## [B]  Render Helm templates for dev
-	helm template realtime-dev cicd/charts/realtime-app -f cicd/k8s/helm/values/values-dev.yaml
+	helm template realtime-dev cicd/charts -f cicd/k8s/helm/values/values-dev.yaml
 
 helm-render-qa: helm-deps ## [B]  Render Helm templates for qa
-	helm template realtime-qa cicd/charts/realtime-app -f cicd/k8s/helm/values/values-qa.yaml
+	helm template realtime-qa cicd/charts -f cicd/k8s/helm/values/values-qa.yaml
 
 helm-render-prd: helm-deps ## [B]  Render Helm templates for prd
-	helm template realtime-prd cicd/charts/realtime-app -f cicd/k8s/helm/values/values-prd.yaml
+	helm template realtime-prd cicd/charts -f cicd/k8s/helm/values/values-prd.yaml
 
 helm-render: helm-render-dev helm-render-qa helm-render-prd ## [B]  Render templates for all environments
 
 helm-reboot-dev: ## [B]  Reboot dev namespace via local Helm chart and values
-	helm upgrade --install realtime-dev cicd/charts/realtime-app -n realtime-dev --create-namespace -f environments/dev/values.yaml
+	helm upgrade --install realtime-dev cicd/charts -n realtime-dev --create-namespace -f environments/dev/values.yaml
 	$(MAKE) helm-health-dev
 
 helm-health-dev: ## [B]  Show dev Helm workload health snapshot (pods, jobs, dbt bootstrap logs)

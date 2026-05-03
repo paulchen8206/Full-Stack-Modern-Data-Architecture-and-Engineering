@@ -224,7 +224,7 @@ data:
           },
           "targets": [
             {
-              "expr": "sum(count_over_time({job=\"kubernetes-pods\", namespace=\"realtime-dev\"}[5m]))",
+              "expr": "sum(count_over_time({job=\"kubernetes-pods\", namespace=\"{{ .Release.Namespace }}\"}[5m]))",
               "refId": "A"
             }
           ],
@@ -261,8 +261,8 @@ data:
           - targets: [localhost]
             labels:
               job: kubernetes-pods
-              namespace: realtime-dev
-              __path__: /var/log/pods/realtime-dev_*/*/*.log
+              namespace: {{ .Release.Namespace }}
+              __path__: /var/log/pods/{{ .Release.Namespace }}_*/*/*.log
 {{- if .Values.observability.blackboxExporter.enabled }}
 ---
 apiVersion: v1

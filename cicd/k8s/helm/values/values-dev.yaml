@@ -1,7 +1,5 @@
 nameOverride: "vision"
-kafkaBootstrapServers: "realtime-dev-vision-kafka:9092"
-bitnamiKafka:
-  enabled: false
+kafkaBootstrapServers: '{{ include "vision.serviceName" (dict "root" . "key" "kafka") }}:9092'
 schemaRegistry:
   enabled: true
 producer:
@@ -50,12 +48,22 @@ controlCenter:
     repository: confluentinc/cp-enterprise-control-center
     tag: 7.6.1
     pullPolicy: IfNotPresent
-  connectCluster: "http://realtime-dev-vision-ods-connect:8083"
+  connectCluster: 'http://{{ include "vision.serviceName" (dict "root" . "key" "ods-connect") }}:8083'
   connectClusterName: ods-connect
-  schemaRegistryUrl: "http://realtime-dev-vision-schema-registry:8081"
+  schemaRegistryUrl: 'http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081'
   service:
     type: ClusterIP
     port: 9021
+zookeeper:
+  image:
+    repository: confluentinc/cp-zookeeper
+    tag: 7.6.1
+    pullPolicy: IfNotPresent
+kafka:
+  image:
+    repository: confluentinc/cp-kafka
+    tag: 7.6.1
+    pullPolicy: IfNotPresent
 minio:
   enabled: true
   image:

@@ -4,8 +4,8 @@
 
 K8S_ENV ?= dev
 KIND_CLUSTER ?= realtime-dev
-K8S_NAMESPACE ?= realtime-$(K8S_ENV)
-K8S_RELEASE ?= realtime-$(K8S_ENV)
+K8S_NAMESPACE ?= edw-$(K8S_ENV)
+K8S_RELEASE ?= edw-$(K8S_ENV)
 
 HELM_CHART ?= ./cicd/charts
 HELM_VALUES ?= ./cicd/k8s/helm/values/values-$(K8S_ENV).yaml

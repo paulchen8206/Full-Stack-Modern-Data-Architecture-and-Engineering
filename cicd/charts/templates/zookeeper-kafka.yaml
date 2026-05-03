@@ -21,8 +21,8 @@ spec:
     spec:
       containers:
         - name: zookeeper
-          image: confluentinc/cp-zookeeper:7.5.3
-          imagePullPolicy: IfNotPresent
+          image: {{ .Values.zookeeper.image.repository }}:{{ .Values.zookeeper.image.tag }}
+          imagePullPolicy: {{ .Values.zookeeper.image.pullPolicy }}
           ports:
             - containerPort: 2181
           env:
@@ -72,8 +72,8 @@ spec:
     spec:
       containers:
         - name: kafka
-          image: confluentinc/cp-kafka:7.5.3
-          imagePullPolicy: IfNotPresent
+          image: {{ .Values.kafka.image.repository }}:{{ .Values.kafka.image.tag }}
+          imagePullPolicy: {{ .Values.kafka.image.pullPolicy }}
           ports:
             - containerPort: 9092
           env:

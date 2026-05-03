@@ -72,7 +72,7 @@ SCHEMA_INIT_IMAGE_TAG ?= latest
 	iceberg-streaming-smoke iceberg-streaming-smoke-dev openmetadata-up openmetadata-status \
 	openmetadata-prepare-dbt-artifacts openmetadata-ingest-trino openmetadata-ingest-postgres \
 	openmetadata-ingest-dbt openmetadata-ingest-airflow openmetadata-ingest-kafka \
-	k8s-kind-bootstrap k8s-build-images helm-deps helm-template helm-up helm-down k8s-ui-port-forward \
+	k8s-kind-bootstrap k8s-build-images helm-deps helm-template helm-up helm-down k8s-cleanup k8s-ui-port-forward \
 	k8s-argocd-apply k8s-status k8s-register-dbz k8s-register-mdm k8s-register-ods k8s-register-connectors \
 	helm-reboot-dev helm-health-dev helm-metastore-migrate-dev \
 	k8s-routine-up k8s-routine-down
@@ -273,6 +273,11 @@ helm-down:
 	-helm uninstall $(K8S_RELEASE) -n $(K8S_NAMESPACE)
 	-$(KUBECTL) delete namespace $(K8S_NAMESPACE) --ignore-not-found
 
+# Cleanup Kubernetes runtime: remove app resources and delete kind cluster
+k8s-cleanup:
+	-$(MAKE) helm-down
+	-kind delete cluster --name $(KIND_CLUSTER)
+
 # Apply Argo CD application manifest for the selected environment
 k8s-argocd-apply:
 	$(KUBECTL) apply -f $(ARGO_APP_MANIFEST)
@@ -324,4 +329,4 @@ k8s-ui-port-forward:
 k8s-routine-up: k8s-kind-bootstrap k8s-build-images helm-up k8s-status
 
 # Routine B teardown: remove Helm release and namespace
-k8s-routine-down: helm-down
+k8s-routine-down: k8s-cleanup

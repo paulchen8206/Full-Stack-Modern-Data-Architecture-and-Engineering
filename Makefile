@@ -3,7 +3,7 @@
 ###############################################################################
 
 K8S_ENV ?= dev
-KIND_CLUSTER ?= realtime-dev
+KIND_CLUSTER ?= edw-dev
 K8S_NAMESPACE ?= edw-$(K8S_ENV)
 K8S_RELEASE ?= edw-$(K8S_ENV)
 
@@ -11,6 +11,10 @@ HELM_CHART ?= ./cicd/charts
 HELM_VALUES ?= ./cicd/k8s/helm/values/values-$(K8S_ENV).yaml
 ARGO_APP_MANIFEST ?= ./cicd/argocd/$(K8S_ENV).yaml
 HELM_TIMEOUT ?= 15m
+MDM_SOURCE_IMAGE_REPOSITORY ?= pos-mdm-source
+MDM_SOURCE_IMAGE_TAG ?= 0.1.0
+SCHEMA_INIT_IMAGE_REPOSITORY ?= schema-init
+SCHEMA_INIT_IMAGE_TAG ?= latest
 
 .PHONY: compose-build compose-up compose-down compose-clean images mdm-status mdm-topics-check mdm-flow-check \
 	k8s-kind-bootstrap k8s-build-images helm-deps helm-template helm-up helm-down \
@@ -71,7 +75,10 @@ k8s-kind-bootstrap:
 
 # Build runtime images and load them into the kind cluster
 k8s-build-images:
-	CLUSTER_NAME=$(KIND_CLUSTER) ./cicd/scripts/build-images.sh
+	CLUSTER_NAME=$(KIND_CLUSTER) \
+	MDM_SOURCE_IMAGE=$(MDM_SOURCE_IMAGE_REPOSITORY):$(MDM_SOURCE_IMAGE_TAG) \
+	SCHEMA_INIT_IMAGE=$(SCHEMA_INIT_IMAGE_REPOSITORY):$(SCHEMA_INIT_IMAGE_TAG) \
+	./cicd/scripts/build-images.sh
 
 # Resolve chart dependencies
 helm-deps:
@@ -83,8 +90,12 @@ helm-template:
 
 # Install/upgrade platform chart into the selected namespace
 helm-up: helm-deps
-	-kubectl -n $(K8S_NAMESPACE) delete job $(K8S_RELEASE)-vision-dbz-connect-init $(K8S_RELEASE)-vision-mdm-connect-init $(K8S_RELEASE)-vision-ods-connect-init $(K8S_RELEASE)-vision-dbt register-schemas-job --ignore-not-found
-	helm upgrade --install $(K8S_RELEASE) $(HELM_CHART) -n $(K8S_NAMESPACE) --create-namespace -f $(HELM_VALUES) --timeout $(HELM_TIMEOUT)
+	-kubectl -n $(K8S_NAMESPACE) delete job $(K8S_RELEASE)-vision-dbz-connect-init $(K8S_RELEASE)-vision-mdm-connect-init $(K8S_RELEASE)-vision-ods-connect-init $(K8S_RELEASE)-vision-dbt $(K8S_RELEASE)-vision-register-schemas-job --ignore-not-found
+	helm upgrade --install $(K8S_RELEASE) $(HELM_CHART) -n $(K8S_NAMESPACE) --create-namespace -f $(HELM_VALUES) --timeout $(HELM_TIMEOUT) \
+		--set mdm.source.image.repository=$(MDM_SOURCE_IMAGE_REPOSITORY) \
+		--set mdm.source.image.tag=$(MDM_SOURCE_IMAGE_TAG) \
+		--set schemaInit.image.repository=$(SCHEMA_INIT_IMAGE_REPOSITORY) \
+		--set schemaInit.image.tag=$(SCHEMA_INIT_IMAGE_TAG)
 
 # Remove platform chart and namespace resources
 helm-down:

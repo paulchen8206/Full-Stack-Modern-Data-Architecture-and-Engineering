@@ -84,23 +84,19 @@ data:
       "schema.history.internal.file.filename": "/tmp/debezium-mdm-schemahistory.dat"
     }
   register-mdm-connectors.sh: |
-    #!/usr/bin/env sh
+    #!/bin/sh
+
     set -eu
+    (set -o pipefail >/dev/null 2>&1) && set -o pipefail
 
     CONNECT_URL="${CONNECT_URL:-http://{{ include "vision.serviceName" (dict "root" . "key" "mdm-connect") }}:8083}"
-    CONNECTOR_DIR="/connector-configs"
+    CONNECTORS_DIR="/connectors"
     CONNECTOR_FILES="s3-mdm-customer.json,s3-mdm-product.json,s3-mdm-date.json,jdbc-mdm-warehouse.json"
 
-    until curl -fsS "${CONNECT_URL}/connector-plugins" >/dev/null; do
-      echo "Waiting for Kafka Connect at ${CONNECT_URL} ..."
+    echo "Waiting for Kafka Connect at $CONNECT_URL ..."
+    until curl -fsS "$CONNECT_URL/connector-plugins" >/dev/null; do
       sleep 2
     done
-
-    # Remove stale CDC connector if it was previously mis-registered to mdm-connect.
-    if curl -fsS "${CONNECT_URL}/connectors/dbz-mysql-mdm" >/dev/null 2>&1; then
-      echo "Removing stale connector dbz-mysql-mdm from mdm-connect"
-      curl -fsS -X DELETE "${CONNECT_URL}/connectors/dbz-mysql-mdm" >/dev/null
-    fi
 
     OLD_IFS="$IFS"
     IFS=','
@@ -108,27 +104,17 @@ data:
     IFS="$OLD_IFS"
 
     for file_name in "$@"; do
-      cfg="${CONNECTOR_DIR}/${file_name}"
-      if [ ! -f "$cfg" ]; then
-        echo "Missing connector config: $cfg"
-        continue
-      fi
-
-      name=$(sed -n 's/^[[:space:]]*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$cfg" | head -n 1)
-      if [ -z "$name" ]; then
-        echo "Unable to parse connector name from $cfg"
-        exit 1
-      fi
-
-      echo "Registering connector ${name}"
-      # Ensure a clean connector spec is applied even when this job is re-run.
-      curl -fsS -X DELETE "${CONNECT_URL}/connectors/${name}" >/dev/null 2>&1 || true
-      http_code=$(curl -sS -o /tmp/${name}-create-response.json -w "%{http_code}" \
-        -X POST -H "Content-Type: application/json" --data @"${cfg}" "${CONNECT_URL}/connectors" || true)
-      if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
-        echo "Connector create failed for ${name} (HTTP ${http_code})"
-        cat /tmp/${name}-create-response.json || true
-        exit 1
+      config="$CONNECTORS_DIR/$file_name"
+      if [ -f "$config" ]; then
+        name=$(jq -r '.name // empty' "$config")
+        if [ -z "$name" ] || [ "$name" = "null" ]; then
+          name="${file_name%.json}"
+        fi
+        payload=$(jq -c '.config // .' "$config")
+        echo "Registering connector: $name"
+        curl -fsS -X PUT -H "Content-Type: application/json" \
+          --data "$payload" \
+          "$CONNECT_URL/connectors/$name/config"
       fi
     done
   s3-mdm-customer.json: |
@@ -254,8 +240,8 @@ spec:
     spec:
       containers:
         - name: mysql-mdm
-          image: {{ .Values.mdm.mysql.image.repository }}:{{ .Values.mdm.mysql.image.tag }}
-          imagePullPolicy: {{ .Values.mdm.mysql.image.pullPolicy }}
+          image: {{ .Values.mdm.source.image.repository }}:{{ .Values.mdm.source.image.tag }}
+          imagePullPolicy: {{ .Values.mdm.source.image.pullPolicy }}
           args:
             - --server-id={{ .Values.mdm.mysql.serverId }}
             - --log-bin=mysql-bin
@@ -266,6 +252,14 @@ spec:
               value: {{ .Values.mdm.mysql.rootPassword | quote }}
             - name: MYSQL_DATABASE
               value: {{ .Values.mdm.mysql.database | quote }}
+            - name: MDM_SOURCE_INTERVAL_SEC
+              value: {{ .Values.mdm.source.intervalSec | quote }}
+            - name: MDM_INSERT_NEW_KEY_PROB
+              value: {{ .Values.mdm.source.insertNewKeyProb | quote }}
+            - name: MDM_APP_MYSQL_USER
+              value: {{ .Values.mdm.source.appMysqlUser | quote }}
+            - name: MDM_APP_MYSQL_PASSWORD
+              value: {{ .Values.mdm.source.appMysqlPassword | quote }}
           ports:
             - containerPort: 3306
           volumeMounts:
@@ -287,7 +281,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-mdm-source
+  name: {{ include "vision.serviceName" (dict "root" . "key" "mdm-source") }}
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
@@ -344,7 +338,7 @@ spec:
             - name: CONNECT_STATUS_STORAGE_TOPIC
               value: {{ .Values.mdm.connect.statusStorageTopic | quote }}
             - name: CONNECT_KEY_CONVERTER
-              value: org.apache.kafka.connect.json.JsonConverter
+              value: org.apache.kafka.connect.storage.StringConverter
             - name: CONNECT_VALUE_CONVERTER
               value: org.apache.kafka.connect.json.JsonConverter
             - name: CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE
@@ -367,7 +361,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-mdm-connect
+  name: {{ include "vision.serviceName" (dict "root" . "key" "mdm-connect") }}
   annotations:
     argocd.argoproj.io/sync-wave: "2"
   labels:
@@ -405,13 +399,15 @@ spec:
         - name: mdm-connect-init
           image: {{ .Values.mdm.connect.curlImage.repository }}:{{ .Values.mdm.connect.curlImage.tag }}
           imagePullPolicy: {{ .Values.mdm.connect.curlImage.pullPolicy }}
-          command: ["/bin/sh", "/scripts/register-mdm-connectors.sh"]
+          securityContext:
+            runAsUser: 0
+          command: ["/bin/sh", "-c", "apk add --no-cache jq curl && sh /scripts/register-mdm-connectors.sh"]
           volumeMounts:
             - name: mdm-config
               mountPath: /scripts/register-mdm-connectors.sh
               subPath: register-mdm-connectors.sh
             - name: connector-configs
-              mountPath: /connector-configs
+              mountPath: /connectors
       volumes:
         - name: mdm-config
           configMap:

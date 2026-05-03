@@ -106,7 +106,7 @@ postgres:
 odsConnect:
   enabled: true
   image:
-    repository: pos-connect
+    repository: pos-ods-connect
     tag: 0.1.0
     pullPolicy: IfNotPresent
   curlImage:
@@ -153,7 +153,7 @@ mdm:
   connect:
     replicas: 1
     image:
-      repository: pos-connect
+      repository: pos-mdm-connect
       tag: 0.1.0
       pullPolicy: IfNotPresent
     service:
@@ -186,8 +186,8 @@ dbzConnect:
   enabled: true
   replicas: 1
   image:
-    repository: quay.io/debezium/connect
-    tag: "3.0"
+    repository: pos-dbz-connect
+    tag: 0.1.0
     pullPolicy: IfNotPresent
   curlImage:
     repository: curlimages/curl
@@ -234,6 +234,7 @@ observability:
       type: ClusterIP
       port: 9090
   loki:
+    enabled: false
     replicas: 1
     image:
       repository: grafana/loki
@@ -269,7 +270,7 @@ observability:
       type: ClusterIP
       port: 9115
 openmetadata:
-  enabled: true
+  enabled: false
   db:
     image:
       repository: mysql
@@ -322,7 +323,7 @@ kafka:
     repository: confluentinc/cp-kafka
     tag: 7.6.1
     pullPolicy: IfNotPresent
-  zookeeperConnect: "realtime-dev-vision-zookeeper:2181"
+  zookeeperConnect: '{{ include "vision.serviceName" (dict "root" . "key" "zookeeper") }}:2181'
   provisioning:
     enabled: true
     numPartitions: 3

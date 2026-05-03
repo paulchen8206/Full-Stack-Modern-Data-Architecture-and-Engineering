@@ -88,7 +88,7 @@ Out of scope for this demo:
 | Container orchestration | Kubernetes (kind locally) | Cluster-style deployment and parity testing |
 | Release packaging | Helm | Templated, versioned deployment definitions |
 | GitOps delivery | Argo CD | Continuous reconciliation from Git to cluster |
-| Observability | Prometheus + Grafana + Blackbox Exporter (+ Loki in k8s profile) | Metrics, dashboards, endpoint probing, and operational diagnostics |
+| Observability | Prometheus + Grafana + Blackbox Exporter | Metrics, dashboards, endpoint probing, and operational diagnostics |
 | Programming languages | Java + Python | Java for stream processor, Python for producers/integration/sync services |
 
 MinIO portability note:
@@ -722,7 +722,7 @@ flowchart LR
   end
 
   subgraph K8S[Kind or Kubernetes Cluster]
-    subgraph NS[realtime-dev Namespace]
+    subgraph NS[edw-dev Namespace]
       KAFKA[Kafka]
       CONNECT[Kafka Connect]
       TRINO[Trino]
@@ -786,7 +786,7 @@ Use this quick map to connect architecture responsibilities in this document to 
 | Validate curated MDM topic output | Routine A (Docker Compose) | `make mdm-topics-check` |
 | Run end-to-end MDM flow validation | Routine A (Docker Compose) | `make mdm-flow-check` |
 | Bootstrap GitOps-style local cluster | Routine B (kind + Helm + Argo CD) | `./cicd/k8s/kind/bootstrap-kind.sh`, `./cicd/scripts/build-images.sh`, `kubectl apply -f cicd/argocd/dev.yaml` |
-| Validate cluster health and app rollout | Routine B (kind + Helm + Argo CD) | `kubectl -n argocd get application realtime-dev`, `kubectl -n realtime-dev get pods` |
+| Validate cluster health and app rollout | Routine B (kind + Helm + Argo CD) | `kubectl -n argocd get application edw-dev`, `kubectl -n edw-dev get pods` |
 
 Cross-reference note:
 

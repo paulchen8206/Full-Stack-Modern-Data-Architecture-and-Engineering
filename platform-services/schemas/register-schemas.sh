@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCHEMA_REGISTRY_URL="http://schema-registry:8081"
+SCHEMA_REGISTRY_URL="${SCHEMA_REGISTRY_URL:-http://schema-registry:8081}"
 SCHEMAS_DIR="/avro"
 
 echo "Waiting for Schema Registry at ${SCHEMA_REGISTRY_URL}..."

@@ -62,14 +62,14 @@ spec:
             - containerPort: 8080
           env:
             - name: KAFKA_CLUSTERS_0_NAME
-              value: realtime-dev
+              value: edw-dev
             - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
               value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-kafka-ui
+  name: {{ include "vision.serviceName" (dict "root" . "key" "kafka-ui") }}
   labels:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: kafka-ui
@@ -129,7 +129,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-ods-processor
+  name: {{ include "vision.serviceName" (dict "root" . "key" "ods-processor") }}
   labels:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: processor

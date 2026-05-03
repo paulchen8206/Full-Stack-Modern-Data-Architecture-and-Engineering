@@ -132,7 +132,7 @@ data:
           +materialized: table
   profiles.yml: |
     realtime_analytics:
-      target: dev
+      target: trino
       outputs:
         dev:
           type: postgres
@@ -143,6 +143,14 @@ data:
           dbname: {{ .Values.postgres.auth.database }}
           schema: public
           threads: 4
+        trino:
+          type: trino
+          user: analytics
+          host: {{ include "vision.serviceName" (dict "root" . "key" "trino") }}
+          port: 8080
+          catalog: lakehouse
+          schema: streaming
+          threads: 4
   generate_schema_name.sql: |
     {% macro generate_schema_name(custom_schema_name, node) -%}
       {%- if custom_schema_name is none -%}
@@ -152,6 +160,7 @@ data:
       {%- endif -%}
     {%- endmacro %}
   stg_sales_order.sql: |
+    {% if target.type == 'postgres' %}
     select
       orderid as order_id,
       ordertimestamp as order_timestamp,
@@ -160,10 +169,24 @@ data:
       customeremail as customer_email,
       customersegment as customer_segment,
       currency,
-      ordertotal::numeric as order_total,
-      lineitemcount::int as line_item_count
+      ordertotal as order_total,
+      lineitemcount as line_item_count
     from landing.sales_order
+    {% else %}
+    select
+      orderid as order_id,
+      ordertimestamp as order_timestamp,
+      customerid as customer_id,
+      customername as customer_name,
+      customeremail as customer_email,
+      customersegment as customer_segment,
+      currency,
+      cast(ordertotal as double) as order_total,
+      cast(lineitemcount as integer) as line_item_count
+    from warehouse.landing.sales_order
+    {% endif %}
   stg_sales_order_line_item.sql: |
+    {% if target.type == 'postgres' %}
     select
       orderid as order_id,
       ordertimestamp as order_timestamp,
@@ -172,24 +195,54 @@ data:
       lineitemid as line_item_id,
       sku,
       productname as product_name,
-      quantity::int as quantity,
-      unitprice::numeric as unit_price,
-      linetotal::numeric as line_total,
+      quantity,
+      unitprice as unit_price,
+      linetotal as line_total,
       currency
     from landing.sales_order_line_item
+    {% else %}
+    select
+      orderid as order_id,
+      ordertimestamp as order_timestamp,
+      customerid as customer_id,
+      customername as customer_name,
+      lineitemid as line_item_id,
+      sku,
+      productname as product_name,
+      cast(quantity as integer) as quantity,
+      cast(unitprice as double) as unit_price,
+      cast(linetotal as double) as line_total,
+      currency
+    from warehouse.landing.sales_order_line_item
+    {% endif %}
   stg_customer_sales.sql: |
+    {% if target.type == 'postgres' %}
     select
       customerid as customer_id,
       customername as customer_name,
       customeremail as customer_email,
       customersegment as customer_segment,
-      ordercount::bigint as order_count,
-      totalspent::numeric as total_spent,
+      ordercount as order_count,
+      totalspent as total_spent,
       lastorderid as last_order_id,
       updatedat as updated_at,
       currency
     from landing.customer_sales
+    {% else %}
+    select
+      customerid as customer_id,
+      customername as customer_name,
+      customeremail as customer_email,
+      customersegment as customer_segment,
+      cast(ordercount as bigint) as order_count,
+      cast(totalspent as double) as total_spent,
+      lastorderid as last_order_id,
+      updatedat as updated_at,
+      currency
+    from warehouse.landing.customer_sales
+    {% endif %}
   stg_mdm_customer360.sql: |
+    {% if target.type == 'postgres' %}
     select
       customer_id,
       customer_name,
@@ -198,39 +251,86 @@ data:
       currency,
       first_order_timestamp,
       last_order_timestamp,
-      projected_order_count::bigint as projected_order_count,
-      projected_total_spent::numeric(18,2) as projected_total_spent,
+      projected_order_count,
+      projected_total_spent,
       projection_updated_at,
       updated_at
     from landing.mdm_customer360
+    {% else %}
+    select
+      customer_id,
+      customer_name,
+      customer_email,
+      customer_segment,
+      currency,
+      first_order_timestamp,
+      last_order_timestamp,
+      projected_order_count,
+      projected_total_spent,
+      projection_updated_at,
+      updated_at
+    from warehouse.landing.mdm_customer360
+    {% endif %}
   stg_mdm_product_master.sql: |
+    {% if target.type == 'postgres' %}
     select
       product_id,
       product_name,
       currency,
       first_seen_at,
       last_seen_at,
-      orders_count::bigint as orders_count,
-      units_sold::bigint as units_sold,
-      avg_unit_price::numeric(18,2) as avg_unit_price,
+      orders_count,
+      units_sold,
+      avg_unit_price,
       updated_at
     from landing.mdm_product_master
-  stg_mdm_date.sql: |
+    {% else %}
     select
-      date_key::int as date_key,
-      full_date as date_day,
-      day_of_month::int as day_of_month,
-      day_of_week::int as day_of_week_iso,
+      product_id,
+      product_name,
+      currency,
+      first_seen_at,
+      last_seen_at,
+      orders_count,
+      units_sold,
+      avg_unit_price,
+      updated_at
+    from warehouse.landing.mdm_product_master
+    {% endif %}
+  stg_mdm_date.sql: |
+    {% if target.type == 'postgres' %}
+    select
+      date_key,
+      full_date,
+      day_of_month,
+      day_of_week,
       day_name,
-      week_of_year::int as week_of_year,
-      month_of_year::int as month,
+      week_of_year,
+      month_of_year,
       month_name,
-      quarter_of_year::int as quarter,
-      year_number::int as year,
+      quarter_of_year,
+      year_number,
       is_weekend,
       created_at,
       updated_at
     from landing.mdm_date
+    {% else %}
+    select
+      date_key,
+      full_date,
+      day_of_month,
+      day_of_week,
+      day_name,
+      week_of_year,
+      month_of_year,
+      month_name,
+      quarter_of_year,
+      year_number,
+      is_weekend,
+      created_at,
+      updated_at
+    from warehouse.landing.mdm_date
+    {% endif %}
   dim_mdm_customer.sql: |
     select
       customer_id,
@@ -260,15 +360,15 @@ data:
   dim_mdm_date.sql: |
     select
       date_key,
-      date_day,
-      year,
-      quarter,
-      month,
-      month_name,
-      week_of_year,
+      full_date as order_date,
       day_of_month,
-      day_of_week_iso,
+      day_of_week,
       day_name,
+      week_of_year,
+      month_of_year,
+      month_name,
+      quarter_of_year,
+      year_number,
       is_weekend,
       created_at,
       updated_at
@@ -518,7 +618,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-minio
+  name: {{ include "vision.serviceName" (dict "root" . "key" "minio") }}
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
@@ -623,7 +723,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-snowflake-mimic
+  name: {{ include "vision.serviceName" (dict "root" . "key" "snowflake-mimic") }}
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
@@ -652,67 +752,59 @@ metadata:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: ods-connect
 data:
-  register-connectors.sh: |
-    #!/usr/bin/env sh
+  register-ods-connectors.sh: |
+    #!/bin/sh
+
     set -eu
+    (set -o pipefail >/dev/null 2>&1) && set -o pipefail
 
     CONNECT_URL="${CONNECT_URL:-http://{{ include "vision.serviceName" (dict "root" . "key" "ods-connect") }}:8083}"
+    CONNECTORS_DIR="/connectors"
+    CONNECTOR_FILES="s3-sales-order.json,s3-sales-order-line-item.json,s3-customer-sales.json,jdbc-sales-order-warehouse.json,jdbc-sales-order-line-item-warehouse.json,jdbc-customer-sales-warehouse.json"
 
-    wait_for_connect() {
-      until curl -sf "${CONNECT_URL}/connectors" >/dev/null; do
-        echo "Waiting for Kafka Connect REST API..."
-        sleep 3
-      done
-    }
+    echo "Waiting for Kafka Connect at $CONNECT_URL ..."
+    until curl -fsS "$CONNECT_URL/connector-plugins" >/dev/null; do
+      sleep 2
+    done
 
-    upsert_connector() {
-      name="$1"
-      config_file="$2"
-
-      echo "Applying connector ${name} from ${config_file}"
-
-      if curl -sf "${CONNECT_URL}/connectors/${name}" >/dev/null; then
-        curl -sf -X PUT \
-          -H "Content-Type: application/json" \
-          --data "@${config_file}" \
-          "${CONNECT_URL}/connectors/${name}/config" >/dev/null
-      else
-        curl -sf -X POST \
-          -H "Content-Type: application/json" \
-          --data "{\"name\":\"${name}\",\"config\":$(cat "${config_file}")}" \
-          "${CONNECT_URL}/connectors" >/dev/null
-      fi
-    }
-
-    upsert_connector_best_effort() {
-      name="$1"
-      config_file="$2"
-
-      if ! upsert_connector "${name}" "${config_file}"; then
-        echo "WARN: skipping connector ${name}; plugin may be unavailable in this image"
-      fi
-    }
-
-    wait_for_connect
-
-    if curl -sf "${CONNECT_URL}/connectors/jdbc-sales-warehouse" >/dev/null; then
+    if curl -fsS "$CONNECT_URL/connectors/jdbc-sales-warehouse" >/dev/null 2>&1; then
       echo "Deleting legacy connector jdbc-sales-warehouse"
-      curl -sf -X DELETE "${CONNECT_URL}/connectors/jdbc-sales-warehouse" >/dev/null
+      curl -fsS -X DELETE "$CONNECT_URL/connectors/jdbc-sales-warehouse" >/dev/null
     fi
 
-    upsert_connector_best_effort "iceberg-sales-order" "/connector-configs/iceberg-sales-order.json"
-    upsert_connector_best_effort "iceberg-sales-order-line-item" "/connector-configs/iceberg-sales-order-line-item.json"
-    upsert_connector_best_effort "iceberg-customer-sales" "/connector-configs/iceberg-customer-sales.json"
-    upsert_connector "jdbc-sales-order-warehouse" "/connector-configs/jdbc-sales-order-warehouse.json"
-    upsert_connector "jdbc-sales-order-line-item-warehouse" "/connector-configs/jdbc-sales-order-line-item-warehouse.json"
-    upsert_connector "jdbc-customer-sales-warehouse" "/connector-configs/jdbc-customer-sales-warehouse.json"
+    for legacy in iceberg-sales-order iceberg-sales-order-line-item iceberg-customer-sales; do
+      if curl -fsS "$CONNECT_URL/connectors/$legacy" >/dev/null 2>&1; then
+        echo "Deleting legacy connector: $legacy"
+        curl -fsS -X DELETE "$CONNECT_URL/connectors/$legacy" >/dev/null
+      fi
+    done
 
-    echo "Kafka Connect connectors are registered."
-  iceberg-sales-order.json: |
+    OLD_IFS="$IFS"
+    IFS=','
+    set -- $CONNECTOR_FILES
+    IFS="$OLD_IFS"
+
+    for file_name in "$@"; do
+      config="$CONNECTORS_DIR/$file_name"
+      if [ -f "$config" ]; then
+        name=$(jq -r '.name // empty' "$config")
+        if [ -z "$name" ] || [ "$name" = "null" ]; then
+          name="${file_name%.json}"
+        fi
+        payload=$(jq -c '.config // .' "$config")
+        echo "Registering connector: $name"
+        curl -fsS -X PUT -H "Content-Type: application/json" \
+          --data "$payload" \
+          "$CONNECT_URL/connectors/$name/config"
+      fi
+    done
+  s3-sales-order.json: |
     {
       "connector.class": "io.confluent.connect.s3.S3SinkConnector",
       "tasks.max": "1",
       "topics": "sales_order",
+      "value.converter": "io.confluent.connect.avro.AvroConverter",
+      "value.converter.schema.registry.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081",
       "s3.bucket.name": "{{ .Values.minio.bucket }}",
       "topics.dir": "raw/sales_order",
       "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:9000",
@@ -726,11 +818,13 @@ data:
       "partitioner.class": "io.confluent.connect.storage.partitioner.DefaultPartitioner",
       "schema.compatibility": "NONE"
     }
-  iceberg-sales-order-line-item.json: |
+  s3-sales-order-line-item.json: |
     {
       "connector.class": "io.confluent.connect.s3.S3SinkConnector",
       "tasks.max": "1",
       "topics": "sales_order_line_item",
+      "value.converter": "io.confluent.connect.avro.AvroConverter",
+      "value.converter.schema.registry.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081",
       "s3.bucket.name": "{{ .Values.minio.bucket }}",
       "topics.dir": "raw/sales_order_line_item",
       "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:9000",
@@ -744,11 +838,13 @@ data:
       "partitioner.class": "io.confluent.connect.storage.partitioner.DefaultPartitioner",
       "schema.compatibility": "NONE"
     }
-  iceberg-customer-sales.json: |
+  s3-customer-sales.json: |
     {
       "connector.class": "io.confluent.connect.s3.S3SinkConnector",
       "tasks.max": "1",
       "topics": "customer_sales",
+      "value.converter": "io.confluent.connect.avro.AvroConverter",
+      "value.converter.schema.registry.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081",
       "s3.bucket.name": "{{ .Values.minio.bucket }}",
       "topics.dir": "raw/customer_sales",
       "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:9000",
@@ -767,8 +863,8 @@ data:
       "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
       "tasks.max": "1",
       "topics": "sales_order",
-      "value.converter": "org.apache.kafka.connect.json.JsonConverter",
-      "value.converter.schemas.enable": "true",
+      "value.converter": "io.confluent.connect.avro.AvroConverter",
+      "value.converter.schema.registry.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081",
       "connection.url": "jdbc:postgresql://{{ include "vision.serviceName" (dict "root" . "key" "snowflake-mimic") }}:5432/{{ .Values.postgres.auth.database }}",
       "connection.user": "{{ .Values.postgres.auth.user }}",
       "connection.password": "{{ .Values.postgres.auth.password }}",
@@ -797,8 +893,8 @@ data:
       "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
       "tasks.max": "1",
       "topics": "sales_order_line_item",
-      "value.converter": "org.apache.kafka.connect.json.JsonConverter",
-      "value.converter.schemas.enable": "true",
+      "value.converter": "io.confluent.connect.avro.AvroConverter",
+      "value.converter.schema.registry.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081",
       "connection.url": "jdbc:postgresql://{{ include "vision.serviceName" (dict "root" . "key" "snowflake-mimic") }}:5432/{{ .Values.postgres.auth.database }}",
       "connection.user": "{{ .Values.postgres.auth.user }}",
       "connection.password": "{{ .Values.postgres.auth.password }}",
@@ -827,8 +923,8 @@ data:
       "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
       "tasks.max": "1",
       "topics": "customer_sales",
-      "value.converter": "org.apache.kafka.connect.json.JsonConverter",
-      "value.converter.schemas.enable": "true",
+      "value.converter": "io.confluent.connect.avro.AvroConverter",
+      "value.converter.schema.registry.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081",
       "connection.url": "jdbc:postgresql://{{ include "vision.serviceName" (dict "root" . "key" "snowflake-mimic") }}:5432/{{ .Values.postgres.auth.database }}",
       "connection.user": "{{ .Values.postgres.auth.user }}",
       "connection.password": "{{ .Values.postgres.auth.password }}",
@@ -884,7 +980,7 @@ spec:
             - name: CONNECT_BOOTSTRAP_SERVERS
               value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
             - name: CONNECT_REST_ADVERTISED_HOST_NAME
-              value: {{ printf "%s-ods-connect" (include "vision.fullname" .) | quote }}
+              value: {{ include "vision.serviceName" (dict "root" . "key" "ods-connect") | quote }}
             - name: CONNECT_REST_PORT
               value: "8083"
             - name: CONNECT_GROUP_ID
@@ -917,7 +1013,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-ods-connect
+  name: {{ include "vision.serviceName" (dict "root" . "key" "ods-connect") }}
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
@@ -955,31 +1051,33 @@ spec:
         - name: ods-connect-init
           image: {{ .Values.odsConnect.curlImage.repository }}:{{ .Values.odsConnect.curlImage.tag }}
           imagePullPolicy: {{ .Values.odsConnect.curlImage.pullPolicy }}
-          command: ["/bin/sh", "/scripts/register-connectors.sh"]
+          securityContext:
+            runAsUser: 0
+          command: ["/bin/sh", "-c", "apk add --no-cache jq curl && sh /scripts/register-ods-connectors.sh"]
           volumeMounts:
             - name: ods-connect-config
-              mountPath: /scripts/register-connectors.sh
-              subPath: register-connectors.sh
+              mountPath: /scripts/register-ods-connectors.sh
+              subPath: register-ods-connectors.sh
             - name: connector-configs
-              mountPath: /connector-configs
+              mountPath: /connectors
       volumes:
         - name: ods-connect-config
           configMap:
             name: {{ include "vision.fullname" . }}-ods-connect-config
             defaultMode: 0755
             items:
-              - key: register-connectors.sh
-                path: register-connectors.sh
+              - key: register-ods-connectors.sh
+                path: register-ods-connectors.sh
         - name: connector-configs
           configMap:
             name: {{ include "vision.fullname" . }}-ods-connect-config
             items:
-              - key: iceberg-sales-order.json
-                path: iceberg-sales-order.json
-              - key: iceberg-sales-order-line-item.json
-                path: iceberg-sales-order-line-item.json
-              - key: iceberg-customer-sales.json
-                path: iceberg-customer-sales.json
+              - key: s3-sales-order.json
+                path: s3-sales-order.json
+              - key: s3-sales-order-line-item.json
+                path: s3-sales-order-line-item.json
+              - key: s3-customer-sales.json
+                path: s3-customer-sales.json
               - key: jdbc-sales-order-warehouse.json
                 path: jdbc-sales-order-warehouse.json
               - key: jdbc-sales-order-line-item-warehouse.json
@@ -1097,24 +1195,53 @@ data:
 
     with DAG(
         dag_id="dbt_warehouse_schedule",
-        description="Run dbt models against the local Postgres warehouse on a schedule.",
+        description="Run dbt models against Trino and Postgres on a schedule.",
         start_date=datetime(2026, 4, 17),
         schedule="*/5 * * * *",
         catchup=False,
         max_active_runs=1,
         default_args={"retries": 1, "retry_delay": timedelta(minutes=1)},
-        tags=["dbt", "warehouse"],
+        tags=["dbt", "warehouse", "mdm"],
     ) as dag:
         run_dbt = BashOperator(
             task_id="run_dbt",
             bash_command=(
-                "cd /opt/airflow/dbt && "
-          "DBT_TARGET_PATH=/tmp/dbt-target DBT_LOG_PATH=/tmp/dbt-logs "
-          "dbt run --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt"
+          "rm -rf /tmp/dbt && mkdir -p /tmp/dbt /opt/airflow/logs/dbt && "
+          "cp -R /opt/airflow/dbt/. /tmp/dbt/ && "
+          "cd /tmp/dbt && "
+          "dbt deps --project-dir /tmp/dbt --profiles-dir /tmp/dbt "
+          "--log-path /opt/airflow/logs/dbt && "
+          "dbt run --project-dir /tmp/dbt --profiles-dir /tmp/dbt --target trino "
+          "--log-path /opt/airflow/logs/dbt --target-path /tmp/dbt/target"
             ),
         )
 
-        run_dbt
+        run_dbt_mdm = BashOperator(
+            task_id="run_dbt_mdm",
+            bash_command=(
+            "rm -rf /tmp/dbt && mkdir -p /tmp/dbt /opt/airflow/logs/dbt && "
+            "cp -R /opt/airflow/dbt/. /tmp/dbt/ && "
+            "cd /tmp/dbt && "
+            "dbt run --project-dir /tmp/dbt --profiles-dir /tmp/dbt "
+                "--target trino "
+            "--log-path /opt/airflow/logs/dbt --target-path /tmp/dbt/target "
+                "--select stg_mdm_customer360 stg_mdm_product_master stg_mdm_date "
+                "dim_mdm_customer dim_mdm_product dim_mdm_date"
+            ),
+        )
+
+        run_dbt_postgres = BashOperator(
+            task_id="run_dbt_postgres",
+            bash_command=(
+            "rm -rf /tmp/dbt && mkdir -p /tmp/dbt /opt/airflow/logs/dbt && "
+            "cp -R /opt/airflow/dbt/. /tmp/dbt/ && "
+            "cd /tmp/dbt && "
+            "dbt run --project-dir /tmp/dbt --profiles-dir /tmp/dbt --target dev "
+            "--log-path /opt/airflow/logs/dbt --target-path /tmp/dbt/target"
+            ),
+        )
+
+        run_dbt_mdm >> run_dbt >> run_dbt_postgres
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -1227,7 +1354,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-airflow
+  name: {{ include "vision.serviceName" (dict "root" . "key" "airflow") }}
   annotations:
     argocd.argoproj.io/sync-wave: "3"
   labels:

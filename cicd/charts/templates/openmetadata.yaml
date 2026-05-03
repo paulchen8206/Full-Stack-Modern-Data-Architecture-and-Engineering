@@ -43,7 +43,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-openmetadata-db
+  name: {{ include "vision.serviceName" (dict "root" . "key" "openmetadata-db") }}
   labels:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: openmetadata-db
@@ -99,7 +99,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-openmetadata-search
+  name: {{ include "vision.serviceName" (dict "root" . "key" "openmetadata-search") }}
   labels:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: openmetadata-search
@@ -194,7 +194,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-openmetadata-server
+  name: {{ include "vision.serviceName" (dict "root" . "key" "openmetadata-server") }}
   labels:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: openmetadata-server

@@ -75,10 +75,10 @@ Documentation map:
 | Component | Routine A (Docker Compose) | Routine B (kind + Helm) | Username | Password / Retrieval |
 | --- | --- | --- | --- | --- |
 | Argo CD UI | N/A | `https://localhost:8443` (after `kubectl -n argocd port-forward svc/argocd-server 8443:443`) | admin | `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' \| base64 --decode; echo` |
-| MinIO Console | `http://localhost:9001` | `http://localhost:9001` (after `kubectl -n realtime-dev port-forward svc/realtime-dev-vision-minio 9001:9001`) | minio | minio123 |
-| Postgres | 127.0.0.1:5432 / db `analytics` | 127.0.0.1:5433 / db `analytics` (after `kubectl -n realtime-dev port-forward svc/realtime-dev-vision-postgres 5433:5432`) | analytics | analytics |
-| MySQL MDM | 127.0.0.1:3306 / db `mdm` | 127.0.0.1:3307 / db `mdm` (after `kubectl -n realtime-dev port-forward svc/realtime-dev-vision-mysql-mdm 3307:3306`) | root | mdmroot |
-| Airflow UI | `http://localhost:8084` | `http://localhost:8084` (after `kubectl -n realtime-dev port-forward svc/realtime-dev-vision-airflow 8084:8080`) | admin | admin |
+| MinIO Console | `http://localhost:9001` | `http://localhost:9001` (after `kubectl -n edw-dev port-forward svc/edw-dev-vision-minio 9001:9001`) | minio | minio123 |
+| Postgres | 127.0.0.1:5432 / db `analytics` | 127.0.0.1:5433 / db `analytics` (after `kubectl -n edw-dev port-forward svc/edw-dev-vision-postgres 5433:5432`) | analytics | analytics |
+| MySQL MDM | 127.0.0.1:3306 / db `mdm` | 127.0.0.1:3307 / db `mdm` (after `kubectl -n edw-dev port-forward svc/edw-dev-vision-mysql-mdm 3307:3306`) | root | mdmroot |
+| Airflow UI | `http://localhost:8084` | `http://localhost:8084` (after `kubectl -n edw-dev port-forward svc/edw-dev-vision-airflow 8084:8080`) | admin | admin |
 
 ## Operator Cheat Sheet
 
@@ -98,21 +98,21 @@ Documentation map:
 | kind + Helm + Argo CD | Bootstrap local cluster | `./cicd/k8s/kind/bootstrap-kind.sh` |
 | kind + Helm + Argo CD | Build and load local images into kind | `./cicd/scripts/build-images.sh` |
 | kind + Helm + Argo CD | Bootstrap local cluster via Argo CD app | `kubectl apply -f cicd/argocd/dev.yaml` |
-| kind + Helm + Argo CD | Stop local cluster workloads | `kubectl -n argocd delete application realtime-dev || true && kubectl delete namespace realtime-dev || true` |
-| kind + Helm + Argo CD | Validate app and workloads | `kubectl -n argocd get application realtime-dev && kubectl -n realtime-dev get pods` |
-| kind + Helm + Argo CD | Runtime status snapshot | `kubectl -n realtime-dev get pods && kubectl -n realtime-dev get jobs` |
-| kind + Helm + Argo CD | Validate MDM topic flow | `kubectl -n realtime-dev logs deploy/realtime-dev-vision-mdm-cdc-curate --tail=100` |
-| kind + Helm + Argo CD | Validate Airflow + dbt state | `kubectl -n realtime-dev get pods | grep -E 'airflow|dbt'` |
+| kind + Helm + Argo CD | Stop local cluster workloads | `kubectl -n argocd delete application edw-dev || true && kubectl delete namespace edw-dev || true` |
+| kind + Helm + Argo CD | Validate app and workloads | `kubectl -n argocd get application edw-dev && kubectl -n edw-dev get pods` |
+| kind + Helm + Argo CD | Runtime status snapshot | `kubectl -n edw-dev get pods && kubectl -n edw-dev get jobs` |
+| kind + Helm + Argo CD | Validate MDM topic flow | `kubectl -n edw-dev logs deploy/edw-dev-vision-mdm-cdc-curate --tail=100` |
+| kind + Helm + Argo CD | Validate Airflow + dbt state | `kubectl -n edw-dev get pods | grep -E 'airflow|dbt'` |
 | kind + Helm + Argo CD | Open Argo CD UI | `kubectl -n argocd port-forward svc/argocd-server 8443:443` |
-| kind + Helm + Argo CD | Open Kafka UI | `kubectl -n realtime-dev port-forward svc/realtime-dev-vision-kafka-ui 8082:8080` |
-| kind + Helm + Argo CD | Open Airflow UI | `kubectl -n realtime-dev port-forward svc/realtime-dev-vision-airflow 8084:8080` |
-| kind + Helm + Argo CD | Open MinIO Console | `kubectl -n realtime-dev port-forward svc/realtime-dev-vision-minio 9001:9001` |
-| kind + Helm + Argo CD | Check Trino health | `kubectl -n realtime-dev port-forward svc/realtime-dev-vision-trino 8086:8080` |
-| kind + Helm + Argo CD | Validate streaming Iceberg tables received data | `kubectl -n realtime-dev logs deploy/realtime-dev-vision-iceberg-writer --tail=100` |
-| kind + Helm + Argo CD | Open Postgres | `kubectl -n realtime-dev port-forward svc/realtime-dev-vision-postgres 5433:5432` |
-| kind + Helm + Argo CD | Open Grafana | `kubectl -n realtime-dev port-forward svc/realtime-dev-vision-grafana 3001:3000` |
-| kind + Helm + Argo CD | Cluster smoke check | `echo '--- app ---' && kubectl -n argocd get application realtime-dev && echo '--- pods ---' && kubectl -n realtime-dev get pods && echo '--- topics ---' && kubectl -n realtime-dev exec realtime-dev-kafka-controller-0 -- /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server realtime-dev-kafka:9092 --list` |
-| kind + Helm + Argo CD | Recreate app + namespace | `kubectl -n argocd delete application realtime-dev && kubectl delete namespace realtime-dev && kubectl apply -f cicd/argocd/dev.yaml` |
+| kind + Helm + Argo CD | Open Kafka UI | `kubectl -n edw-dev port-forward svc/edw-dev-vision-kafka-ui 8082:8080` |
+| kind + Helm + Argo CD | Open Airflow UI | `kubectl -n edw-dev port-forward svc/edw-dev-vision-airflow 8084:8080` |
+| kind + Helm + Argo CD | Open MinIO Console | `kubectl -n edw-dev port-forward svc/edw-dev-vision-minio 9001:9001` |
+| kind + Helm + Argo CD | Check Trino health | `kubectl -n edw-dev port-forward svc/edw-dev-vision-trino 8086:8080` |
+| kind + Helm + Argo CD | Validate streaming Iceberg tables received data | `kubectl -n edw-dev logs deploy/edw-dev-vision-iceberg-writer --tail=100` |
+| kind + Helm + Argo CD | Open Postgres | `kubectl -n edw-dev port-forward svc/edw-dev-vision-postgres 5433:5432` |
+| kind + Helm + Argo CD | Open Grafana | `kubectl -n edw-dev port-forward svc/edw-dev-vision-grafana 3001:3000` |
+| kind + Helm + Argo CD | Cluster smoke check | `echo '--- app ---' && kubectl -n argocd get application edw-dev && echo '--- pods ---' && kubectl -n edw-dev get pods && echo '--- topics ---' && kubectl -n edw-dev exec edw-dev-kafka-controller-0 -- /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server edw-dev-kafka:9092 --list` |
+| kind + Helm + Argo CD | Recreate app + namespace | `kubectl -n argocd delete application edw-dev && kubectl delete namespace edw-dev && kubectl apply -f cicd/argocd/dev.yaml` |
 
 ## Scope and Goals
 
@@ -466,9 +466,9 @@ kubectl apply -f cicd/argocd/dev.yaml
 Validate rollout and Trino endpoint after bootstrap:
 
 ```bash
-kubectl -n argocd get application realtime-dev
-kubectl -n realtime-dev get pods
-kubectl -n realtime-dev port-forward svc/realtime-dev-vision-trino 8086:8080
+kubectl -n argocd get application edw-dev
+kubectl -n edw-dev get pods
+kubectl -n edw-dev port-forward svc/edw-dev-vision-trino 8086:8080
 curl -fsS http://localhost:8086/v1/info | cat
 ```
 
@@ -503,9 +503,9 @@ Use this only when you want to run each phase independently.
 1. Validate Trino:
 
   ```bash
-  kubectl -n argocd get application realtime-dev
-  kubectl -n realtime-dev get pods
-  kubectl -n realtime-dev port-forward svc/realtime-dev-vision-trino 8086:8080
+  kubectl -n argocd get application edw-dev
+  kubectl -n edw-dev get pods
+  kubectl -n edw-dev port-forward svc/edw-dev-vision-trino 8086:8080
   curl -fsS http://localhost:8086/v1/info | cat
   ```
 
@@ -520,8 +520,8 @@ Important image prerequisite:
 Stop local cluster workloads:
 
 ```bash
-kubectl -n argocd delete application realtime-dev || true
-kubectl delete namespace realtime-dev || true
+kubectl -n argocd delete application edw-dev || true
+kubectl delete namespace edw-dev || true
 ```
 
 The B1 sequence mirrors the Docker `make compose-up` experience by performing cluster bootstrap, image build/load, and app deployment in one flow.
@@ -529,26 +529,26 @@ The B1 sequence mirrors the Docker `make compose-up` experience by performing cl
 Run unified day-2 operations (Docker-path parity):
 
 ```bash
-kubectl -n argocd get application realtime-dev
-kubectl -n realtime-dev get pods
-kubectl -n realtime-dev get jobs
+kubectl -n argocd get application edw-dev
+kubectl -n edw-dev get pods
+kubectl -n edw-dev get jobs
 ```
 
 This mirrors the Docker `make mdm-flow-check` validation concept with Kubernetes-native checks for application and workload state.
 
 ### B4. Optional Argo CD deployment mode
 
-Choose this mode if you want Argo CD to manage the `realtime-dev` app object directly instead of local Helm reconciliation.
+Choose this mode if you want Argo CD to manage the `edw-dev` app object directly instead of local Helm reconciliation.
 
 ```bash
 kubectl apply -f cicd/argocd/dev.yaml
 ```
 
-If the Argo CD UI does not show `realtime-dev`, re-apply and validate:
+If the Argo CD UI does not show `edw-dev`, re-apply and validate:
 
 ```bash
 kubectl apply -f cicd/argocd/dev.yaml
-kubectl -n argocd get application realtime-dev
+kubectl -n argocd get application edw-dev
 ```
 
 If you prefer the direct Helm path instead of Argo CD reconciliation:
@@ -561,8 +561,8 @@ Validate app and workloads:
 
 ```bash
 kubectl -n argocd get applications
-kubectl -n argocd get application realtime-dev
-kubectl -n realtime-dev get pods
+kubectl -n argocd get application edw-dev
+kubectl -n edw-dev get pods
 ```
 
 ### B5. Access web UIs
@@ -586,7 +586,7 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.pas
 Kafka UI:
 
 ```bash
-kubectl -n realtime-dev port-forward svc/realtime-dev-vision-kafka-ui 8082:8080
+kubectl -n edw-dev port-forward svc/edw-dev-vision-kafka-ui 8082:8080
 ```
 
 - URL: `http://localhost:8082`
@@ -594,7 +594,7 @@ kubectl -n realtime-dev port-forward svc/realtime-dev-vision-kafka-ui 8082:8080
 Grafana:
 
 ```bash
-kubectl -n realtime-dev port-forward svc/realtime-dev-vision-grafana 3001:3000
+kubectl -n edw-dev port-forward svc/edw-dev-vision-grafana 3001:3000
 ```
 
 - URL: `http://localhost:3001`
@@ -602,7 +602,7 @@ kubectl -n realtime-dev port-forward svc/realtime-dev-vision-grafana 3001:3000
 Airflow:
 
 ```bash
-kubectl -n realtime-dev port-forward svc/realtime-dev-vision-airflow 8084:8080
+kubectl -n edw-dev port-forward svc/edw-dev-vision-airflow 8084:8080
 ```
 
 - URL: `http://localhost:8084`
@@ -612,7 +612,7 @@ kubectl -n realtime-dev port-forward svc/realtime-dev-vision-airflow 8084:8080
 MinIO:
 
 ```bash
-kubectl -n realtime-dev port-forward svc/realtime-dev-vision-minio 9001:9001
+kubectl -n edw-dev port-forward svc/edw-dev-vision-minio 9001:9001
 ```
 
 - URL: `http://localhost:9001`
@@ -622,7 +622,7 @@ kubectl -n realtime-dev port-forward svc/realtime-dev-vision-minio 9001:9001
 Trino:
 
 ```bash
-kubectl -n realtime-dev port-forward svc/realtime-dev-vision-trino 8086:8080
+kubectl -n edw-dev port-forward svc/edw-dev-vision-trino 8086:8080
 ```
 
 - URL: `http://localhost:8086`
@@ -630,13 +630,13 @@ kubectl -n realtime-dev port-forward svc/realtime-dev-vision-trino 8086:8080
 ### B6. Validate pipeline topics in cluster
 
 ```bash
-kubectl -n realtime-dev exec realtime-dev-kafka-controller-0 -- \
+kubectl -n edw-dev exec edw-dev-kafka-controller-0 -- \
   /opt/bitnami/kafka/bin/kafka-topics.sh \
-  --bootstrap-server realtime-dev-kafka:9092 --list
+  --bootstrap-server edw-dev-kafka:9092 --list
 
-kubectl -n realtime-dev exec realtime-dev-kafka-controller-0 -- \
+kubectl -n edw-dev exec edw-dev-kafka-controller-0 -- \
   /opt/bitnami/kafka/bin/kafka-console-consumer.sh \
-  --bootstrap-server realtime-dev-kafka:9092 \
+  --bootstrap-server edw-dev-kafka:9092 \
   --topic raw_sales_orders --partition 0 --offset 0 --max-messages 1 --timeout-ms 15000
 ```
 
@@ -659,22 +659,22 @@ kubectl apply -f cicd/argocd/dev.yaml
 Delete and recreate app only:
 
 ```bash
-kubectl -n argocd delete application realtime-dev
+kubectl -n argocd delete application edw-dev
 kubectl apply -f cicd/argocd/dev.yaml
 ```
 
 Full namespace reset:
 
 ```bash
-kubectl -n argocd delete application realtime-dev
-kubectl delete namespace realtime-dev
+kubectl -n argocd delete application edw-dev
+kubectl delete namespace edw-dev
 kubectl apply -f cicd/argocd/dev.yaml
 ```
 
 Docker-equivalent reset for Helm path:
 
 ```bash
-kubectl delete namespace realtime-dev --ignore-not-found
+kubectl delete namespace edw-dev --ignore-not-found
 ./cicd/k8s/kind/bootstrap-kind.sh
 ./cicd/scripts/build-images.sh
 kubectl apply -f cicd/argocd/dev.yaml
@@ -704,28 +704,28 @@ make helm-health-dev
 
 Expected healthy state:
 
-- Deployments in `Running`: producer, processor, kafka-ui, minio, postgres, connect, airflow, mysql-mdm, mdm-connect, mdm-cdc-curate, mdm-pyspark-sync, prometheus, loki, grafana.
-- One-shot Jobs in `Complete`: `realtime-dev-vision-minio-init`, `realtime-dev-vision-ods-connect-init`, `realtime-dev-vision-mdm-connect-init`, `realtime-dev-vision-dbt`.
+- Deployments in `Running`: producer, processor, minio, snowflake-mimic, zookeeper, kafka, schema-registry, dbz-connect, ods-connect, mdm-source, mdm-connect, mdm-cdc-curate, mdm-rds-pg, airflow, trino, iceberg-writer, prometheus, grafana, blackbox-exporter, conduktor, conduktor-db.
+- One-shot Jobs in `Complete`: `edw-dev-vision-minio-init`, `edw-dev-vision-ods-connect-init`, `edw-dev-vision-mdm-connect-init`, `edw-dev-vision-dbt`.
 
 Validate MDM topic flow in cluster:
 
 ```bash
-kubectl -n realtime-dev exec realtime-dev-kafka-controller-0 -- \
+kubectl -n edw-dev exec edw-dev-kafka-controller-0 -- \
   /opt/bitnami/kafka/bin/kafka-console-consumer.sh \
-  --bootstrap-server realtime-dev-kafka:9092 \
+  --bootstrap-server edw-dev-kafka:9092 \
   --topic mdm_customer --partition 0 --offset 0 --max-messages 1 --timeout-ms 15000
 
-kubectl -n realtime-dev exec realtime-dev-kafka-controller-0 -- \
+kubectl -n edw-dev exec edw-dev-kafka-controller-0 -- \
   /opt/bitnami/kafka/bin/kafka-console-consumer.sh \
-  --bootstrap-server realtime-dev-kafka:9092 \
+  --bootstrap-server edw-dev-kafka:9092 \
   --topic mdm_product --partition 0 --offset 0 --max-messages 1 --timeout-ms 15000
 ```
 
 Open warehouse and scheduling UIs:
 
 ```bash
-kubectl -n realtime-dev port-forward svc/realtime-dev-vision-airflow 8084:8080
-kubectl -n realtime-dev port-forward svc/realtime-dev-vision-minio 9001:9001
+kubectl -n edw-dev port-forward svc/edw-dev-vision-airflow 8084:8080
+kubectl -n edw-dev port-forward svc/edw-dev-vision-minio 9001:9001
 ```
 
 Argo CD source note:
@@ -900,8 +900,8 @@ Then restart the needed port-forward command.
 Confirm service exists and pods are running:
 
 ```bash
-kubectl -n realtime-dev get svc
-kubectl -n realtime-dev get pods
+kubectl -n edw-dev get svc
+kubectl -n edw-dev get pods
 ```
 
 ### Argo CD app shows `ComparisonError` and `SYNC STATUS: Unknown`
@@ -911,14 +911,14 @@ This usually means Argo CD cannot fetch the Git source repository.
 Check conditions:
 
 ```bash
-kubectl -n argocd get application realtime-dev -o jsonpath='{range .status.conditions[*]}{.type}{": "}{.message}{"\n"}{end}'
+kubectl -n argocd get application edw-dev -o jsonpath='{range .status.conditions[*]}{.type}{": "}{.message}{"\n"}{end}'
 ```
 
 If the message includes repository authentication failure, add repo credentials in Argo CD,
 then refresh the app:
 
 ```bash
-kubectl -n argocd annotate application realtime-dev argocd.argoproj.io/refresh=hard --overwrite
+kubectl -n argocd annotate application edw-dev argocd.argoproj.io/refresh=hard --overwrite
 ```
 
 For immediate local validation while credentials are pending, use:
@@ -943,7 +943,7 @@ Root cause:
 Detect quickly:
 
 ```bash
-kubectl -n realtime-dev exec deploy/realtime-dev-vision-postgres -- \
+kubectl -n edw-dev exec deploy/edw-dev-vision-postgres -- \
   psql -U analytics -d analytics -c "select schema_name from information_schema.schemata where schema_name like 'public_%' or schema_name in ('landing','bronze','silver','gold') order by 1;"
 ```
 
@@ -956,7 +956,7 @@ Permanent fix:
 One-time cleanup (move objects and drop `public_*` schemas):
 
 ```bash
-cat <<'SQL' | kubectl -n realtime-dev exec -i deploy/realtime-dev-vision-postgres -- psql -U analytics -d analytics
+cat <<'SQL' | kubectl -n edw-dev exec -i deploy/edw-dev-vision-postgres -- psql -U analytics -d analytics
 BEGIN;
 CREATE SCHEMA IF NOT EXISTS bronze;
 CREATE SCHEMA IF NOT EXISTS silver;
@@ -996,7 +996,7 @@ SQL
 Post-cleanup verification:
 
 ```bash
-kubectl -n realtime-dev exec deploy/realtime-dev-vision-postgres -- \
+kubectl -n edw-dev exec deploy/edw-dev-vision-postgres -- \
   psql -U analytics -d analytics -c "select schema_name from information_schema.schemata where schema_name like 'public_%' or schema_name in ('landing','bronze','silver','gold') order by 1;"
 ```
 
@@ -1004,10 +1004,10 @@ kubectl -n realtime-dev exec deploy/realtime-dev-vision-postgres -- \
 
 ```bash
 echo '--- app status ---' && \
-kubectl -n argocd get application realtime-dev && \
-echo '--- realtime-dev pods ---' && \
-kubectl -n realtime-dev get pods && \
+kubectl -n argocd get application edw-dev && \
+echo '--- edw-dev pods ---' && \
+kubectl -n edw-dev get pods && \
 echo '--- topics list ---' && \
-kubectl -n realtime-dev exec realtime-dev-kafka-controller-0 -- \
-/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server realtime-dev-kafka:9092 --list
+kubectl -n edw-dev exec edw-dev-kafka-controller-0 -- \
+/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server edw-dev-kafka:9092 --list
 ```

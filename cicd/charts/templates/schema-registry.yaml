@@ -18,6 +18,7 @@ spec:
         app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: schema-registry
     spec:
+      enableServiceLinks: false
       containers:
         - name: schema-registry
           image: confluentinc/cp-schema-registry:7.5.3
@@ -26,16 +27,16 @@ spec:
             - containerPort: 8081
           env:
             - name: SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS
-              value: {{ printf "PLAINTEXT://%s-kafka:9092" (include "vision.fullname" .) | quote }}
+              value: {{ printf "PLAINTEXT://%s:9092" (include "vision.serviceName" (dict "root" . "key" "kafka")) | quote }}
             - name: SCHEMA_REGISTRY_HOST_NAME
-              value: {{ printf "%s-schema-registry" (include "vision.fullname" .) | quote }}
+              value: {{ include "vision.serviceName" (dict "root" . "key" "schema-registry") | quote }}
             - name: SCHEMA_REGISTRY_LISTENERS
               value: "http://0.0.0.0:8081"
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-schema-registry
+  name: {{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}
   labels:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: schema-registry

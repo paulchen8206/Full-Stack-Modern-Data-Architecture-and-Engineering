@@ -19,18 +19,25 @@ with DAG(
     run_dbt = BashOperator(
         task_id="run_dbt",
         bash_command=(
-            "cd /opt/airflow/dbt && "
-            "dbt deps --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt && "
-            "dbt run --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt --target trino"
+            "rm -rf /tmp/dbt && mkdir -p /tmp/dbt /opt/airflow/logs/dbt && "
+            "cp -R /opt/airflow/dbt/. /tmp/dbt/ && "
+            "cd /tmp/dbt && "
+            "dbt deps --project-dir /tmp/dbt --profiles-dir /tmp/dbt "
+            "--log-path /opt/airflow/logs/dbt && "
+            "dbt run --project-dir /tmp/dbt --profiles-dir /tmp/dbt --target trino "
+            "--log-path /opt/airflow/logs/dbt --target-path /tmp/dbt/target"
         ),
     )
 
     run_dbt_mdm = BashOperator(
         task_id="run_dbt_mdm",
         bash_command=(
-            "cd /opt/airflow/dbt && "
-            "dbt run --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt "
+            "rm -rf /tmp/dbt && mkdir -p /tmp/dbt /opt/airflow/logs/dbt && "
+            "cp -R /opt/airflow/dbt/. /tmp/dbt/ && "
+            "cd /tmp/dbt && "
+            "dbt run --project-dir /tmp/dbt --profiles-dir /tmp/dbt "
             "--target trino "
+            "--log-path /opt/airflow/logs/dbt --target-path /tmp/dbt/target "
             "--select stg_mdm_customer360 stg_mdm_product_master stg_mdm_date "
             "dim_mdm_customer dim_mdm_product dim_mdm_date"
         ),
@@ -39,8 +46,11 @@ with DAG(
     run_dbt_postgres = BashOperator(
         task_id="run_dbt_postgres",
         bash_command=(
-            "cd /opt/airflow/dbt && "
-            "dbt run --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt --target dev"
+            "rm -rf /tmp/dbt && mkdir -p /tmp/dbt /opt/airflow/logs/dbt && "
+            "cp -R /opt/airflow/dbt/. /tmp/dbt/ && "
+            "cd /tmp/dbt && "
+            "dbt run --project-dir /tmp/dbt --profiles-dir /tmp/dbt --target dev "
+            "--log-path /opt/airflow/logs/dbt --target-path /tmp/dbt/target"
         ),
     )
 

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-CLUSTER_NAME="${CLUSTER_NAME:-realtime-dev}"
+CLUSTER_NAME="${CLUSTER_NAME:-edw-dev}"
 
 kind create cluster --name "${CLUSTER_NAME}" --wait 120s
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -

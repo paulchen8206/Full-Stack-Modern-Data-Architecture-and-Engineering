@@ -33,7 +33,7 @@ data:
     iceberg.jdbc-catalog.connection-user={{ .Values.postgres.auth.user }}
     iceberg.jdbc-catalog.connection-password={{ .Values.postgres.auth.password }}
     iceberg.jdbc-catalog.default-warehouse-dir=s3://{{ .Values.minio.bucket }}/iceberg
-    iceberg.jdbc-catalog.schema-version=V0
+    iceberg.jdbc-catalog.schema-version=V1
     iceberg.file-format=PARQUET
     iceberg.unique-table-location=true
     iceberg.register-table-procedure.enabled=true
@@ -98,7 +98,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-trino
+  name: {{ include "vision.serviceName" (dict "root" . "key" "trino") }}
   labels:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: trino

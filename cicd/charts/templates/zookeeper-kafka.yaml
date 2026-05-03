@@ -34,7 +34,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-zookeeper
+  name: {{ include "vision.serviceName" (dict "root" . "key" "zookeeper") }}
   labels:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: zookeeper
@@ -70,6 +70,7 @@ spec:
         app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: kafka
     spec:
+      enableServiceLinks: false
       containers:
         - name: kafka
           image: {{ .Values.kafka.image.repository }}:{{ .Values.kafka.image.tag }}
@@ -95,7 +96,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-kafka
+  name: {{ include "vision.serviceName" (dict "root" . "key" "kafka") }}
   labels:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: kafka

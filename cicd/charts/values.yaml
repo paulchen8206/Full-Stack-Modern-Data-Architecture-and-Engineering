@@ -1,10 +1,17 @@
 schemaRegistry:
   enabled: true
+schemaInit:
+  image:
+    repository: schema-init
+    tag: latest
+    pullPolicy: IfNotPresent
+legacyConnectorRegistrationHook:
+  enabled: false
 nameOverride: "vision"
 fullnameOverride: ""
 # Optional service host overrides for Docker-service parity.
 # When unset, templates default to <release>-<nameOverride>-<service-key>.
-# Example docker-style values:
+# Example default routine values:
 # serviceNames:
 #   kafka: kafka
 #   dbz-connect: dbz-connect
@@ -12,7 +19,25 @@ fullnameOverride: ""
 #   mdm-source: mdm-source
 #   minio: minio
 #   snowflake-mimic: snowflake-mimic
-serviceNames: {}
+serviceNames:
+  airflow: airflow
+  blackbox-exporter: blackbox-exporter
+  conduktor: conduktor
+  conduktor-db: conduktor-db
+  dbz-connect: dbz-connect
+  grafana: grafana
+  kafka: kafka
+  kafka-ui: kafka-ui
+  mdm-connect: mdm-connect
+  mdm-source: mdm-source
+  minio: minio
+  ods-connect: ods-connect
+  ods-processor: ods-processor
+  prometheus: prometheus
+  schema-registry: schema-registry
+  snowflake-mimic: snowflake-mimic
+  trino: trino
+  zookeeper: zookeeper
 producer:
   enabled: true
   replicas: 1
@@ -115,12 +140,12 @@ postgres:
 odsConnect:
   enabled: false
   image:
-    repository: pos-connect
+    repository: pos-ods-connect
     tag: 0.1.0
     pullPolicy: IfNotPresent
   curlImage:
-    repository: curlimages/curl
-    tag: 8.12.1
+    repository: alpine
+    tag: 3.19
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -148,6 +173,15 @@ airflow:
     port: 8080
 mdm:
   enabled: true
+  source:
+    image:
+      repository: pos-mdm-source
+      tag: 0.1.0
+      pullPolicy: IfNotPresent
+    intervalSec: 30
+    insertNewKeyProb: "0.9"
+    appMysqlUser: mdm
+    appMysqlPassword: mdm
   mysql:
     image:
       repository: mysql
@@ -162,7 +196,7 @@ mdm:
   connect:
     replicas: 1
     image:
-      repository: pos-connect
+      repository: pos-mdm-connect
       tag: 0.1.0
       pullPolicy: IfNotPresent
     service:
@@ -173,8 +207,8 @@ mdm:
     offsetStorageTopic: mdm-connect-offsets
     statusStorageTopic: mdm-connect-status
     curlImage:
-      repository: curlimages/curl
-      tag: 8.12.1
+      repository: alpine
+      tag: 3.19
       pullPolicy: IfNotPresent
   cdcProducer:
     replicas: 1
@@ -195,12 +229,12 @@ dbzConnect:
   enabled: false
   replicas: 1
   image:
-    repository: quay.io/debezium/connect
-    tag: "3.0"
+    repository: pos-dbz-connect
+    tag: 0.1.0
     pullPolicy: IfNotPresent
   curlImage:
-    repository: curlimages/curl
-    tag: 8.12.1
+    repository: alpine
+    tag: 3.19
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -243,6 +277,7 @@ observability:
       type: ClusterIP
       port: 9090
   loki:
+    enabled: true
     replicas: 1
     image:
       repository: grafana/loki

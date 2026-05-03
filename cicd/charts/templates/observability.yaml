@@ -39,6 +39,7 @@ data:
           - target_label: __address__
             replacement: {{ include "vision.serviceName" (dict "root" . "key" "blackbox-exporter") }}:9115
 {{- end }}
+{{- if .Values.observability.loki.enabled }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -78,6 +79,7 @@ data:
         directory: /loki/chunks
     analytics:
       reporting_enabled: false
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -96,10 +98,12 @@ data:
         access: proxy
         url: http://{{ include "vision.serviceName" (dict "root" . "key" "prometheus") }}:9090
         isDefault: true
+{{- if .Values.observability.loki.enabled }}
       - name: Loki
         type: loki
         access: proxy
         url: http://{{ include "vision.serviceName" (dict "root" . "key" "loki") }}:3100
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -210,7 +214,9 @@ data:
             },
             "overrides": []
           }
-        },
+        }
+{{- if .Values.observability.loki.enabled }}
+        ,
         {
           "id": 3,
           "title": "Loki Log Volume (5m)",
@@ -235,8 +241,10 @@ data:
             "overrides": []
           }
         }
+{{- end }}
       ]
     }
+{{- if and .Values.observability.promtail.enabled .Values.observability.loki.enabled }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -263,6 +271,7 @@ data:
               job: kubernetes-pods
               namespace: {{ .Release.Namespace }}
               __path__: /var/log/pods/{{ .Release.Namespace }}_*/*/*.log
+{{- end }}
 {{- if .Values.observability.blackboxExporter.enabled }}
 ---
 apiVersion: v1
@@ -368,6 +377,7 @@ spec:
             name: {{ include "vision.fullname" . }}-prometheus-config
         - name: data
           emptyDir: {}
+{{- if .Values.observability.loki.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -411,6 +421,7 @@ spec:
             name: {{ include "vision.fullname" . }}-loki-config
         - name: data
           emptyDir: {}
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -465,7 +476,7 @@ spec:
         - name: dashboard-starter
           configMap:
             name: {{ include "vision.fullname" . }}-grafana-dashboard-starter
-{{- if .Values.observability.promtail.enabled }}
+{{- if and .Values.observability.promtail.enabled .Values.observability.loki.enabled }}
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -519,7 +530,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-prometheus
+  name: {{ include "vision.serviceName" (dict "root" . "key" "prometheus") }}
   labels:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
@@ -534,11 +545,12 @@ spec:
     - name: http
       port: {{ .Values.observability.prometheus.service.port }}
       targetPort: 9090
+{{- if .Values.observability.loki.enabled }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-loki
+  name: {{ include "vision.serviceName" (dict "root" . "key" "loki") }}
   labels:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
@@ -553,11 +565,12 @@ spec:
     - name: http
       port: {{ .Values.observability.loki.service.port }}
       targetPort: 3100
+{{- end }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-grafana
+  name: {{ include "vision.serviceName" (dict "root" . "key" "grafana") }}
   labels:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
@@ -577,7 +590,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "vision.fullname" . }}-blackbox-exporter
+  name: {{ include "vision.serviceName" (dict "root" . "key" "blackbox-exporter") }}
   labels:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability

@@ -8,8 +8,8 @@ set -eu
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
 
 K8S_MODE=0
-K8S_NAMESPACE="realtime-dev"
-TRINO_DEPLOYMENT="realtime-dev-vision-trino"
+K8S_NAMESPACE="edw-dev"
+TRINO_DEPLOYMENT="edw-dev-vision-trino"
 LOCAL_TRINO_PORT=8086
 TRINO_REMOTE_PORT=8080
 

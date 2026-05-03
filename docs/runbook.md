@@ -93,9 +93,9 @@ Documentation map:
 | Docker Compose | Tail app logs | `docker compose logs --tail=200 --no-color --since=10m producer processor` |
 | Docker Compose | Rebuild processor only + validate | `docker compose up -d --build processor && docker compose logs --tail=120 --no-color --since=2m processor` |
 | Docker Compose | Validate MDM topic flow | `make mdm-topics-check` |
-| Docker Compose | Verify Trino endpoint | `curl -fsS http://localhost:8086/v1/info | cat` |
+| Docker Compose | Verify Trino endpoint | `make trino-smoke` |
 | Docker Compose | Start Airflow service | `docker compose up -d --build airflow` |
-| Docker Compose | Run dbt once | `docker compose run --rm dbt` |
+| Docker Compose | Run dbt once | `make dbt-run` |
 | Docker Compose | Full clean reset | `docker compose down -v && docker compose up -d --build` |
 | kind + Helm + Argo CD | Bootstrap local cluster | `./cicd/k8s/kind/bootstrap-kind.sh` |
 | kind + Helm + Argo CD | Build and load local images into kind | `./cicd/scripts/build-images.sh` |
@@ -291,7 +291,7 @@ Open a shell-based Trino CLI or run ad hoc SQL without calling Python directly:
 
 ```bash
 make trino-shell
-./trino/scripts/trino-sql.sh "SHOW TABLES FROM lakehouse.streaming"
+make trino-show-streaming-tables
 ```
 
 Bootstrap real Iceberg tables on MinIO through Trino:
@@ -381,7 +381,7 @@ Manual Airflow DAG trigger:
 make airflow-trigger-dbt-dag
 ```
 
-Note: `docker compose run --rm dbt` may appear to pause while Compose waits for `snowflake-mimic` and `ods-connect-init`. That is dependency startup behavior, not an interactive prompt.
+Note: `make dbt-run` may appear to pause while Compose waits for `snowflake-mimic` and `ods-connect-init`. That is dependency startup behavior, not an interactive prompt.
 
 ### A5. Stop and clean
 
@@ -421,7 +421,7 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 ## Common Failure Patterns
 
 - No bronze rows with landing rows present:
-  Run `docker compose run --rm dbt`, then recheck `bronze` counts.
+  Run `make dbt-run`, then recheck `bronze` counts.
 - `dbt` shows `Exited (0)` in `docker compose ps -a`:
   This is expected for the one-shot dbt service after a successful run.
 - Kafka Connect is healthy but landing rows stay at zero:
@@ -443,7 +443,7 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 
   Then check `docker compose logs --tail=20 airflow` and confirm `Listening at: http://0.0.0.0:8080`.
 - Trino checks fail right after `docker compose restart trino` with connection reset/refused:
-  Trino is still starting. Wait until `docker compose ps` shows Trino as healthy, then rerun `curl -fsS http://localhost:8086/v1/info | cat`.
+  Trino is still starting. Wait until `docker compose ps` shows Trino as healthy, then rerun `make trino-smoke`.
 - Trino bootstrap/sync fails with `Column '<name>' cannot be resolved`:
   Source schema changed relative to bootstrap SQL. Run `DESCRIBE warehouse.landing.<table>` and update `trino/sql/bootstrap_lakehouse.sql` and `trino/sql/incremental_sync_lakehouse.sql` to match current columns.
 - `make trino-sync-lakehouse` fails with `One MERGE target table row matched more than one source row`:
@@ -475,7 +475,7 @@ Validate rollout and Trino endpoint after bootstrap:
 kubectl -n argocd get application gndp-dev
 kubectl -n gndp-dev get pods
 kubectl -n gndp-dev port-forward svc/trino 8086:8080
-curl -fsS http://localhost:8086/v1/info | cat
+make trino-smoke
 ```
 
 ### B2. Manual bootstrap (equivalent step-by-step)
@@ -512,7 +512,7 @@ Use this only when you want to run each phase independently.
   kubectl -n argocd get application gndp-dev
   kubectl -n gndp-dev get pods
   kubectl -n gndp-dev port-forward svc/trino 8086:8080
-  curl -fsS http://localhost:8086/v1/info | cat
+  make trino-smoke
   ```
 
 Important image prerequisite:

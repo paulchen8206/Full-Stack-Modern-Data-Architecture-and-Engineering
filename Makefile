@@ -67,6 +67,7 @@ SCHEMA_INIT_IMAGE_TAG ?= latest
 
 .PHONY: compose-build compose-up compose-down compose-clean images mdm-status mdm-topics-check mdm-flow-check \
 	dbt-run airflow-logs airflow-trigger-dbt-dag ops-status verify-dbt-relations trino-shell trino-smoke \
+	dbt-logs trino-show-streaming-tables \
 	trino-seed-demo trino-bootstrap-lakehouse trino-rebuild-lakehouse trino-sync-lakehouse trino-sample-queries \
 	iceberg-streaming-smoke iceberg-streaming-smoke-dev openmetadata-up openmetadata-status \
 	openmetadata-prepare-dbt-artifacts openmetadata-ingest-trino openmetadata-ingest-postgres \
@@ -122,6 +123,10 @@ mdm-flow-check: mdm-status mdm-topics-check
 dbt-run:
 	$(DOCKER_COMPOSE) run --rm dbt
 
+# Tail dbt container logs
+dbt-logs:
+	$(DOCKER_COMPOSE) logs --tail=200 dbt
+
 # Tail Airflow logs for quick DAG troubleshooting
 airflow-logs:
 	$(DOCKER_COMPOSE) logs --tail=200 airflow
@@ -149,6 +154,10 @@ trino-shell:
 # Validate Trino coordinator endpoint
 trino-smoke:
 	curl -fsS $(TRINO_SMOKE_URL) | cat
+
+# Show lakehouse streaming tables through Trino helper
+trino-show-streaming-tables:
+	$(TRINO_SQL_SCRIPT) "SHOW TABLES FROM lakehouse.streaming"
 
 # Seed demo objects used by Trino sample queries
 trino-seed-demo:

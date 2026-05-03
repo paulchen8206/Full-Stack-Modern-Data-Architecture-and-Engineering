@@ -281,7 +281,7 @@ make mdm-flow-check
 | Postgres | `localhost:5432` (user/password/db: `analytics`) |
 | MySQL MDM | `localhost:3306` (root password: `mdmroot`, db: `mdm`) |
 
-OpenMetadata is not part of the default routine. It is available only when running the optional Compose profile: `docker compose --profile openmetadata up -d`.
+OpenMetadata is not part of the default routine. It is available only when running the optional Compose profile: `make openmetadata-up`.
 
 ### Container Behavior
 
@@ -466,7 +466,7 @@ Dev environment behavior:
 - Local Compose endpoint: `http://localhost:8086`
 - Kubernetes endpoint: port-forward `svc/trino 8086:8080`
 - The repository includes a repeatable SQL runner: `python3 trino/scripts/trino_query.py --server http://localhost:8086 --file <sql-file>`
-- The repository also includes a shell helper for ad hoc SQL without calling Python directly: `./trino/scripts/trino-sql.sh "SHOW TABLES FROM lakehouse.streaming"`
+- The repository also includes a shell helper for ad hoc SQL without calling Python directly: `make trino-show-streaming-tables`
 - `make trino-shell` opens the Trino CLI inside the Compose service, or runs a SQL file when `SQL_FILE=<path>` is provided
 | Make target | Action |
 | --- | --- |
@@ -575,7 +575,7 @@ docker compose exec -T snowflake-mimic psql -U analytics -d analytics -c "SELECT
 Rerun dbt manually if needed:
 
 ```bash
-docker compose run --rm dbt
+make dbt-run
 ```
 
 Start Airflow for scheduled runs:
@@ -584,7 +584,7 @@ Start Airflow for scheduled runs:
 docker compose up -d --build airflow
 ```
 
-> `docker compose run --rm dbt` may briefly wait on dependencies before the dbt command starts.
+> `make dbt-run` may briefly wait on dependencies before the dbt command starts.
 
 ## Validation Snapshot (2026-04-20)
 
@@ -600,7 +600,7 @@ Runtime validation (Routine A — Docker Compose):
 
 - `make compose-up` completed successfully. Core containers were Running and one-shot init/dbt containers exited with code 0.
 - Landing row counts were confirmed in `snowflake-mimic` for `landing.sales_order`, `landing.sales_order_line_item`, and `landing.customer_sales`.
-- Trino coordinator endpoint check passed: `curl -fsS http://localhost:8086/v1/info | cat`.
+- Trino coordinator endpoint check passed: `make trino-smoke`.
 - Curated MDM topic checks passed via `make mdm-topics-check`.
 - `make mdm-topics-check` consumed records from `mdm_customer` and `mdm_product`.
 - Airflow UI reachable at `http://localhost:8084` after `docker compose up -d --build airflow`.

@@ -31,7 +31,7 @@ Phase scope:
 ## 4. Operational References
 
 - docker compose up -d openmetadata-server openmetadata-ingestion
-- curl -fsS http://localhost:8086/v1/info | cat
+- make trino-smoke
 - trino/scripts/trino-sql.sh "SHOW CATALOGS"
 
 ## 5. Validation

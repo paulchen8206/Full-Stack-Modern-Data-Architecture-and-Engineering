@@ -24,7 +24,7 @@ Support two ingestion patterns:
 
 ## 4. Operational References
 
-- curl -fsS http://localhost:8086/v1/info | cat
+- make trino-smoke
 - trino/scripts/trino-sql.sh "SHOW CATALOGS"
 - trino/scripts/trino-sql.sh "SHOW SCHEMAS FROM lakehouse"
 - trino/scripts/trino-sql.sh "SHOW TABLES FROM lakehouse.streaming"

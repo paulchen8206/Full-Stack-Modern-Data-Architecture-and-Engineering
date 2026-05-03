@@ -339,8 +339,8 @@ workflowConfig:
 ### Phase 0: Prerequisites
 
 - Confirm stack health: `make mdm-flow-check`
-- Confirm Trino health: `curl -fsS http://localhost:8086/v1/info | cat`
-- Ensure dbt artifacts exist and are ingestion-compatible by running `docker compose run --rm dbt` followed by `make openmetadata-prepare-dbt-artifacts`
+- Confirm Trino health: `make trino-smoke`
+- Ensure dbt artifacts exist and are ingestion-compatible by running `make dbt-run` followed by `make openmetadata-prepare-dbt-artifacts`
 
 Gate to continue:
 

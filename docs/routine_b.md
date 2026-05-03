@@ -151,7 +151,7 @@ Port-forward Trino then check health:
 
 ```bash
 kubectl -n gndp-dev port-forward svc/trino 8086:8080 &
-curl -fsS http://localhost:8086/v1/info | cat
+make trino-smoke
 ```
 
 ### End-to-end smoke check

@@ -50,7 +50,7 @@ docker compose exec -T snowflake-mimic psql -U analytics -d analytics -c "SELECT
 Validate Trino endpoint:
 
 ```bash
-curl -fsS http://localhost:8086/v1/info | cat
+make trino-smoke
 ```
 
 ## Operate
@@ -58,7 +58,7 @@ curl -fsS http://localhost:8086/v1/info | cat
 Run dbt on demand:
 
 ```bash
-docker compose run --rm dbt
+make dbt-run
 ```
 
 Start Airflow:

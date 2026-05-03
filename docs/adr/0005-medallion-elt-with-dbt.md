@@ -24,7 +24,7 @@ Adopt dbt as the transformation framework for medallion layers:
 
 ## 4. Operational References
 
-- docker compose run --rm dbt
+- make dbt-run
 - docker compose exec -T snowflake-mimic psql -U analytics -d analytics -c "SELECT count(*) FROM landing.sales_order;"
 - analytics/dbt/dbt_project.yml
 - analytics/dbt/macros/generate_schema_name.sql

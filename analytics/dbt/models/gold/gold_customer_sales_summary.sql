@@ -1,5 +1,16 @@
-with sales as (
-  select * from {{ ref('stg_customer_sales') }}
+with sales_ranked as (
+  select
+    *,
+    row_number() over (
+      partition by customer_id
+      order by updated_at desc nulls last
+    ) as rn
+  from {{ ref('stg_customer_sales') }}
+),
+sales as (
+  select *
+  from sales_ranked
+  where rn = 1
 ),
 dim_customer as (
   select * from {{ ref('dim_mdm_customer') }}

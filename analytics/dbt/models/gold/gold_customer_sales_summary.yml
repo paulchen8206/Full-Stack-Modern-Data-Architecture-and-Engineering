@@ -7,6 +7,7 @@ models:
     description: "Customer business key shared across the sales staging layer, MDM customer dimension, and aggregated fact rollups."
     tests:
     - not_null
+    - unique
   - name: customer_name
     description: "Preferred customer name, taking the MDM customer dimension value when available and falling back to the latest curated sales snapshot otherwise."
   - name: customer_email

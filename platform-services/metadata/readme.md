@@ -18,6 +18,32 @@ The Metadata Service is responsible for cataloging, managing, and serving metada
 
 - `platform-services/metadata/openmetadata/`: Contains configuration and deployment files for OpenMetadata or other metadata tools
 
+## Component Diagram
+
+```mermaid
+flowchart LR
+	OM[OpenMetadata]
+	DB[(Metadata MySQL)]
+	ES[(Search index)]
+	INGEST[Ingestion Workflows]
+	SOURCES[dbt, Trino, and Airflow]
+
+	OM --> DB
+	OM --> ES
+	INGEST --> OM
+	SOURCES --> INGEST
+```
+
+## Data Flow Diagram
+
+```mermaid
+flowchart LR
+	ASSETS[Platform Assets] --> CONNECTORS[Metadata Connectors]
+	CONNECTORS --> CATALOG[Metadata Catalog]
+	CATALOG --> SEARCH[Indexed Discovery]
+	CATALOG --> LINEAGE[Lineage and Governance]
+```
+
 ## Usage
 
 1. Configure and deploy the metadata service (e.g., OpenMetadata)

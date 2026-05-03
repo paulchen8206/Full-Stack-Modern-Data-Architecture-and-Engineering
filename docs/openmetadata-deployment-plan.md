@@ -49,6 +49,32 @@ Existing services relevant to metadata ingestion:
 - Airflow UI/API: `http://airflow:8080` (host port `8084`)
 - dbt project path: `analytics/dbt`
 
+## Component Diagram
+
+```mermaid
+flowchart LR
+  OMS[openmetadata-server]
+  OMI[openmetadata-ingestion]
+  OMDB[(openmetadata-db)]
+  OMSEARCH[(openmetadata-search)]
+  SOURCES[Trino, Postgres, dbt, Airflow, and Kafka]
+
+  OMI --> OMS
+  OMS --> OMDB
+  OMS --> OMSEARCH
+  SOURCES --> OMI
+```
+
+## Data Flow Diagram
+
+```mermaid
+flowchart LR
+  EXTRACT[Connector workflows] --> CATALOG[Metadata entities]
+  CATALOG --> LINEAGE[Lineage graph]
+  CATALOG --> SEARCH[Index and discovery]
+  LINEAGE --> GOVERNANCE[Ownership and governance views]
+```
+
 ## Target OpenMetadata Components (Compose)
 
 Recommended additional services:
@@ -60,7 +86,7 @@ Recommended additional services:
 
 ### Compose Service Blueprint (Sample)
 
-Add this as a starting point to `docker-compose.yml` (adjust versions to your policy):
+Add this as a starting point to `compose.yml` (adjust versions to your policy):
 
 ```yaml
   openmetadata-db:

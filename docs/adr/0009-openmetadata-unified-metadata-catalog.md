@@ -62,8 +62,38 @@ Expected trade-offs:
 ## 8. References
 
 - [../openmetadata-deployment-plan.md](../openmetadata-deployment-plan.md)
-- [../../docker-compose.yml](../../docker-compose.yml)
+- [../../compose.yml](../../compose.yml)
 - [0004-trino-lakehouse-query-path-on-minio.md](0004-trino-lakehouse-query-path-on-minio.md)
 - [0005-medallion-elt-with-dbt.md](0005-medallion-elt-with-dbt.md)
 - [0006-airflow-scheduled-dbt-orchestration.md](0006-airflow-scheduled-dbt-orchestration.md)
 - [0008-unified-dbeaver-trino-query-surface.md](0008-unified-dbeaver-trino-query-surface.md)
+
+## 9. Diagrams
+
+### 9.1 Component Diagram
+
+```mermaid
+flowchart LR
+	OM[OpenMetadata]
+	TRINO[Trino]
+	DBT[dbt]
+	AF[Airflow]
+	KAFKA[Kafka]
+	USERS[Data Users]
+
+	TRINO --> OM
+	DBT --> OM
+	AF --> OM
+	KAFKA --> OM
+	OM --> USERS
+```
+
+### 9.2 Data Flow Diagram
+
+```mermaid
+flowchart LR
+	INGEST[Metadata Ingestion Jobs] --> ENTITIES[Catalog Entities]
+	ENTITIES --> RELATIONS[Lineage Relationships]
+	RELATIONS --> SEARCH[Search and Discovery]
+	SEARCH --> GOVERN[Governance Decisions]
+```

@@ -60,3 +60,28 @@ Trade-offs:
 - [../../trino/etc/catalog/lakehouse.properties](../../trino/etc/catalog/lakehouse.properties)
 - [../../trino/etc/catalog/warehouse.properties](../../trino/etc/catalog/warehouse.properties)
 - [../runbook.md](../runbook.md)
+
+## 9. Diagrams
+
+### 9.1 Component Diagram
+
+```mermaid
+flowchart LR
+	DBEAVER[DBeaver]
+	TRINO[Trino Endpoint]
+	LH[(Lakehouse Catalog)]
+	WH[(Warehouse Catalog)]
+
+	DBEAVER --> TRINO
+	TRINO --> LH
+	TRINO --> WH
+```
+
+### 9.2 Data Flow Diagram
+
+```mermaid
+flowchart LR
+	CONNECT[Open SQL Client Connection] --> QUERY[Submit Exploratory Query]
+	QUERY --> EXEC[Execute via Trino]
+	EXEC --> RESULTS[Return Unified Result Set]
+```

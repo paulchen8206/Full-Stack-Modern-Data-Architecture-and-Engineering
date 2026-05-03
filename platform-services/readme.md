@@ -35,6 +35,35 @@ These services are not domain apps themselves. They provide core capabilities co
   - `register-schemas.sh`
   - `avro/`
 
+## Component Diagram
+
+```mermaid
+flowchart LR
+  AIRFLOW[Airflow]
+  KAFKA_INIT[Kafka Topic Bootstrap]
+  SCHEMA_INIT[Schema Initialization]
+  MINIO_INIT[MinIO Initialization]
+  META[Metadata Assets]
+  RUNTIME[Runtime Services]
+
+  KAFKA_INIT --> RUNTIME
+  SCHEMA_INIT --> RUNTIME
+  MINIO_INIT --> RUNTIME
+  AIRFLOW --> RUNTIME
+  META --> RUNTIME
+```
+
+## Data Flow Diagram
+
+```mermaid
+flowchart LR
+  BOOT[Bootstrap Scripts] --> TOPICS[Kafka Topics]
+  BOOT --> SCHEMAS[Schema Registry Subjects]
+  BOOT --> BUCKETS[MinIO Buckets]
+  AIRFLOW[Airflow DAGs] --> DBT[dbt runs]
+  DBT --> WAREHOUSE[(Warehouse Tables)]
+```
+
 ## How It Fits The Runtime
 
 In Routine A, these services and scripts are wired through Docker Compose init and long-running containers.
@@ -52,9 +81,9 @@ Typical startup responsibilities:
 From repository root, use the documented workflow entrypoints:
 
 ```bash
-make docker-compose-up
+make compose-up
 make mdm-status
-make docker-compose-down
+make compose-down
 ```
 
 Refer to the runbook for full command bundles and validation routines.
@@ -66,6 +95,6 @@ Refer to the runbook for full command bundles and validation routines.
 
 ## References
 
-- `../docker-compose.yml`
+- `../compose.yml`
 - `../docs/architecture.md`
 - `../docs/runbook.md`

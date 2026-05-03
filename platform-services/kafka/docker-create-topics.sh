@@ -18,10 +18,10 @@ for topic in mdm_mysql.mdm.customer360 mdm_mysql.mdm.product_master mdm_mysql.md
 done
 
 # Create Kafka Connect internal topics with compact policy
-# debezium-connect cluster (CDC source)
-/usr/bin/kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic debezium-connect-configs --replication-factor 3 --partitions 1 --config cleanup.policy=compact || true
-/usr/bin/kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic debezium-connect-offsets --replication-factor 3 --partitions 3 --config cleanup.policy=compact || true
-/usr/bin/kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic debezium-connect-status --replication-factor 3 --partitions 3 --config cleanup.policy=compact || true
+# dbz-connect cluster (CDC source)
+/usr/bin/kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic dbz-connect-configs --replication-factor 3 --partitions 1 --config cleanup.policy=compact || true
+/usr/bin/kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic dbz-connect-offsets --replication-factor 3 --partitions 3 --config cleanup.policy=compact || true
+/usr/bin/kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic dbz-connect-status --replication-factor 3 --partitions 3 --config cleanup.policy=compact || true
 
 # connect cluster (sales S3/JDBC sinks)
 /usr/bin/kafka-topics --bootstrap-server kafka-1:19092 --create --if-not-exists --topic connect-configs --replication-factor 3 --partitions 1 --config cleanup.policy=compact || true

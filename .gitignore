@@ -3,8 +3,8 @@
 *.iml
 .idea/
 .vscode/
-source-apps/sales_order_source/.venv/
-processing-apps/sales_order_processor/target/
+source-apps/ods_source/.venv/
+process-apps/ods_processor/target/
 analytics/dbt/target/
 __pycache__/
 *.pyc

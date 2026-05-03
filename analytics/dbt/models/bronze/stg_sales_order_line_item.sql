@@ -14,16 +14,16 @@ select
 from landing.sales_order_line_item
 {% else %}
 select
-  order_id,
-  order_timestamp,
-  customer_id,
-  customer_name,
-  line_item_id,
+  orderid as order_id,
+  ordertimestamp as order_timestamp,
+  customerid as customer_id,
+  customername as customer_name,
+  lineitemid as line_item_id,
   sku,
-  product_name,
-  quantity,
-  unit_price,
-  line_total,
+  productname as product_name,
+  cast(quantity as integer) as quantity,
+  cast(unitprice as double) as unit_price,
+  cast(linetotal as double) as line_total,
   currency
-from streaming.sales_order_line_item
+from warehouse.landing.sales_order_line_item
 {% endif %}

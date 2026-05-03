@@ -64,7 +64,7 @@ data:
       customer_segment,
       currency,
       first_order_timestamp,
-  debezium-mysql-mdm.json: |
+  dbz-mysql-mdm.json: |
     {
       "connector.class": "io.debezium.connector.mysql.MySqlConnector",
       "tasks.max": "1",
@@ -261,32 +261,32 @@ spec:
           configMap:
             name: {{ include "realtime-app.fullname" . }}-mdm-config
             items:
-              - key: debezium-mysql-mdm.json
-                path: debezium-mysql-mdm.json
+              - key: dbz-mysql-mdm.json
+                path: dbz-mysql-mdm.json
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-mdm-cdc-producer
+  name: {{ include "realtime-app.fullname" . }}-mdm-cdc-curate
   annotations:
     argocd.argoproj.io/sync-wave: "4"
   labels:
     app.kubernetes.io/name: {{ include "realtime-app.name" . }}
-    app.kubernetes.io/component: mdm-cdc-producer
+    app.kubernetes.io/component: mdm-cdc-curate
 spec:
   replicas: {{ .Values.mdm.cdcProducer.replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "realtime-app.name" . }}
-      app.kubernetes.io/component: mdm-cdc-producer
+      app.kubernetes.io/component: mdm-cdc-curate
   template:
     metadata:
       labels:
         app.kubernetes.io/name: {{ include "realtime-app.name" . }}
-        app.kubernetes.io/component: mdm-cdc-producer
+        app.kubernetes.io/component: mdm-cdc-curate
     spec:
       containers:
-        - name: mdm-cdc-producer
+        - name: mdm-cdc-curate
           image: {{ .Values.mdm.cdcProducer.image.repository }}:{{ .Values.mdm.cdcProducer.image.tag }}
           imagePullPolicy: {{ .Values.mdm.cdcProducer.image.pullPolicy }}
           env:

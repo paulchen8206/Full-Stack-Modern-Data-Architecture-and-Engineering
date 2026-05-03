@@ -30,6 +30,36 @@ Use the troubleshooting sections in this document as the primary operational dia
 - [architecture.md](architecture.md)
 - [adr/README.md](adr/README.md)
 
+## Component Diagram
+
+```mermaid
+flowchart LR
+  OPS[Operator]
+  MAKE[Make Targets]
+  COMPOSE[Docker Compose Routine]
+  KIND[Kind, Helm, and Argo CD Routine]
+  SERVICES[Runtime Services]
+  VALIDATE[Validation Checks]
+
+  OPS --> MAKE
+  MAKE --> COMPOSE
+  MAKE --> KIND
+  COMPOSE --> SERVICES
+  KIND --> SERVICES
+  SERVICES --> VALIDATE
+```
+
+## Data Flow Diagram
+
+```mermaid
+flowchart LR
+  START[Start Routine] --> HEALTH[Health Checks]
+  HEALTH --> TOPICS[Topic and Connector Checks]
+  TOPICS --> LANDING[Landing and Lakehouse Checks]
+  LANDING --> DBT[dbt and Airflow Checks]
+  DBT --> TROUBLESHOOT[Troubleshoot and Recover]
+```
+
 Architecture cross-reference:
 
 - For a concise architecture-to-command mapping, see [Make Target Map (Architecture to Operations)](architecture.md#84-make-target-map-architecture-to-operations).
@@ -54,7 +84,7 @@ Documentation map:
 
 | Routine | Daily task | Copy-paste command bundle |
 | --- | --- | --- |
-| Docker Compose | Bootstrap local routine (stack + topics) | `make docker-compose-up` |
+| Docker Compose | Bootstrap local routine (stack + topics) | `make compose-up` |
 | Docker Compose | Start compose services only | `docker compose up -d` |
 | Docker Compose | Run MDM flow validation | `make mdm-flow-check` |
 | Docker Compose | Fast health check | `docker compose ps` |
@@ -71,7 +101,7 @@ Documentation map:
 | kind + Helm + Argo CD | Stop local cluster workloads | `kubectl -n argocd delete application realtime-dev || true && kubectl delete namespace realtime-dev || true` |
 | kind + Helm + Argo CD | Validate app and workloads | `kubectl -n argocd get application realtime-dev && kubectl -n realtime-dev get pods` |
 | kind + Helm + Argo CD | Runtime status snapshot | `kubectl -n realtime-dev get pods && kubectl -n realtime-dev get jobs` |
-| kind + Helm + Argo CD | Validate MDM topic flow | `kubectl -n realtime-dev logs deploy/realtime-dev-realtime-app-mdm-cdc-producer --tail=100` |
+| kind + Helm + Argo CD | Validate MDM topic flow | `kubectl -n realtime-dev logs deploy/realtime-dev-realtime-app-mdm-cdc-curate --tail=100` |
 | kind + Helm + Argo CD | Validate Airflow + dbt state | `kubectl -n realtime-dev get pods | grep -E 'airflow|dbt'` |
 | kind + Helm + Argo CD | Open Argo CD UI | `kubectl -n argocd port-forward svc/argocd-server 8443:443` |
 | kind + Helm + Argo CD | Open Kafka UI | `kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-kafka-ui 8082:8080` |
@@ -108,7 +138,7 @@ Architecture-to-command map:
 Start the stack:
 
 ```bash
-make docker-compose-up
+make compose-up
 ```
 
 Use `docker compose up ...` directly for raw Compose startup flows.
@@ -170,9 +200,9 @@ All services should be Up, especially:
 - producer
 - processor
 - mdm-source
-- debezium-connect
+- dbz-connect
 - mdm-connect
-- mdm-cdc-producer
+- mdm-cdc-curate
 - mdm-pyspark-sync
 
 Expected completed containers:
@@ -181,7 +211,7 @@ Expected completed containers:
 - `schema-init` exits with code 0 after registering Avro subjects.
 - `minio-init` exits with code 0 after creating the object store bucket.
 - `ods-connect-init` exits with code 0 after registering connectors.
-- `debezium-connect-init` exits with code 0 after registering the Debezium MySQL source connector.
+- `dbz-connect-init` exits with code 0 after registering the Debezium MySQL source connector.
 - `mdm-connect-init` exits with code 0 after registering MDM sink connectors.
 - `dbt` exits with code 0 after `dbt run` completes.
 
@@ -332,7 +362,7 @@ docker compose logs --tail=200 mdm-connect
 MDM CDC and sync logs:
 
 ```bash
-docker compose logs --tail=200 mdm-cdc-producer mdm-pyspark-sync
+docker compose logs --tail=200 mdm-cdc-curate mdm-pyspark-sync
 ```
 
 Manual dbt rerun:
@@ -372,11 +402,11 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 - `ods-connect` loads Kafka Connect sink plugins and exposes the REST API on port 8083.
 - `ods-connect-init` registers the JDBC and object-storage sink connectors from `kafka-connect/ods-connect/connector-configs`.
 - `mdm-source` stores `mdm.customer360`, `mdm.product_master`, and `mdm_date` source tables and runs the built-in data generator.
-- `debezium-connect` runs Debezium MySQL source capture and publishes raw CDC topics.
-- `debezium-connect-init` registers the Debezium connector from `kafka-connect/debezium-connect/connector-configs/debezium-mysql-mdm.json`.
+- `dbz-connect` runs Debezium MySQL source capture and publishes raw CDC topics.
+- `dbz-connect-init` registers the Debezium connector from `kafka-connect/dbz-connect/connector-configs/dbz-mysql-mdm.json`.
 - `mdm-connect` loads Kafka Connect sink plugins for curated MDM topics.
 - `mdm-connect-init` registers MDM JDBC and object-storage sink connectors from `kafka-connect/mdm-connect/connector-configs`.
-- `mdm-cdc-producer` republishes curated `mdm_customer` and `mdm_product` topics.
+- `mdm-cdc-curate` republishes curated `mdm_customer` and `mdm_product` topics.
 - `mdm-pyspark-sync` syncs MySQL MDM tables into Postgres landing MDM tables.
 - `snowflake-mimic` stores `landing`, `bronze`, `silver`, and `gold` schemas for analytics queries.
 - `dbt` transforms landing data into bronze views, silver tables, and gold tables.
@@ -395,7 +425,7 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 - MySQL has rows but MDM landing tables stay at zero:
   Check `docker compose logs --tail=200 mdm-pyspark-sync` and verify Postgres connectivity.
 - Debezium MDM connector is not producing raw CDC topics:
-  Check `docker compose logs --tail=200 debezium-connect` and ensure `debezium-connect-init` completed successfully.
+  Check `docker compose logs --tail=200 dbz-connect` and ensure `dbz-connect-init` completed successfully.
 - Full stack startup feels blocked around dbt:
   Compose may still be waiting for `ods-connect-init` or `snowflake-mimic` before launching the dbt container.
 - Airflow UI starts but no dbt runs appear:
@@ -494,7 +524,7 @@ kubectl -n argocd delete application realtime-dev || true
 kubectl delete namespace realtime-dev || true
 ```
 
-The B1 sequence mirrors the Docker `make docker-compose-up` experience by performing cluster bootstrap, image build/load, and app deployment in one flow.
+The B1 sequence mirrors the Docker `make compose-up` experience by performing cluster bootstrap, image build/load, and app deployment in one flow.
 
 Run unified day-2 operations (Docker-path parity):
 
@@ -674,7 +704,7 @@ make helm-health-dev
 
 Expected healthy state:
 
-- Deployments in `Running`: producer, processor, kafka-ui, minio, postgres, connect, airflow, mysql-mdm, mdm-connect, mdm-cdc-producer, mdm-pyspark-sync, prometheus, loki, grafana.
+- Deployments in `Running`: producer, processor, kafka-ui, minio, postgres, connect, airflow, mysql-mdm, mdm-connect, mdm-cdc-curate, mdm-pyspark-sync, prometheus, loki, grafana.
 - One-shot Jobs in `Complete`: `realtime-dev-realtime-app-minio-init`, `realtime-dev-realtime-app-ods-connect-init`, `realtime-dev-realtime-app-mdm-connect-init`, `realtime-dev-realtime-app-dbt`.
 
 Validate MDM topic flow in cluster:

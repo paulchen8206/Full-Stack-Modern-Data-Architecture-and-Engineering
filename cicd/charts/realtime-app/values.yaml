@@ -6,7 +6,7 @@ producer:
   enabled: true
   replicas: 1
   image:
-    repository: realtime-sales-producer
+    repository: pos-producer
     tag: 0.1.0
     pullPolicy: IfNotPresent
   intervalMs: 1500
@@ -15,7 +15,7 @@ processor:
   enabled: true
   replicas: 1
   image:
-    repository: realtime-sales-processor
+    repository: pos-processor
     tag: 0.1.0
     pullPolicy: IfNotPresent
   topics:
@@ -87,7 +87,7 @@ postgres:
 odsConnect:
   enabled: false
   image:
-    repository: realtime-sales-connect
+    repository: pos-connect
     tag: 0.1.0
     pullPolicy: IfNotPresent
   curlImage:
@@ -104,13 +104,13 @@ odsConnect:
 dbt:
   enabled: false
   image:
-    repository: realtime-sales-dbt
+    repository: pos-dbt
     tag: 0.1.0
     pullPolicy: IfNotPresent
 airflow:
   enabled: false
   image:
-    repository: realtime-sales-airflow
+    repository: pos-airflow
     tag: 0.1.0
     pullPolicy: IfNotPresent
   adminUsername: admin
@@ -151,7 +151,7 @@ mdm:
   cdcProducer:
     replicas: 1
     image:
-      repository: realtime-sales-mdm-cdc-producer
+      repository: pos-mdm-cdc-curate
       tag: 0.1.0
       pullPolicy: IfNotPresent
     groupId: mdm-cdc-publisher
@@ -159,7 +159,7 @@ mdm:
   pysparkSync:
     replicas: 1
     image:
-      repository: realtime-sales-mdm-pyspark-sync
+      repository: pos-mdm-pyspark-sync
       tag: 0.1.0
       pullPolicy: IfNotPresent
     syncIntervalSec: 15

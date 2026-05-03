@@ -59,3 +59,30 @@ Trade-offs:
 - [../../observability/blackbox/blackbox.yml](../../observability/blackbox/blackbox.yml)
 - [../../observability/grafana/provisioning](../../observability/grafana/provisioning)
 - [../runbook.md](../runbook.md)
+
+## 9. Diagrams
+
+### 9.1 Component Diagram
+
+```mermaid
+flowchart LR
+	SERVICES[Platform Services]
+	BB[Blackbox Exporter]
+	PROM[Prometheus]
+	GRAF[Grafana]
+
+	SERVICES --> BB
+	SERVICES --> PROM
+	BB --> PROM
+	PROM --> GRAF
+```
+
+### 9.2 Data Flow Diagram
+
+```mermaid
+flowchart LR
+	SCRAPE[Metric and Probe Scrape] --> STORE[Prometheus TSDB]
+	STORE --> QUERY[PromQL queries]
+	QUERY --> DASH[Grafana dashboards]
+	DASH --> ACTION[Operational Triage]
+```

@@ -60,3 +60,30 @@ Trade-offs:
 - [../../analytics/dbt](../../analytics/dbt)
 - [../../platform-services/airflow/dags/dbt_warehouse_schedule.py](../../platform-services/airflow/dags/dbt_warehouse_schedule.py)
 - [../runbook.md](../runbook.md)
+
+## 9. Diagrams
+
+### 9.1 Component Diagram
+
+```mermaid
+flowchart LR
+	LANDING[(Landing)]
+	BRONZE[dbt Bronze]
+	SILVER[dbt Silver]
+	GOLD[dbt Gold]
+	BI[Consumers]
+
+	LANDING --> BRONZE
+	BRONZE --> SILVER
+	SILVER --> GOLD
+	GOLD --> BI
+```
+
+### 9.2 Data Flow Diagram
+
+```mermaid
+flowchart LR
+	INGEST[Ingested datasets] --> STAGE[Bronze normalization]
+	STAGE --> CONFORM[Silver conformed models]
+	CONFORM --> SERVE[Gold aggregates and marts]
+```

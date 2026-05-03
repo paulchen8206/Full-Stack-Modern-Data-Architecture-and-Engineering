@@ -7,7 +7,7 @@
     "value.converter": "io.confluent.connect.avro.AvroConverter",
     "value.converter.schema.registry.url": "http://schema-registry:8081",
     "s3.bucket.name": "warehouse",
-    "topics.dir": "raw/sales_order",
+    "topics.dir": "raw/ods",
     "store.url": "http://minio:9000",
     "s3.region": "us-east-1",
     "aws.access.key.id": "minio",

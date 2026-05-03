@@ -58,3 +58,29 @@ Trade-offs:
 - [../../platform-services/airflow/dags/dbt_warehouse_schedule.py](../../platform-services/airflow/dags/dbt_warehouse_schedule.py)
 - [../../platform-services/airflow/start-airflow.sh](../../platform-services/airflow/start-airflow.sh)
 - [../runbook.md](../runbook.md)
+
+## 9. Diagrams
+
+### 9.1 Component Diagram
+
+```mermaid
+flowchart LR
+	AF[Airflow Scheduler]
+	DAG[dbt Warehouse Schedule DAG]
+	DBT[dbt Container Execution]
+	TARGETS[(Bronze, Silver, and Gold)]
+
+	AF --> DAG
+	DAG --> DBT
+	DBT --> TARGETS
+```
+
+### 9.2 Data Flow Diagram
+
+```mermaid
+flowchart LR
+	SCHEDULE[Time Schedule] --> RUN[Trigger DAG Run]
+	RUN --> DEPS[dbt deps]
+	DEPS --> BUILD[dbt run]
+	BUILD --> REFRESH[Model Refresh Complete]
+```

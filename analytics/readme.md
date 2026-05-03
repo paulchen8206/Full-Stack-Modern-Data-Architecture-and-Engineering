@@ -20,6 +20,32 @@ DBT (Data Build Tool) is an open-source command-line tool that enables data anal
 - `target/`: Compiled models and run artifacts.
 - `profiles.yml`: DBT connection profiles (usually symlinked or mounted).
 
+## Component Diagram
+
+```mermaid
+flowchart LR
+	DBT[dbt Project]
+	MODELS[Models]
+	MACROS[Macros]
+	PROFILES[profiles.yml]
+	WAREHOUSE[(Snowflake Mimic and Trino)]
+
+	DBT --> MODELS
+	DBT --> MACROS
+	DBT --> PROFILES
+	DBT --> WAREHOUSE
+```
+
+## Data Flow Diagram
+
+```mermaid
+flowchart LR
+	LANDING[(Landing Schema)] --> BRONZE[dbt Bronze Models]
+	BRONZE --> SILVER[dbt Silver Models]
+	SILVER --> GOLD[dbt Gold Models]
+	GOLD --> BI[Analytics Consumers]
+```
+
 ## Getting Started
 1. Install DBT (see [DBT documentation](https://docs.getdbt.com/docs/installation)).
 2. Configure your `profiles.yml` for your data warehouse.

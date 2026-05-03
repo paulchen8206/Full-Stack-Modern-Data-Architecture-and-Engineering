@@ -172,10 +172,10 @@ services:
     volumes:
       - ./platform-services/schemas:/schemas:ro
 
-  producer:
-    container_name: producer
+  ods-source:
+    container_name: ods_source
     build:
-      context: ./source-apps/sales_order_source
+      context: ./source-apps/ods-source
     depends_on:
       kafka-1:
         condition: service_healthy
@@ -187,10 +187,10 @@ services:
       PRODUCER_INTERVAL_MS: 1500
     restart: on-failure
 
-  processor:
-    container_name: processor
+  ods-processor:
+    container_name: ods_processor
     build:
-      context: ./processing-apps/sales_order_processor
+      context: ./process-apps/ods-processor
     depends_on:
       kafka-1:
         condition: service_healthy
@@ -232,7 +232,7 @@ services:
   iceberg-writer:
     container_name: iceberg_writer
     build:
-      context: ./processing-apps/iceberg-writer
+      context: ./process-apps/iceberg-writer
     depends_on:
       kafka-1:
         condition: service_healthy
@@ -251,7 +251,7 @@ services:
       TRINO_URL: http://trino:8080
       TRINO_USER: analytics
       ICEBERG_CATALOG: lakehouse
-      ICEBERG_SCHEMA: streaming
+      ICEBERG_SCHEMA: bronze
     restart: on-failure
 
   snowflake-mimic:
@@ -283,7 +283,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: mdmroot
       MYSQL_DATABASE: mdm
-      MDM_SOURCE_INTERVAL_SEC: 180
+      MDM_SOURCE_INTERVAL_SEC: 30
+      MDM_INSERT_NEW_KEY_PROB: 0.9
       MDM_APP_MYSQL_USER: mdm
       MDM_APP_MYSQL_PASSWORD: mdm
     volumes:
@@ -301,10 +302,10 @@ services:
       start_period: 20s
     restart: on-failure
 
-  debezium-connect:
-    container_name: debezium_connect
+  dbz-connect:
+    container_name: dbz_connect
     build:
-      context: ./kafka-connect/debezium-connect
+      context: ./kafka-connect/dbz-connect
       dockerfile: Dockerfile
     depends_on:
       kafka-1:
@@ -321,10 +322,10 @@ services:
       - "8083:8083"
     environment:
       CONNECT_BOOTSTRAP_SERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
-      CONNECT_GROUP_ID: debezium-connect-cluster
-      CONNECT_CONFIG_STORAGE_TOPIC: debezium-connect-configs
-      CONNECT_OFFSET_STORAGE_TOPIC: debezium-connect-offsets
-      CONNECT_STATUS_STORAGE_TOPIC: debezium-connect-status
+      CONNECT_GROUP_ID: dbz-connect-cluster
+      CONNECT_CONFIG_STORAGE_TOPIC: dbz-connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: dbz-connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: dbz-connect-status
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
@@ -333,24 +334,24 @@ services:
       CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
       CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_REST_ADVERTISED_HOST_NAME: debezium-connect
+      CONNECT_REST_ADVERTISED_HOST_NAME: dbz-connect
       CONNECT_PLUGIN_PATH: /usr/share/confluent-hub-components,/usr/share/java
 
-  debezium-connect-init:
+  dbz-connect-init:
     image: alpine:3.19
-    container_name: debezium_connect_init
+    container_name: dbz_connect_init
     depends_on:
-      debezium-connect:
+      dbz-connect:
         condition: service_started
     entrypoint:
       - "/bin/sh"
       - "-c"
-      - "apk add --no-cache jq curl && sh /scripts/register-debezium-connectors.sh"
+      - "apk add --no-cache jq curl && sh /scripts/register-dbz-connectors.sh"
     volumes:
-      - ./kafka-connect/scripts/register-debezium-connectors.sh:/scripts/register-debezium-connectors.sh:ro
-      - ./kafka-connect/debezium-connect/connector-configs:/connectors:ro
+      - ./kafka-connect/scripts:/scripts:ro
+      - ./kafka-connect/dbz-connect/connector-configs:/connectors:ro
     environment:
-      CONNECT_URL: http://debezium-connect:8083
+      CONNECT_URL: http://dbz-connect:8083
     restart: on-failure
 
   ods-connect:
@@ -405,7 +406,7 @@ services:
       - "-c"
       - "apk add --no-cache jq curl && sh /scripts/register-mdm-connectors.sh"
     volumes:
-      - ./kafka-connect/scripts/register-mdm-connectors.sh:/scripts/register-mdm-connectors.sh:ro
+      - ./kafka-connect/scripts:/scripts:ro
       - ./kafka-connect/mdm-connect/connector-configs:/connectors:ro
     environment:
       CONNECT_URL: http://mdm-connect:8083
@@ -466,20 +467,20 @@ services:
       - "-c"
       - "apk add --no-cache jq curl && sh /scripts/register-ods-connectors.sh"
     volumes:
-      - ./kafka-connect/scripts/register-ods-connectors.sh:/scripts/register-ods-connectors.sh:ro
+      - ./kafka-connect/scripts:/scripts:ro
       - ./kafka-connect/ods-connect/connector-configs:/connectors:ro
     environment:
       CONNECT_URL: http://ods-connect:8083
     restart: on-failure
 
-  mdm-cdc-producer:
-    container_name: mdm_cdc_producer
+  mdm-cdc-curate:
+    container_name: mdm_cdc_curate
     build:
-      context: ./processing-apps/mdm-cdc-producer
+      context: ./process-apps/mdm-cdc-curate
     depends_on:
       kafka-1:
         condition: service_healthy
-      debezium-connect-init:
+      dbz-connect-init:
         condition: service_completed_successfully
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
@@ -487,10 +488,10 @@ services:
       CDC_CONSUMER_OFFSET_RESET: earliest
     restart: on-failure
 
-  mdm-pyspark-sync:
-    container_name: mdm_pyspark_sync
+  mdm-rds-pg:
+    container_name: mdm_rds_pg
     build:
-      context: ./processing-apps/mdm-pyspark-sync
+      context: ./process-apps/mdm-rds-pg
     depends_on:
       mdm-source:
         condition: service_healthy
@@ -565,7 +566,7 @@ services:
     depends_on:
       - kafka-1
       - trino
-      - debezium-connect
+      - dbz-connect
       - ods-connect
       - mdm-connect
       - airflow
@@ -712,9 +713,9 @@ services:
       CDK_CLUSTERS_0_KAFKACONNECTS_0_ID: "mdm-connect"
       CDK_CLUSTERS_0_KAFKACONNECTS_0_NAME: "MDM Kafka Connect"
       CDK_CLUSTERS_0_KAFKACONNECTS_0_URL: "http://mdm-connect:8083"
-      CDK_CLUSTERS_0_KAFKACONNECTS_1_ID: "debezium-connect"
+      CDK_CLUSTERS_0_KAFKACONNECTS_1_ID: "dbz-connect"
       CDK_CLUSTERS_0_KAFKACONNECTS_1_NAME: "Debezium Kafka Connect"
-      CDK_CLUSTERS_0_KAFKACONNECTS_1_URL: "http://debezium-connect:8083"
+      CDK_CLUSTERS_0_KAFKACONNECTS_1_URL: "http://dbz-connect:8083"
       CDK_CLUSTERS_0_KAFKACONNECTS_2_ID: "ods-connect"
       CDK_CLUSTERS_0_KAFKACONNECTS_2_NAME: "ODS Kafka Connect"
       CDK_CLUSTERS_0_KAFKACONNECTS_2_URL: "http://ods-connect:8083"
@@ -727,7 +728,7 @@ services:
         condition: service_started
       mdm-connect:
         condition: service_started
-      debezium-connect:
+      dbz-connect:
         condition: service_started
       conduktor-db:
         condition: service_started

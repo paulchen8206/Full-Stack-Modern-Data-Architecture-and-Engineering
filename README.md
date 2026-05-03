@@ -10,7 +10,7 @@ A reference implementation of a production-grade modern data platform covering r
 - [What This Project Demonstrates](#what-this-project-demonstrates)
 - [End-to-End Flow](#end-to-end-flow-high-level)
 - [Repository Layout](#repository-layout)
-- [Quick Start — Option A: Docker Compose](#option-a-docker-compose-routine-a)
+- [Quick Start — Option A: Docker Compose](#option-a-compose-routine-a)
 - [Quick Start — Option B: kind + Helm + Argo CD](#option-b-kind--helm--argo-cd-routine-b)
 - [Environment Strategy](#environment-strategy)
 - [Configuration](#configuration)
@@ -98,6 +98,48 @@ For full migration detail and workflow, see [docs/architecture.md](docs/architec
 9. `iceberg-writer` can write Kafka topics directly into Iceberg tables through Trino without using the Postgres bridge.
 10. Airflow schedules recurring dbt runs.
 
+## Component Diagram
+
+```mermaid
+flowchart LR
+   SA[Source Apps]
+   PA[Processing Apps]
+   KC[Kafka Connect]
+   PS[Platform Services]
+   AN[Analytics (dbt)]
+   QE[Trino]
+   OBS[Observability]
+
+   SA --> PA
+   SA --> KC
+   PA --> KC
+   KC --> AN
+   PA --> QE
+   PS --> AN
+   PS --> QE
+   QE --> AN
+   OBS --> SA
+   OBS --> PA
+   OBS --> KC
+```
+
+## Data Flow Diagram
+
+```mermaid
+flowchart LR
+   RAW[Raw Sales Orders Topic] --> ODSP[ODS Processor]
+   ODSP --> ODS_TOPICS[Normalized Sales Topics]
+   ODS_TOPICS --> ODS_SINKS[ODS JDBC and S3 Sinks]
+   ODS_SINKS --> LANDING[(Landing Schema)]
+   LANDING --> DBT[dbt Medallion Models]
+   MDM_MYSQL[(MDM Source MySQL)] --> DBZ[Debezium CDC]
+   DBZ --> MDM_CURATE[MDM CDC Curate]
+   MDM_CURATE --> MDM_SINKS[MDM JDBC and S3 Sinks]
+   MDM_SINKS --> LANDING
+   ODS_TOPICS --> ICE_WRITER[Iceberg Writer]
+   ICE_WRITER --> LAKEHOUSE[(Iceberg on MinIO)]
+```
+
 ## Documentation Map
 
 | Document | Purpose |
@@ -111,7 +153,7 @@ For full migration detail and workflow, see [docs/architecture.md](docs/architec
 | Subproject | README |
 | --- | --- |
 | Source applications | [source-apps/readme.md](source-apps/readme.md) |
-| Processing applications | [processing-apps/readme.md](processing-apps/readme.md) |
+| Processing applications | [process-apps/readme.md](process-apps/readme.md) |
 | Kafka Connect integration | [kafka-connect/readme.md](kafka-connect/readme.md) |
 | Platform services | [platform-services/readme.md](platform-services/readme.md) |
 | CI/CD and GitOps | [cicd/readme.md](cicd/readme.md) |
@@ -142,25 +184,25 @@ Versions are shown when they are explicitly pinned in this repository.
 
 Related source locations:
 
-- Runtime services: [docker-compose.yml](docker-compose.yml)
+- Runtime services: [compose.yml](compose.yml)
 - Build and ops entrypoints: [Makefile](Makefile)
 - Kubernetes and GitOps artifacts: [cicd/charts/realtime-app/Chart.yaml](cicd/charts/realtime-app/Chart.yaml), [cicd/argocd/dev.yaml](cicd/argocd/dev.yaml)
 - dbt project and adapter setup: [analytics/dbt/Dockerfile](analytics/dbt/Dockerfile), [analytics/dbt/dbt_project.yml](analytics/dbt/dbt_project.yml)
-- Processor stack: [processing-apps/sales_order_processor/pom.xml](processing-apps/sales_order_processor/pom.xml)
+- Processor stack: [process-apps/ods_processor/pom.xml](process-apps/ods_processor/pom.xml)
 - Observability provisioning: [observability/prometheus/prometheus.yml](observability/prometheus/prometheus.yml), [observability/grafana/provisioning/datasources/prometheus.yml](observability/grafana/provisioning/datasources/prometheus.yml)
 
 ## Repository Layout
 
-- `docker-compose.yml`: Local Routine A service topology for the full stack.
+- `compose.yml`: Local Routine A service topology for the full stack.
 - `Makefile`: Unified operational entrypoints for build, run, validation, and troubleshooting flows.
 - `source-apps/`: Source-side applications.
-- `source-apps/sales_order_source`: Python Kafka producer for composite sales orders.
+- `source-apps/ods_source`: Python Kafka producer for composite sales orders.
 - `source-apps/mdm-source`: MySQL-backed MDM source system simulator for CDC testing.
-- `processing-apps/`: Downstream processing and synchronization applications.
-- `processing-apps/sales_order_processor`: Spring Boot application that launches the Flink topology.
-- `processing-apps/mdm-cdc-producer`: Python app that consumes Debezium CDC topics and publishes `mdm_customer` and `mdm_product`.
-- `processing-apps/mdm-pyspark-sync`: PySpark app that continuously syncs MySQL MDM tables into Postgres landing tables.
-- `processing-apps/iceberg-writer`: Python service that consumes Kafka topics and writes directly to Iceberg tables through Trino.
+- `process-apps/`: Downstream processing and synchronization applications.
+- `process-apps/ods_processor`: Spring Boot application that launches the Flink topology.
+- `process-apps/mdm-cdc-curate`: Python app that consumes Debezium CDC topics and publishes `mdm_customer` and `mdm_product`.
+- `process-apps/mdm-pyspark-sync`: PySpark app that continuously syncs MySQL MDM tables into Postgres landing tables.
+- `process-apps/iceberg-writer`: Python service that consumes Kafka topics and writes directly to Iceberg tables through Trino.
 - `kafka-connect/`: Kafka Connect images and connector configurations.
 - `platform-services/`: Platform support images and bootstrap assets.
 - `platform-services/airflow`: Apache Airflow image and DAGs for scheduled dbt orchestration.
@@ -187,13 +229,13 @@ All local development, validation, and troubleshooting flows are now consolidate
 ### Start the Full Stack (Routine A)
 
 ```bash
-make docker-compose-up
+make compose-up
 ```
 
 Build images explicitly when needed:
 
 ```bash
-make docker-build
+make compose-build
 ```
 
 Run Docker Compose directly (equivalent runtime path):
@@ -214,10 +256,10 @@ make mdm-flow-check
 
 | Command | Purpose |
 | --- | --- |
-| `make docker-build` | Build all runtime images |
-| `make docker-compose-up` | Start the compose stack |
-| `make docker-compose-down` | Stop the compose stack |
-| `make docker-clean` | Remove compose resources and prune unused Docker artifacts |
+| `make compose-build` | Build all runtime images |
+| `make compose-up` | Start the compose stack |
+| `make compose-down` | Stop the compose stack |
+| `make compose-clean` | Remove compose resources and prune unused Docker artifacts |
 | `make mdm-status` | Check MDM CDC service and Debezium connector status |
 | `make mdm-topics-check` | Consume sample curated MDM topic records |
 | `make mdm-flow-check` | Run combined MDM status plus topic validation |
@@ -240,7 +282,7 @@ make mdm-flow-check
 
 ### Container Behavior
 
-- One-shot init containers (`kafka-init`, `schema-init`, `minio-init`, `debezium-connect-init`, `ods-connect-init`, `mdm-connect-init`) and `dbt` will exit with code 0 after completion.
+- One-shot init containers (`kafka-init`, `schema-init`, `minio-init`, `dbz-connect-init`, `ods-connect-init`, `mdm-connect-init`) and `dbt` will exit with code 0 after completion.
 - Trino may start successfully even if no Iceberg tables exist yet (expected until MinIO sink path is upgraded).
 
 ### Troubleshooting FAQ
@@ -474,11 +516,11 @@ SELECT * FROM lakehouse.demo.sample_orders LIMIT 10;
   - `mdm.customer360` aligned to customer dimension semantics.
   - `mdm.product_master` aligned to product dimension semantics.
 - `mdm-source` continuously inserts and updates those master records through its built-in data generator.
-- `debezium-connect` runs Debezium MySQL source connector (`debezium-mysql-mdm`).
+- `dbz-connect` runs Debezium MySQL source connector (`dbz-mysql-mdm`).
 - Debezium raw CDC topics:
   - `mdm_mysql.mdm.customer360`
   - `mdm_mysql.mdm.product_master`
-- `mdm-cdc-producer` consumes raw CDC and republishes curated MDM topics:
+- `mdm-cdc-curate` consumes raw CDC and republishes curated MDM topics:
   - `mdm_customer`
   - `mdm_product`
 - `mdm-connect` runs MDM sink connectors to downstream stores.
@@ -553,7 +595,7 @@ Static validation:
 
 Runtime validation (Routine A — Docker Compose):
 
-- `make docker-compose-up` completed successfully. Core containers were Running and one-shot init/dbt containers exited with code 0.
+- `make compose-up` completed successfully. Core containers were Running and one-shot init/dbt containers exited with code 0.
 - Landing row counts were confirmed in `snowflake-mimic` for `landing.sales_order`, `landing.sales_order_line_item`, and `landing.customer_sales`.
 - Trino coordinator endpoint check passed: `curl -fsS http://localhost:8086/v1/info | cat`.
 - Curated MDM topic checks passed via `make mdm-topics-check`.
@@ -566,7 +608,7 @@ Runtime validation (Routine B cluster — 2026-04-18):
 - `kubectl -n argocd get application realtime-dev` reported `SYNC=Synced`, `HEALTH=Healthy`.
 - `kubectl -n realtime-dev get pods` showed core workloads in `Running`.
 - `kubectl -n realtime-dev get jobs` confirmed initialization jobs completed.
-- `kubectl -n realtime-dev logs deploy/realtime-dev-realtime-app-mdm-cdc-producer --tail=100` showed curated MDM topic publication.
+- `kubectl -n realtime-dev logs deploy/realtime-dev-realtime-app-mdm-cdc-curate --tail=100` showed curated MDM topic publication.
 - `kubectl -n realtime-dev logs deploy/realtime-dev-realtime-app-iceberg-writer --tail=100` showed streaming Iceberg writes.
 
 Important GitOps note:

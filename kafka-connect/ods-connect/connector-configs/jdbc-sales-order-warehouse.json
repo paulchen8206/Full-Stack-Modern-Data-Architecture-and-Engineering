@@ -1,0 +1,32 @@
+{
+  "name": "jdbc-sales-order-warehouse",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "tasks.max": "1",
+    "topics": "sales_order",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://schema-registry:8081",
+    "connection.url": "jdbc:postgresql://snowflake-mimic:5432/analytics",
+    "connection.user": "analytics",
+    "connection.password": "analytics",
+    "table.name.format": "landing.${topic}",
+    "insert.mode": "insert",
+    "auto.create": "true",
+    "auto.evolve": "true",
+    "batch.size": "3000",
+    "delete.enabled": "false",
+    "pk.mode": "none",
+    "errors.tolerance": "all",
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "true",
+    "transforms": "castOrderTotal,convertOrderTimestamp",
+    "transforms.castOrderTotal.type": "org.apache.kafka.connect.transforms.Cast$Value",
+    "transforms.castOrderTotal.spec": "orderTotal:float64",
+    "transforms.convertOrderTimestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+    "transforms.convertOrderTimestamp.field": "orderTimestamp",
+    "transforms.convertOrderTimestamp.target.type": "Timestamp",
+    "transforms.convertOrderTimestamp.format": "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX",
+    "consumer.override.auto.offset.reset": "latest",
+    "quote.sql.identifiers": "never"
+  }
+}

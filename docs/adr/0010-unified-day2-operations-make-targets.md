@@ -19,20 +19,20 @@ Use Make targets in [../../Makefile](../../Makefile) as the canonical day-2 comm
 
 Canonical target set:
 
-- make docker-build
-- make docker-compose-up
-- make docker-compose-down
-- make docker-clean
+- make compose-build
+- make compose-up
+- make compose-down
+- make compose-clean
 - make mdm-status
 - make mdm-topics-check
 - make mdm-flow-check
 
 ## 4. Operational References
 
-- make docker-compose-up
+- make compose-up
 - make mdm-flow-check
-- make docker-compose-down
-- make docker-clean
+- make compose-down
+- make compose-clean
 
 ## 5. Validation
 
@@ -64,3 +64,29 @@ Trade-offs:
 - [../../Makefile](../../Makefile)
 - [../runbook.md](../runbook.md)
 - [../architecture.md](../architecture.md)
+
+## 9. Diagrams
+
+### 9.1 Component Diagram
+
+```mermaid
+flowchart LR
+	OP[Operator]
+	MAKE[Make Targets]
+	COMPOSE[Compose Runtime]
+	CHECKS[Validation Targets]
+
+	OP --> MAKE
+	MAKE --> COMPOSE
+	MAKE --> CHECKS
+	CHECKS --> OP
+```
+
+### 9.2 Data Flow Diagram
+
+```mermaid
+flowchart LR
+	COMMAND[Make Command] --> EXECUTE[Execute Runtime Action]
+	EXECUTE --> VERIFY[Run Flow Checks]
+	VERIFY --> FEEDBACK[Operational Feedback]
+```

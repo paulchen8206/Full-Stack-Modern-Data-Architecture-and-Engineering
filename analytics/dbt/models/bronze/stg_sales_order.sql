@@ -12,14 +12,14 @@ select
 from landing.sales_order
 {% else %}
 select
-  order_id,
-  order_timestamp,
-  customer_id,
-  customer_name,
-  customer_email,
-  customer_segment,
+  orderid as order_id,
+  ordertimestamp as order_timestamp,
+  customerid as customer_id,
+  customername as customer_name,
+  customeremail as customer_email,
+  customersegment as customer_segment,
   currency,
-  order_total,
-  line_item_count
-from streaming.sales_order
+  cast(ordertotal as double) as order_total,
+  cast(lineitemcount as integer) as line_item_count
+from warehouse.landing.sales_order
 {% endif %}

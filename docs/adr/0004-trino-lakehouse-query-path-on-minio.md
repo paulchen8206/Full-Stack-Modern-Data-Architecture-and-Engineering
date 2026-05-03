@@ -60,4 +60,29 @@ Trade-offs:
 - [../architecture.md](../architecture.md)
 - [../../trino/etc/catalog/lakehouse.properties](../../trino/etc/catalog/lakehouse.properties)
 - [../../trino/sql](../../trino/sql)
-- [../../processing-apps/iceberg-writer](../../processing-apps/iceberg-writer)
+- [../../process-apps/iceberg-writer](../../process-apps/iceberg-writer)
+
+## 9. Diagrams
+
+### 9.1 Component Diagram
+
+```mermaid
+flowchart LR
+	CLIENT[SQL Client]
+	TRINO[Trino Coordinator]
+	CATALOG[Iceberg JDBC Catalog]
+	MINIO[(MinIO Object Store)]
+
+	CLIENT --> TRINO
+	TRINO --> CATALOG
+	CATALOG --> MINIO
+```
+
+### 9.2 Data Flow Diagram
+
+```mermaid
+flowchart LR
+	QUERY[Lakehouse Query] --> PLAN[Trino Planning]
+	PLAN --> READ[Read Iceberg data files]
+	READ --> RESULT[Result Rows]
+```

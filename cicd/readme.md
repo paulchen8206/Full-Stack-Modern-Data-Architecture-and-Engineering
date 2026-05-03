@@ -48,23 +48,23 @@ The `cicd` folder is the delivery control plane for this repository. It includes
 ```mermaid
 flowchart LR
   subgraph S[Source of Truth]
-    GIT[Git repository]
-    CHART[Helm chart templates]
-    VALUES[Environment values dev/qa/prd]
-    APP[Argo CD application manifests]
+    GIT[Git Repository]
+    CHART[Helm Chart Templates]
+    VALUES[Environment Values: Dev, QA, and PRD]
+    APP[Argo CD Application Manifests]
   end
 
   subgraph P[Delivery Pipeline]
-    BUILD[Build and publish images]
-    RENDER[Helm render]
+    BUILD[Build and Publish Images]
+    RENDER[Helm Render]
     ARGO[Argo CD reconcile]
-    APPLY[Apply resources to cluster]
+    APPLY[Apply Resources to Cluster]
   end
 
   subgraph T[Runtime Targets]
-    DEV[realtime-dev namespace]
-    QA[QA namespace/cluster]
-    PRD[PRD namespace/cluster]
+    DEV[realtime-dev Namespace]
+    QA[QA Namespace or Cluster]
+    PRD[PRD Namespace or Cluster]
   end
 
   GIT --> BUILD

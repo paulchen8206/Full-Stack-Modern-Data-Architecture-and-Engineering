@@ -18,6 +18,34 @@ The MDM source system is designed to:
 - (You can add) Data generator scripts (Python, SQL, etc.) to simulate ongoing changes
 - Integration with CDC tools (e.g., Debezium) for real-time data propagation
 
+## Component Diagram
+
+```mermaid
+flowchart LR
+	GEN[Data generator]
+	MYSQL[(MySQL MDM)]
+	C360[customer360]
+	PM[product_master]
+	D[mdm_date]
+	CDC[Debezium CDC]
+
+	GEN --> MYSQL
+	MYSQL --> C360
+	MYSQL --> PM
+	MYSQL --> D
+	MYSQL --> CDC
+```
+
+## Data Flow Diagram
+
+```mermaid
+flowchart LR
+	UPSERT[Periodic Upserts] --> TABLES[MDM Master Tables]
+	TABLES --> BINLOG[MySQL Binlog]
+	BINLOG --> TOPICS[CDC Kafka Topics]
+	TOPICS --> CONSUMERS[Sync and Sink Services]
+```
+
 ## Example Table Definitions
 - `customer360`: Stores customer profile and attributes
 - `product_master`: Stores product catalog and attributes

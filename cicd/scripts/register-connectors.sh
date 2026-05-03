@@ -10,14 +10,14 @@ CONNECT_SCOPE="${CONNECT_SCOPE:-debezium}"
 
 case "$CONNECT_SCOPE" in
   debezium)
-    CONFIG_DIRS=("$SCRIPT_DIR/../../kafka-connect/debezium-connect/connector-configs")
+    CONFIG_DIRS=("$SCRIPT_DIR/../../kafka-connect/dbz-connect/connector-configs")
     ;;
   mdm)
     CONFIG_DIRS=("$SCRIPT_DIR/../../kafka-connect/mdm-connect/connector-configs")
     ;;
   all)
     CONFIG_DIRS=(
-      "$SCRIPT_DIR/../../kafka-connect/debezium-connect/connector-configs"
+      "$SCRIPT_DIR/../../kafka-connect/dbz-connect/connector-configs"
       "$SCRIPT_DIR/../../kafka-connect/mdm-connect/connector-configs"
     )
     ;;

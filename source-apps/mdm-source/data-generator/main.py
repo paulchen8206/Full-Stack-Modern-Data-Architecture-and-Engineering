@@ -16,6 +16,12 @@ INTERVAL_SEC = int(os.environ.get("MDM_SOURCE_INTERVAL_SEC", "180"))
 APP_MYSQL_USER = os.environ.get("MDM_APP_MYSQL_USER", "mdm")
 APP_MYSQL_PASSWORD = os.environ.get("MDM_APP_MYSQL_PASSWORD", "mdm")
 INSERT_NEW_KEY_PROB = float(os.environ.get("MDM_INSERT_NEW_KEY_PROB", "0.8"))
+CUSTOMER_ID_MIN = int(os.environ.get("MDM_CUSTOMER_ID_MIN", "100000"))
+CUSTOMER_ID_MAX = int(os.environ.get("MDM_CUSTOMER_ID_MAX", "99999999"))
+PRODUCT_ID_MIN = int(os.environ.get("MDM_PRODUCT_ID_MIN", "10000"))
+PRODUCT_ID_MAX = int(os.environ.get("MDM_PRODUCT_ID_MAX", "99999999"))
+DATE_HISTORY_DAYS_BACK = int(os.environ.get("MDM_DATE_HISTORY_DAYS_BACK", "3650"))
+DATE_HISTORY_DAYS_FORWARD = int(os.environ.get("MDM_DATE_HISTORY_DAYS_FORWARD", "365"))
 
 SEGMENTS = ["SMB", "MID_MARKET", "ENTERPRISE"]
 CUSTOMERS = [
@@ -31,10 +37,37 @@ PRODUCTS = [
     ("SKU-103", "USB-C Dock"),
     ("SKU-104", "Noise Cancelling Headset"),
 ]
+FIRST_NAMES = ["Ava", "Mia", "Noah", "Liam", "Sophia", "Emma", "Lucas", "Ethan", "Olivia", "Amelia"]
+LAST_NAMES = ["Chen", "Patel", "Nguyen", "Brown", "Garcia", "Smith", "Taylor", "Kim", "Singh", "Johnson"]
+EMAIL_DOMAINS = ["example.com", "sample.io", "demo.co", "company.net"]
+PRODUCT_ADJECTIVES = ["Smart", "Ultra", "Edge", "Prime", "Quantum", "Flex", "Nova", "Aero"]
+PRODUCT_NOUNS = ["Hub", "Console", "Monitor", "Sensor", "Gateway", "Tablet", "Scanner", "Dock"]
+PRODUCT_SUFFIXES = ["Series A", "Series X", "Pro", "Max", "Lite", "360"]
 
 
 def money(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def random_customer_profile(customer_num: int) -> tuple[str, str]:
+    first_name = random.choice(FIRST_NAMES)
+    last_name = random.choice(LAST_NAMES)
+    email_domain = random.choice(EMAIL_DOMAINS)
+    return (
+        f"{first_name} {last_name}",
+        f"{first_name.lower()}.{last_name.lower()}.{customer_num}@{email_domain}",
+    )
+
+
+def random_product_name(product_num: int) -> str:
+    return " ".join(
+        [
+            random.choice(PRODUCT_ADJECTIVES),
+            random.choice(PRODUCT_NOUNS),
+            random.choice(PRODUCT_SUFFIXES),
+            str(product_num % 1000),
+        ]
+    )
 
 def get_connection():
     return mysql.connector.connect(
@@ -69,26 +102,29 @@ def ensure_app_user() -> None:
 
 def customer_seed() -> tuple[str, str, str]:
     if random.random() < INSERT_NEW_KEY_PROB:
-        customer_num = random.randint(1000, 999999)
+        customer_num = random.randint(CUSTOMER_ID_MIN, CUSTOMER_ID_MAX)
+        customer_name, customer_email = random_customer_profile(customer_num)
         return (
             f"CUST-{customer_num}",
-            f"Customer {customer_num}",
-            f"customer{customer_num}@example.com",
+            customer_name,
+            customer_email,
         )
     return random.choice(CUSTOMERS)
 
 
 def product_seed() -> tuple[str, str]:
     if random.random() < INSERT_NEW_KEY_PROB:
-        product_num = random.randint(100, 999999)
-        return (f"SKU-{product_num}", f"Product {product_num}")
+        product_num = random.randint(PRODUCT_ID_MIN, PRODUCT_ID_MAX)
+        return (f"SKU-{product_num}", random_product_name(product_num))
     return random.choice(PRODUCTS)
 
 
 def date_seed(now: datetime) -> date:
-    # Most cycles use a random day to grow mdm_date; some keep today's key.
     if random.random() < INSERT_NEW_KEY_PROB:
-        return (now - timedelta(days=random.randint(0, 730))).date()
+        # Spread generated keys across a wide historical/future window so CDC upserts
+        # continuously touch diverse date dimensions instead of only "today".
+        offset_days = random.randint(-DATE_HISTORY_DAYS_FORWARD, DATE_HISTORY_DAYS_BACK)
+        return (now - timedelta(days=offset_days)).date()
     return now.date()
 
 
@@ -100,13 +136,15 @@ def insert_random_data():
         product_id, product_name = product_seed()
         now = datetime.utcnow()
         target_date = date_seed(now)
-        first_order_timestamp = now - timedelta(days=random.randint(30, 180))
-        first_seen_at = now - timedelta(days=random.randint(30, 365))
-        orders_count = random.randint(1, 120)
-        units_sold = random.randint(1, 300)
-        avg_unit_price = money(Decimal(str(random.uniform(10, 500))))
-        projected_total_spent = money(avg_unit_price * orders_count)
+        first_order_timestamp = now - timedelta(days=random.randint(7, DATE_HISTORY_DAYS_BACK))
+        first_seen_at = now - timedelta(days=random.randint(7, DATE_HISTORY_DAYS_BACK))
+        orders_count = random.randint(1, 5000)
+        units_sold = random.randint(1, 25000)
+        avg_unit_price = money(Decimal(str(random.uniform(5, 5000))))
+        projected_total_spent = money(avg_unit_price * Decimal(random.randint(orders_count, orders_count * 8)))
 
+        # Upsert keeps stable business keys while mutating descriptive attributes,
+        # which is useful for downstream CDC and SCD-style modeling tests.
         cursor.execute(
             """
             INSERT INTO customer360 (
@@ -146,6 +184,8 @@ def insert_random_data():
             ),
         )
 
+        # Product upsert mirrors customer behavior to generate both insert and update
+        # CDC events with realistic price/volume drift.
         cursor.execute(
             """
             INSERT INTO product_master (
@@ -179,6 +219,7 @@ def insert_random_data():
             ),
         )
 
+        # Date dimension rows are idempotent; duplicate keys only bump audit timestamp.
         cursor.execute(
             """
             INSERT INTO mdm_date (
@@ -213,7 +254,10 @@ def insert_random_data():
         )
 
         conn.commit()
-        print(f"Generated changes for {customer_id}, {product_id}, and mdm_date.", flush=True)
+        print(
+            f"Generated changes for {customer_id}, {product_id}, and {target_date.strftime('%Y%m%d')}.",
+            flush=True,
+        )
     finally:
         cursor.close()
         conn.close()

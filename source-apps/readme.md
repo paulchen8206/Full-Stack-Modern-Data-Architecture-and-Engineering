@@ -8,7 +8,7 @@ The source applications are the starting point of the data pipeline. They publis
 
 ## Applications
 
-- sales_order_source
+- ods_source
   - Python producer service for sales events
   - Publishes composite sales messages to the raw_sales_orders Kafka topic
   - Drives the realtime stream-processing pipeline
@@ -20,7 +20,7 @@ The source applications are the starting point of the data pipeline. They publis
 
 ## Project Structure
 
-- sales_order_source/
+- ods_source/
   - app/
   - Dockerfile
   - pyproject.toml
@@ -36,27 +36,27 @@ Diagram: source applications pipeline (left to right).
 ```mermaid
 flowchart LR
   subgraph S[Sources]
-    APP1[sales_order_source]
-    APP2[mdm-source MySQL]
+    APP1[ODS Source]
+    APP2[MDM Source MySQL]
   end
 
   subgraph P[Pipeline]
-    K[(Kafka raw topic raw_sales_orders)]
+    K[(Kafka Raw Topic: raw_sales_orders)]
     DBZ[Debezium CDC]
-    PROC[sales_order_processor]
-    MDMCDC[mdm-cdc-producer]
-    SPARK[mdm-pyspark-sync]
+    PROC[ODS Processor]
+    MDMCDC[MDM CDC Curate]
+    SPARK[MDM PySpark Sync]
     CONNECT[Kafka Connect sinks]
-    IWR[iceberg-writer via Trino]
+    IWR[Iceberg Writer via Trino]
   end
 
   subgraph T[Targets]
     T1[(Kafka normalized topics)]
-    T2[(Kafka curated MDM topics)]
-    T3[(Postgres landing)]
-    T4[(MinIO raw objects)]
-    T5[(Iceberg tables on MinIO)]
-    T6[dbt and Airflow analytics]
+    T2[(Kafka Curated MDM Topics)]
+    T3[(Postgres Landing)]
+    T4[(MinIO Raw Objects)]
+    T5[(Iceberg Tables on MinIO)]
+    T6[dbt and Airflow Analytics]
   end
 
   APP1 --> K
@@ -80,7 +80,7 @@ flowchart LR
   T5 --> T6
 ```
 
-1. sales_order_source produces raw sales events to Kafka.
+1. ods_source produces raw sales events to Kafka.
 2. mdm-source stores and updates master data in MySQL.
 3. Debezium captures mdm-source table changes and emits CDC topics.
 4. Downstream processing applications and connectors transform and land source data into Postgres, MinIO, and Iceberg targets.
@@ -90,7 +90,7 @@ flowchart LR
 From repository root, use the standard routine entrypoints:
 
 ```bash
-make docker-compose-up
+make compose-up
 make mdm-status
 make mdm-topics-check
 ```
@@ -104,6 +104,6 @@ For app-specific behavior and configuration, see each subfolder README.
 
 ## References
 
-- ../docker-compose.yml
+- ../compose.yml
 - ../docs/architecture.md
 - ../docs/runbook.md

@@ -2,14 +2,14 @@ kafkaBootstrapServers: kafka-qa.kafka.svc.cluster.local:9092
 producer:
 	replicas: 1
 	image:
-		repository: my-registry/realtime-sales-producer
+		repository: my-registry/pos-producer
 		tag: 0.1.0
 		pullPolicy: IfNotPresent
 	intervalMs: 2000
 processor:
 	replicas: 1
 	image:
-		repository: my-registry/realtime-sales-processor
+		repository: my-registry/pos-processor
 		tag: 0.1.0
 		pullPolicy: IfNotPresent
 	consumerGroupId: realtime-flink-processor-qa

@@ -45,6 +45,31 @@ Each ADR in this directory follows the same title-level organization:
 - If runtime commands change, update affected ADRs in the same pull request.
 - Keep ADR language decision-oriented and avoid turning ADRs into runbooks.
 
+## Component Diagram
+
+```mermaid
+flowchart LR
+	ADRS[ADR Documents]
+	ARCH[Architecture and Runbook Docs]
+	CODE[Implementation Configs and Code]
+	OPS[Operational Commands]
+
+	ADRS --> ARCH
+	ADRS --> CODE
+	ADRS --> OPS
+	ARCH --> CODE
+```
+
+## Data Flow Diagram
+
+```mermaid
+flowchart LR
+	PROBLEM[Architecture Problem] --> DECISION[ADR Decision]
+	DECISION --> IMPLEMENT[Implement in Code and Config]
+	IMPLEMENT --> VALIDATE[Validate Runtime Behavior]
+	VALIDATE --> UPDATE[Update ADR Status and References]
+```
+
 ## Related Docs
 
 - [../readme.md](../readme.md)

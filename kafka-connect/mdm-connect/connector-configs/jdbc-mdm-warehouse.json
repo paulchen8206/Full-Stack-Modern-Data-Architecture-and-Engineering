@@ -6,7 +6,7 @@
     "topics": "mdm_customer_jdbc,mdm_product_jdbc,mdm_date_jdbc",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "true",
-    "connection.url": "jdbc:postgresql://postgres:5432/analytics",
+    "connection.url": "jdbc:postgresql://snowflake-mimic:5432/analytics",
     "connection.user": "analytics",
     "connection.password": "analytics",
     "table.name.format": "landing.${topic}",

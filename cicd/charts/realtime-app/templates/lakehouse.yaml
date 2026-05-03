@@ -677,10 +677,18 @@ data:
     }
 
     wait_for_connect
+
+    if curl -sf "${CONNECT_URL}/connectors/jdbc-sales-warehouse" >/dev/null; then
+      echo "Deleting legacy connector jdbc-sales-warehouse"
+      curl -sf -X DELETE "${CONNECT_URL}/connectors/jdbc-sales-warehouse" >/dev/null
+    fi
+
     upsert_connector_best_effort "iceberg-sales-order" "/connector-configs/iceberg-sales-order.json"
     upsert_connector_best_effort "iceberg-sales-order-line-item" "/connector-configs/iceberg-sales-order-line-item.json"
     upsert_connector_best_effort "iceberg-customer-sales" "/connector-configs/iceberg-customer-sales.json"
-    upsert_connector "jdbc-sales-warehouse" "/connector-configs/jdbc-sales-warehouse.json"
+    upsert_connector "jdbc-sales-order-warehouse" "/connector-configs/jdbc-sales-order-warehouse.json"
+    upsert_connector "jdbc-sales-order-line-item-warehouse" "/connector-configs/jdbc-sales-order-line-item-warehouse.json"
+    upsert_connector "jdbc-customer-sales-warehouse" "/connector-configs/jdbc-customer-sales-warehouse.json"
 
     echo "Kafka Connect connectors are registered."
   iceberg-sales-order.json: |
@@ -737,11 +745,11 @@ data:
       "partitioner.class": "io.confluent.connect.storage.partitioner.DefaultPartitioner",
       "schema.compatibility": "NONE"
     }
-  jdbc-sales-warehouse.json: |
+  jdbc-sales-order-warehouse.json: |
     {
       "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
       "tasks.max": "1",
-      "topics": "sales_order,sales_order_line_item,customer_sales",
+      "topics": "sales_order",
       "value.converter": "org.apache.kafka.connect.json.JsonConverter",
       "value.converter.schemas.enable": "true",
       "connection.url": "jdbc:postgresql://{{ include "realtime-app.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}",
@@ -757,9 +765,73 @@ data:
       "errors.tolerance": "all",
       "errors.log.enable": "true",
       "errors.log.include.messages": "true",
-      "transforms": "castNumbers",
-      "transforms.castNumbers.type": "org.apache.kafka.connect.transforms.Cast$Value",
-      "transforms.castNumbers.spec": "orderTotal:float64,unitPrice:float64,lineTotal:float64,totalSpent:float64",
+      "transforms": "castOrderTotal,convertOrderTimestamp",
+      "transforms.castOrderTotal.type": "org.apache.kafka.connect.transforms.Cast$Value",
+      "transforms.castOrderTotal.spec": "orderTotal:float64",
+      "transforms.convertOrderTimestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+      "transforms.convertOrderTimestamp.field": "orderTimestamp",
+      "transforms.convertOrderTimestamp.target.type": "Timestamp",
+      "transforms.convertOrderTimestamp.format": "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX",
+      "consumer.override.auto.offset.reset": "latest",
+      "quote.sql.identifiers": "never"
+    }
+  jdbc-sales-order-line-item-warehouse.json: |
+    {
+      "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+      "tasks.max": "1",
+      "topics": "sales_order_line_item",
+      "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+      "value.converter.schemas.enable": "true",
+      "connection.url": "jdbc:postgresql://{{ include "realtime-app.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}",
+      "connection.user": "{{ .Values.postgres.auth.user }}",
+      "connection.password": "{{ .Values.postgres.auth.password }}",
+      "table.name.format": "landing.${topic}",
+      "insert.mode": "insert",
+      "auto.create": "true",
+      "auto.evolve": "true",
+      "batch.size": "3000",
+      "delete.enabled": "false",
+      "pk.mode": "none",
+      "errors.tolerance": "all",
+      "errors.log.enable": "true",
+      "errors.log.include.messages": "true",
+      "transforms": "castLineNumbers,convertOrderTimestamp",
+      "transforms.castLineNumbers.type": "org.apache.kafka.connect.transforms.Cast$Value",
+      "transforms.castLineNumbers.spec": "unitPrice:float64,lineTotal:float64",
+      "transforms.convertOrderTimestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+      "transforms.convertOrderTimestamp.field": "orderTimestamp",
+      "transforms.convertOrderTimestamp.target.type": "Timestamp",
+      "transforms.convertOrderTimestamp.format": "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX",
+      "consumer.override.auto.offset.reset": "latest",
+      "quote.sql.identifiers": "never"
+    }
+  jdbc-customer-sales-warehouse.json: |
+    {
+      "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+      "tasks.max": "1",
+      "topics": "customer_sales",
+      "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+      "value.converter.schemas.enable": "true",
+      "connection.url": "jdbc:postgresql://{{ include "realtime-app.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}",
+      "connection.user": "{{ .Values.postgres.auth.user }}",
+      "connection.password": "{{ .Values.postgres.auth.password }}",
+      "table.name.format": "landing.${topic}",
+      "insert.mode": "insert",
+      "auto.create": "true",
+      "auto.evolve": "true",
+      "batch.size": "3000",
+      "delete.enabled": "false",
+      "pk.mode": "none",
+      "errors.tolerance": "all",
+      "errors.log.enable": "true",
+      "errors.log.include.messages": "true",
+      "transforms": "castTotalSpent,convertUpdatedAt",
+      "transforms.castTotalSpent.type": "org.apache.kafka.connect.transforms.Cast$Value",
+      "transforms.castTotalSpent.spec": "totalSpent:float64",
+      "transforms.convertUpdatedAt.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+      "transforms.convertUpdatedAt.field": "updatedAt",
+      "transforms.convertUpdatedAt.target.type": "Timestamp",
+      "transforms.convertUpdatedAt.format": "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX",
       "consumer.override.auto.offset.reset": "latest",
       "quote.sql.identifiers": "never"
     }
@@ -891,8 +963,12 @@ spec:
                 path: iceberg-sales-order-line-item.json
               - key: iceberg-customer-sales.json
                 path: iceberg-customer-sales.json
-              - key: jdbc-sales-warehouse.json
-                path: jdbc-sales-warehouse.json
+              - key: jdbc-sales-order-warehouse.json
+                path: jdbc-sales-order-warehouse.json
+              - key: jdbc-sales-order-line-item-warehouse.json
+                path: jdbc-sales-order-line-item-warehouse.json
+              - key: jdbc-customer-sales-warehouse.json
+                path: jdbc-customer-sales-warehouse.json
 {{- end }}
 
 {{- if .Values.dbt.enabled }}

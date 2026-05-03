@@ -29,8 +29,8 @@ Both paths are officially supported and documented.
 
 Routine A baseline commands:
 
-- make docker-compose-up
-- make docker-compose-down
+- make compose-up
+- make compose-down
 - make mdm-flow-check
 
 Routine B baseline sequence:
@@ -68,5 +68,31 @@ Trade-offs:
 
 - [../runbook.md](../runbook.md)
 - [../../readme.md](../../readme.md)
-- [../../docker-compose.yml](../../docker-compose.yml)
+- [../../compose.yml](../../compose.yml)
 - [../../cicd/argocd/dev.yaml](../../cicd/argocd/dev.yaml)
+
+## 9. Diagrams
+
+### 9.1 Component Diagram
+
+```mermaid
+flowchart LR
+	A[Routine A Compose]
+	B[Routine B: Kind, Helm, and Argo CD]
+	CODE[Repository Code and Configs]
+	OPS[Operator Workflows]
+
+	OPS --> A
+	OPS --> B
+	A --> CODE
+	B --> CODE
+```
+
+### 9.2 Data Flow Diagram
+
+```mermaid
+flowchart LR
+	DEV[Development Change] --> FAST[Routine A Quick Validation]
+	FAST --> HARDEN[Routine B Parity Validation]
+	HARDEN --> PROMOTE[Promotion Decision]
+```

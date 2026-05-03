@@ -18,8 +18,8 @@ Polling-only approaches are slower and less robust for change tracking.
 Adopt this flow:
 
 1. mdm-source MySQL stores master entities
-2. debezium-connect captures row-level CDC events
-3. mdm-cdc-producer republishes curated topics such as mdm_customer and mdm_product
+2. dbz-connect captures row-level CDC events
+3. mdm-cdc-curate republishes curated topics such as mdm_customer and mdm_product
 4. mdm-pyspark-sync mirrors MDM source tables into Postgres landing schemas
 
 ## 4. Operational References
@@ -27,7 +27,7 @@ Adopt this flow:
 - make mdm-status
 - make mdm-topics-check
 - make mdm-flow-check
-- kafka-connect/scripts/register-debezium-connectors.sh
+- kafka-connect/scripts/register-dbz-connectors.sh
 - kafka-connect/scripts/register-mdm-connectors.sh
 
 ## 5. Validation
@@ -58,6 +58,36 @@ Trade-offs:
 ## 8. References
 
 - [../runbook.md](../runbook.md)
-- [../../kafka-connect/debezium-connect/connector-configs/debezium-mysql-mdm.json](../../kafka-connect/debezium-connect/connector-configs/debezium-mysql-mdm.json)
-- [../../processing-apps/mdm-cdc-producer](../../processing-apps/mdm-cdc-producer)
-- [../../processing-apps/mdm-pyspark-sync](../../processing-apps/mdm-pyspark-sync)
+- [../../kafka-connect/dbz-connect/connector-configs/dbz-mysql-mdm.json](../../kafka-connect/dbz-connect/connector-configs/dbz-mysql-mdm.json)
+- [../../process-apps/mdm-cdc-curate](../../process-apps/mdm-cdc-curate)
+- [../../process-apps/mdm-pyspark-sync](../../process-apps/mdm-pyspark-sync)
+
+## 9. Diagrams
+
+### 9.1 Component Diagram
+
+```mermaid
+flowchart LR
+	MYSQL[(MDM Source MySQL)]
+	DBZ[dbz-connect]
+	CURATE[MDM CDC Curate]
+	SINKS[MDM Connect Sinks]
+	SYNC[MDM RDS PG Sync]
+	LANDING[(Landing MDM Tables)]
+
+	MYSQL --> DBZ
+	DBZ --> CURATE
+	CURATE --> SINKS
+	MYSQL --> SYNC
+	SYNC --> LANDING
+```
+
+### 9.2 Data Flow Diagram
+
+```mermaid
+flowchart LR
+	ROW_CHANGE[MySQL Row Change] --> BINLOG[Binlog Event]
+	BINLOG --> CDC[Debezium Topic]
+	CDC --> CURATED[Curated MDM Topics]
+	CURATED --> TARGETS[Landing and Raw Targets]
+```

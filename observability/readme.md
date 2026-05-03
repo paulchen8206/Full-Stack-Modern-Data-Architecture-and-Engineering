@@ -17,6 +17,32 @@ The Observability Stack integrates monitoring, logging, and alerting tools to en
 - `grafana/`: Grafana dashboards and configuration
 - `prometheus/`: Prometheus configuration and rules
 
+## Component Diagram
+
+```mermaid
+flowchart LR
+	TARGETS[Platform services]
+	BLACKBOX[Blackbox Exporter]
+	PROM[Prometheus]
+	GRAFANA[Grafana]
+
+	TARGETS --> BLACKBOX
+	TARGETS --> PROM
+	BLACKBOX --> PROM
+	PROM --> GRAFANA
+```
+
+## Data Flow Diagram
+
+```mermaid
+flowchart LR
+	METRICS[Service metrics] --> PROM[Prometheus scrape]
+	PROBES[HTTP/TCP probes] --> BLACKBOX[Blackbox Exporter]
+	BLACKBOX --> PROM
+	PROM --> DASH[Dashboards]
+	DASH --> ALERTS[Operations Response]
+```
+
 ## Usage
 1. Deploy the observability stack using Docker Compose or Kubernetes manifests
 2. Access Grafana dashboards for real-time monitoring

@@ -64,3 +64,29 @@ Trade-offs:
 - [../runbook.md](../runbook.md)
 - [../../cicd/argocd/dev.yaml](../../cicd/argocd/dev.yaml)
 - [../../cicd/charts/realtime-app](../../cicd/charts/realtime-app)
+
+## 9. Diagrams
+
+### 9.1 Component Diagram
+
+```mermaid
+flowchart LR
+	GIT[Git Desired State]
+	ARGO[Argo CD]
+	CLUSTER[Kind Cluster]
+	HELM[Local Helm Render]
+
+	GIT --> ARGO
+	ARGO --> CLUSTER
+	HELM --> CLUSTER
+```
+
+### 9.2 Data Flow Diagram
+
+```mermaid
+flowchart LR
+	CHANGE[Chart Change] --> RENDER[Local Helm Validation]
+	RENDER --> COMMIT[Commit to Git]
+	COMMIT --> RECONCILE[Argo CD reconcile]
+	RECONCILE --> RUN[Runtime State Update]
+```

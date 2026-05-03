@@ -1,16 +1,9 @@
 # Dev environment overrides.
 # Only values that differ from cicd/charts/values.yaml defaults are listed here.
+# ArgoCD Application CR is NOT embedded in local helm-up; use `make k8s-argocd-apply`
+# to bootstrap the Application in the GitOps workflow (after pushing chart changes to git).
 argocd:
-  enabled: true
-  application:
-    valueFiles:
-    - ../k8s/helm/values/values-dev.yaml
-  destination:
-    namespace: gndp-dev
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
+  enabled: false
 processor:
   consumerGroupId: realtime-flink-processor-local
 icebergWriter:

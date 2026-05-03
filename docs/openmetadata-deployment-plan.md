@@ -86,7 +86,7 @@ Recommended additional services:
 
 ### Compose Service Blueprint (Sample)
 
-Add this as a starting point to `compose.yml` (adjust versions to your policy):
+Add this as a starting point to `docker-compose.yml` (adjust versions to your policy):
 
 ```yaml
   openmetadata-db:

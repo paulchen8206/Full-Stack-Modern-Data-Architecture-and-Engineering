@@ -1,4 +1,4 @@
-# ADR-0007: Platform Observability Stack with Prometheus, Grafana, and Blackbox Exporter
+# ADR-0009: Platform Observability Stack with Prometheus, Grafana, and Blackbox Exporter
 
 - Status: Accepted
 - Date: 2026-04-20

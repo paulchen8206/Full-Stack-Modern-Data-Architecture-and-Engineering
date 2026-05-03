@@ -1,4 +1,4 @@
-# ADR-0008: Unified DBeaver and Trino Query Surface
+# ADR-0007: Unified DBeaver and Trino Query Surface
 
 - Status: Accepted
 - Date: 2026-04-20

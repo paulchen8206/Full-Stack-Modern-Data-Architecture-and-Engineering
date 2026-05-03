@@ -1,4 +1,4 @@
-# ADR-0009: Unified Metadata Catalog with OpenMetadata
+# ADR-0008: Unified Metadata Catalog with OpenMetadata
 
 - Status: Proposed
 - Date: 2026-04-20
@@ -62,11 +62,11 @@ Expected trade-offs:
 ## 8. References
 
 - [../openmetadata-deployment-plan.md](../openmetadata-deployment-plan.md)
-- [../../compose.yml](../../compose.yml)
+- [../../docker-compose.yml](../../docker-compose.yml)
 - [0004-trino-lakehouse-query-path-on-minio.md](0004-trino-lakehouse-query-path-on-minio.md)
 - [0005-medallion-elt-with-dbt.md](0005-medallion-elt-with-dbt.md)
 - [0006-airflow-scheduled-dbt-orchestration.md](0006-airflow-scheduled-dbt-orchestration.md)
-- [0008-unified-dbeaver-trino-query-surface.md](0008-unified-dbeaver-trino-query-surface.md)
+- [0007-unified-dbeaver-trino-query-surface.md](0007-unified-dbeaver-trino-query-surface.md)
 
 ## 9. Diagrams
 

@@ -21,6 +21,17 @@ DBZ_CONNECT_STATUS_URL ?= http://localhost:8083/connectors/dbz-mysql-mdm/status
 KAFKA_CONSUMER_CONTAINER ?= kafka-3
 KAFKA_BOOTSTRAP_SERVER ?= kafka-3:19094
 KAFKA_CONSOLE_CONSUMER ?= /usr/bin/kafka-console-consumer
+TRINO_SQL_SCRIPT ?= ./trino/scripts/trino-sql.sh
+TRINO_SMOKE_URL ?= http://localhost:8086/v1/info
+TRINO_BOOTSTRAP_SQL ?= ./trino/sql/bootstrap_lakehouse.sql
+TRINO_INCREMENTAL_SQL ?= ./trino/sql/incremental_sync_lakehouse.sql
+TRINO_SAMPLE_SQL ?= ./trino/sql/sample_queries.sql
+TRINO_SEED_SQL ?= ./trino/sql/bootstrap_demo_seed.sql
+ICEBERG_SMOKE_SCRIPT ?= ./trino/scripts/check-iceberg-streaming-unified.sh
+AIRFLOW_DAG_ID ?= dbt_warehouse_schedule
+OPENMETADATA_PROFILE ?= --profile openmetadata
+OPENMETADATA_INGEST_CONTAINER ?= openmetadata-ingestion
+OPENMETADATA_WORKFLOW_BASE ?= /opt/openmetadata/metadata/workflows
 KUBECTL ?= kubectl
 KUBECTL_NS ?= $(KUBECTL) -n $(K8S_NAMESPACE)
 KUBECTL_ARGOCD ?= $(KUBECTL) -n argocd
@@ -55,8 +66,14 @@ SCHEMA_INIT_IMAGE_REPOSITORY ?= pos-schema-init
 SCHEMA_INIT_IMAGE_TAG ?= latest
 
 .PHONY: compose-build compose-up compose-down compose-clean images mdm-status mdm-topics-check mdm-flow-check \
+	dbt-run airflow-logs airflow-trigger-dbt-dag ops-status verify-dbt-relations trino-shell trino-smoke \
+	trino-seed-demo trino-bootstrap-lakehouse trino-rebuild-lakehouse trino-sync-lakehouse trino-sample-queries \
+	iceberg-streaming-smoke iceberg-streaming-smoke-dev openmetadata-up openmetadata-status \
+	openmetadata-prepare-dbt-artifacts openmetadata-ingest-trino openmetadata-ingest-postgres \
+	openmetadata-ingest-dbt openmetadata-ingest-airflow openmetadata-ingest-kafka \
 	k8s-kind-bootstrap k8s-build-images helm-deps helm-template helm-up helm-down k8s-ui-port-forward \
 	k8s-argocd-apply k8s-status k8s-register-dbz k8s-register-mdm k8s-register-ods k8s-register-connectors \
+	helm-reboot-dev helm-health-dev helm-metastore-migrate-dev \
 	k8s-routine-up k8s-routine-down
 
 # Build all Docker images
@@ -83,7 +100,7 @@ compose-clean:
 
 # Show health for MDM CDC pipeline services and Debezium connector status
 mdm-status:
-	$(DOCKER_COMPOSE) ps mdm_source dbz-connect dbz-connect-init mdm-connect mdm-connect-init mdm-cdc-curate
+	$(DOCKER_COMPOSE) ps mdm-source dbz-connect dbz-connect-init mdm-connect mdm-connect-init mdm-cdc-curate
 	@echo ""
 	@echo "Debezium connector status (expects RUNNING):"
 	$(DOCKER_COMPOSE) exec dbz-connect curl -fsS $(DBZ_CONNECT_STATUS_URL) | cat
@@ -95,6 +112,103 @@ mdm-topics-check:
 
 # Run complete MDM event-flow validation
 mdm-flow-check: mdm-status mdm-topics-check
+
+
+###############################################################################
+# COMPOSE ANALYTICS / TRINO / OPENMETADATA TARGETS
+###############################################################################
+
+# Run dbt models once in the compose runtime
+dbt-run:
+	$(DOCKER_COMPOSE) run --rm dbt
+
+# Tail Airflow logs for quick DAG troubleshooting
+airflow-logs:
+	$(DOCKER_COMPOSE) logs --tail=200 airflow
+
+# Trigger the scheduled dbt DAG manually
+airflow-trigger-dbt-dag:
+	$(DOCKER_COMPOSE) exec airflow airflow dags trigger $(AIRFLOW_DAG_ID)
+
+# Quick compose-side status snapshot
+ops-status:
+	$(DOCKER_COMPOSE) ps
+
+# Verify core dbt schemas and relation counts in local warehouse
+verify-dbt-relations:
+	$(DOCKER_COMPOSE) exec -T snowflake-mimic psql -U analytics -d analytics -c "SELECT schemaname, count(*) AS relation_count FROM pg_catalog.pg_tables WHERE schemaname IN ('landing','bronze','silver','gold') GROUP BY schemaname ORDER BY schemaname;"
+
+# Open Trino CLI, run inline SQL, or execute SQL file via SQL_FILE
+trino-shell:
+	@if [ -n "$(SQL_FILE)" ]; then \
+		$(TRINO_SQL_SCRIPT) "$(SQL_FILE)"; \
+	else \
+		$(TRINO_SQL_SCRIPT); \
+	fi
+
+# Validate Trino coordinator endpoint
+trino-smoke:
+	curl -fsS $(TRINO_SMOKE_URL) | cat
+
+# Seed demo objects used by Trino sample queries
+trino-seed-demo:
+	$(TRINO_SQL_SCRIPT) "$(TRINO_SEED_SQL)"
+
+# Create/refresh lakehouse tables from landing datasets
+trino-bootstrap-lakehouse:
+	$(TRINO_SQL_SCRIPT) "$(TRINO_BOOTSTRAP_SQL)"
+
+# Rebuild demo + lakehouse bootstrap path from scratch
+trino-rebuild-lakehouse: trino-seed-demo trino-bootstrap-lakehouse
+
+# Incrementally sync lakehouse tables from landing datasets
+trino-sync-lakehouse:
+	$(TRINO_SQL_SCRIPT) "$(TRINO_INCREMENTAL_SQL)"
+
+# Run curated Trino sample SQL bundle
+trino-sample-queries:
+	$(TRINO_SQL_SCRIPT) "$(TRINO_SAMPLE_SQL)"
+
+# Validate direct Kafka-to-Iceberg writer flow in local compose
+iceberg-streaming-smoke:
+	$(ICEBERG_SMOKE_SCRIPT)
+
+# Validate direct Kafka-to-Iceberg writer flow against dev Kubernetes
+iceberg-streaming-smoke-dev:
+	$(ICEBERG_SMOKE_SCRIPT) --k8s --namespace gndp-dev --deployment gndp-dev-vision-trino
+
+# Start OpenMetadata stack via compose profile
+openmetadata-up:
+	$(DOCKER_COMPOSE) $(OPENMETADATA_PROFILE) up -d openmetadata-db openmetadata-search openmetadata-server openmetadata-ingestion
+
+# Check OpenMetadata stack status
+openmetadata-status:
+	$(DOCKER_COMPOSE) $(OPENMETADATA_PROFILE) ps openmetadata-server openmetadata-ingestion
+
+# Generate dbt artifacts used by metadata ingestion
+openmetadata-prepare-dbt-artifacts:
+	$(DOCKER_COMPOSE) run --rm dbt dbt deps
+	$(DOCKER_COMPOSE) run --rm dbt dbt parse
+
+# Run OpenMetadata Trino ingestion workflow
+openmetadata-ingest-trino:
+	$(DOCKER_COMPOSE) $(OPENMETADATA_PROFILE) exec -T $(OPENMETADATA_INGEST_CONTAINER) metadata ingest -c $(OPENMETADATA_WORKFLOW_BASE)/trino_ingestion.yaml
+
+# Run OpenMetadata Postgres ingestion workflow
+openmetadata-ingest-postgres:
+	$(DOCKER_COMPOSE) $(OPENMETADATA_PROFILE) exec -T $(OPENMETADATA_INGEST_CONTAINER) metadata ingest -c $(OPENMETADATA_WORKFLOW_BASE)/postgres_ingestion.yaml
+
+# Run OpenMetadata dbt ingestion workflow
+openmetadata-ingest-dbt:
+	$(DOCKER_COMPOSE) $(OPENMETADATA_PROFILE) exec -T $(OPENMETADATA_INGEST_CONTAINER) metadata ingest -c $(OPENMETADATA_WORKFLOW_BASE)/dbt_ingestion.yaml
+
+# Run OpenMetadata Airflow ingestion workflow
+openmetadata-ingest-airflow:
+	$(DOCKER_COMPOSE) $(OPENMETADATA_PROFILE) exec -T $(OPENMETADATA_INGEST_CONTAINER) metadata ingest -c $(OPENMETADATA_WORKFLOW_BASE)/airflow_ingestion.yaml
+
+# Run OpenMetadata Kafka ingestion workflow
+openmetadata-ingest-kafka:
+	$(DOCKER_COMPOSE) $(OPENMETADATA_PROFILE) exec -T $(OPENMETADATA_INGEST_CONTAINER) metadata ingest -c $(OPENMETADATA_WORKFLOW_BASE)/kafka_ingestion.yaml
 
 
 ###############################################################################
@@ -129,6 +243,21 @@ helm-up: helm-deps
 	-$(KUBECTL_NS) delete job $(HELM_RESET_JOBS) --ignore-not-found
 	helm upgrade --install $(K8S_RELEASE) $(HELM_CHART) -n $(K8S_NAMESPACE) --create-namespace -f $(HELM_VALUES) --timeout $(HELM_TIMEOUT) \
 		$(HELM_SET_ARGS)
+
+# Reconcile dev namespace from local Helm chart and show status
+helm-reboot-dev:
+	$(MAKE) K8S_ENV=dev helm-up
+	$(MAKE) K8S_ENV=dev k8s-status
+
+# Snapshot dev namespace health only
+helm-health-dev:
+	$(MAKE) K8S_ENV=dev k8s-status
+
+# Ensure required Iceberg JDBC metastore tables exist in dev Postgres
+helm-metastore-migrate-dev:
+	$(KUBECTL) -n gndp-dev exec deploy/gndp-dev-vision-snowflake-mimic -- psql -U analytics -d analytics -c "CREATE TABLE IF NOT EXISTS public.iceberg_tables (catalog_name text NOT NULL, table_namespace text NOT NULL, table_name text NOT NULL, metadata_location text NOT NULL, previous_metadata_location text, PRIMARY KEY (catalog_name, table_namespace, table_name));"
+	$(KUBECTL) -n gndp-dev exec deploy/gndp-dev-vision-snowflake-mimic -- psql -U analytics -d analytics -c "CREATE TABLE IF NOT EXISTS public.iceberg_namespace_properties (catalog_name text NOT NULL, namespace text NOT NULL, property_key text NOT NULL, property_value text, PRIMARY KEY (catalog_name, namespace, property_key));"
+	$(KUBECTL) -n gndp-dev rollout restart deployment/gndp-dev-vision-trino deployment/gndp-dev-vision-iceberg-writer
 
 # Remove platform chart and namespace resources
 helm-down:

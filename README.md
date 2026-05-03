@@ -186,22 +186,22 @@ Versions are shown when they are explicitly pinned in this repository.
 
 Related source locations:
 
-- Runtime services: [compose.yml](compose.yml)
+- Runtime services: [docker-compose.yml](docker-compose.yml)
 - Build and ops entrypoints: [Makefile](Makefile)
 - Kubernetes and GitOps artifacts: [cicd/charts/Chart.yaml](cicd/charts/Chart.yaml), [cicd/argocd/dev.yaml](cicd/argocd/dev.yaml)
 - dbt project and adapter setup: [analytics/dbt/Dockerfile](analytics/dbt/Dockerfile), [analytics/dbt/dbt_project.yml](analytics/dbt/dbt_project.yml)
-- Processor stack: [process-apps/ods_processor/pom.xml](process-apps/ods_processor/pom.xml)
+- Processor stack: [process-apps/ods-processor/pom.xml](process-apps/ods-processor/pom.xml)
 - Observability provisioning: [observability/prometheus/prometheus.yml](observability/prometheus/prometheus.yml), [observability/grafana/provisioning/datasources/prometheus.yml](observability/grafana/provisioning/datasources/prometheus.yml)
 
 ## Repository Layout
 
-- `compose.yml`: Local Routine A service topology for the full stack.
+- `docker-compose.yml`: Local Routine A service topology for the full stack.
 - `Makefile`: Unified operational entrypoints for build, run, validation, and troubleshooting flows.
 - `source-apps/`: Source-side applications.
 - `source-apps/ods_source`: Python Kafka producer for composite sales orders.
 - `source-apps/mdm-source`: MySQL-backed MDM source system simulator for CDC testing.
 - `process-apps/`: Downstream processing and synchronization applications.
-- `process-apps/ods_processor`: Spring Boot application that launches the Flink topology.
+- `process-apps/ods-processor`: Spring Boot application that launches the Flink topology.
 - `process-apps/mdm-cdc-curate`: Python app that consumes Debezium CDC topics and publishes `mdm_customer` and `mdm_product`.
 - `process-apps/mdm-pyspark-sync`: PySpark app that continuously syncs MySQL MDM tables into Postgres landing tables.
 - `process-apps/iceberg-writer`: Python service that consumes Kafka topics and writes directly to Iceberg tables through Trino.

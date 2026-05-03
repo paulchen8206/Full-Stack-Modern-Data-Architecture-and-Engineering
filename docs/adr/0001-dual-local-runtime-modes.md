@@ -68,7 +68,7 @@ Trade-offs:
 
 - [../runbook.md](../runbook.md)
 - [../../readme.md](../../readme.md)
-- [../../compose.yml](../../compose.yml)
+- [../../docker-compose.yml](../../docker-compose.yml)
 - [../../cicd/argocd/dev.yaml](../../cicd/argocd/dev.yaml)
 
 ## 9. Diagrams

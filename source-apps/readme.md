@@ -104,6 +104,6 @@ For app-specific behavior and configuration, see each subfolder README.
 
 ## References
 
-- ../compose.yml
+- ../docker-compose.yml
 - ../docs/architecture.md
 - ../docs/runbook.md

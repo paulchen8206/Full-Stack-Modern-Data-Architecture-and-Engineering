@@ -94,6 +94,6 @@ Refer to the runbook for full command bundles and validation routines.
 
 ## References
 
-- `../compose.yml`
+- `../docker-compose.yml`
 - `../docs/architecture.md`
 - `../docs/runbook.md`

@@ -774,7 +774,7 @@ Cloud migration checklist:
 
 ### 8.4 Make Target Map (Architecture to Operations)
 
-Use this quick map to connect architecture responsibilities in this document to executable commands in [docs/runbook.md](docs/runbook.md) and [Makefile](../Makefile).
+Use this quick map to connect architecture responsibilities in this document to executable commands in [runbook.md](runbook.md) and [../Makefile](../Makefile).
 
 | Architecture responsibility | Primary routine | Make target(s) |
 | --- | --- | --- |
@@ -791,8 +791,8 @@ Use this quick map to connect architecture responsibilities in this document to 
 Cross-reference note:
 
 - Architecture rationale stays in this document.
-- Step-by-step operator procedure stays in [docs/runbook.md](docs/runbook.md).
-- Command implementation source of truth stays in [Makefile](../Makefile). Legacy command sets are retained in [Makefile.bak](../Makefile.bak) for historical reference.
+- Step-by-step operator procedure stays in [runbook.md](runbook.md).
+- Command implementation source of truth stays in [../Makefile](../Makefile).
 
 ## 9. CI/CD and GitOps Design
 

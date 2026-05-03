@@ -145,6 +145,6 @@ You can also use project operations commands from the root runbook, for example:
 
 ## References
 
-- `../compose.yml`
+- `../docker-compose.yml`
 - `../docs/architecture.md`
 - `../docs/runbook.md`

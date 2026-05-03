@@ -8,7 +8,7 @@ The `process-apps` folder hosts the core stream and sync workloads used in local
 
 ## Applications
 
-- `ods_processor`
+- `ods-processor`
   - Java Spring Boot application running Apache Flink stream logic
   - Consumes `raw_sales_orders`
   - Produces normalized topics: `sales_order`, `sales_order_line_item`, `customer_sales`
@@ -29,7 +29,7 @@ The `process-apps` folder hosts the core stream and sync workloads used in local
 
 ## Project Structure
 
-- `ods_processor/`
+- `ods-processor/`
   - `src/`
   - `pom.xml`
   - `Dockerfile`
@@ -90,7 +90,7 @@ flowchart LR
 ```
 
 1. Source producer publishes raw sales events to Kafka.
-2. `ods_processor` normalizes and fans out transactional topics.
+2. `ods-processor` normalizes and fans out transactional topics.
 3. Kafka Connect sinks events to Postgres landing and MinIO raw zones.
 4. `mdm-cdc-curate` curates MDM CDC streams for downstream consumers.
 5. `mdm-pyspark-sync` performs table-level MDM synchronization into Postgres landing.
@@ -113,4 +113,4 @@ For service-specific runtime and troubleshooting steps, refer to each app folder
 
 - `../docs/architecture.md`
 - `../docs/runbook.md`
-- `../compose.yml`
+- `../docker-compose.yml`

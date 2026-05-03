@@ -62,7 +62,7 @@ flowchart LR
   end
 
   subgraph T[Runtime Targets]
-    DEV[edw-dev Namespace]
+    DEV[gndp-dev Namespace]
     QA[QA Namespace or Cluster]
     PRD[PRD Namespace or Cluster]
   end
@@ -89,14 +89,14 @@ Use the script and kubectl entrypoints for local GitOps operation:
 ./cicd/k8s/kind/bootstrap-kind.sh
 ./cicd/scripts/build-images.sh
 kubectl apply -f cicd/argocd/dev.yaml
-kubectl -n argocd get application edw-dev
+kubectl -n argocd get application gndp-dev
 ```
 
 For direct Argo CD app reconciliation:
 
 ```bash
 kubectl apply -f cicd/argocd/dev.yaml
-kubectl -n argocd get application edw-dev
+kubectl -n argocd get application gndp-dev
 ```
 
 For chart-level validation, use Helm directly with the chart and values files in this folder.

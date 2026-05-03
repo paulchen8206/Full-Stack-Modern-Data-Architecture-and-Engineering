@@ -722,7 +722,7 @@ flowchart LR
   end
 
   subgraph K8S[Kind or Kubernetes Cluster]
-    subgraph NS[edw-dev Namespace]
+    subgraph NS[gndp-dev Namespace]
       KAFKA[Kafka]
       CONNECT[Kafka Connect]
       TRINO[Trino]
@@ -786,7 +786,7 @@ Use this quick map to connect architecture responsibilities in this document to 
 | Validate curated MDM topic output | Routine A (Docker Compose) | `make mdm-topics-check` |
 | Run end-to-end MDM flow validation | Routine A (Docker Compose) | `make mdm-flow-check` |
 | Bootstrap GitOps-style local cluster | Routine B (kind + Helm + Argo CD) | `./cicd/k8s/kind/bootstrap-kind.sh`, `./cicd/scripts/build-images.sh`, `kubectl apply -f cicd/argocd/dev.yaml` |
-| Validate cluster health and app rollout | Routine B (kind + Helm + Argo CD) | `kubectl -n argocd get application edw-dev`, `kubectl -n edw-dev get pods` |
+| Validate cluster health and app rollout | Routine B (kind + Helm + Argo CD) | `kubectl -n argocd get application gndp-dev`, `kubectl -n gndp-dev get pods` |
 
 Cross-reference note:
 

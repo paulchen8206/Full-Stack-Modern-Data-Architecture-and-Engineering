@@ -27,12 +27,12 @@ Any local Helm-only change must be committed and reconciled through Argo CD.
 Primary GitOps path:
 
 - kubectl apply -f cicd/argocd/dev.yaml
-- kubectl -n argocd get application edw-dev
+- kubectl -n argocd get application gndp-dev
 
 Local validation path:
 
 - helm dependency build cicd/charts
-- helm template edw-dev cicd/charts -f cicd/k8s/helm/values/values-dev.yaml
+- helm template gndp-dev cicd/charts -f cicd/k8s/helm/values/values-dev.yaml
 
 ## 5. Validation
 
@@ -40,7 +40,7 @@ Validation is successful when:
 
 - Argo CD application status is healthy and synced
 - rendered Helm manifests are valid for the selected values file
-- runtime workloads in namespace edw-dev are healthy
+- runtime workloads in namespace gndp-dev are healthy
 
 ## 6. Consequences
 

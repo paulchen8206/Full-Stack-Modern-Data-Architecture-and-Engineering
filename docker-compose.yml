@@ -160,11 +160,11 @@ services:
       retries: 20
       start_period: 20s
 
-  schema-init:
+  pos-schema-init:
     build:
       context: ./platform-services/schemas
       dockerfile: Dockerfile
-    image: schema-init:latest
+    image: pos-schema-init:latest
     container_name: schema_init
     depends_on:
       schema-registry:
@@ -198,7 +198,7 @@ services:
         condition: service_completed_successfully
       schema-registry:
         condition: service_healthy
-      schema-init:
+      pos-schema-init:
         condition: service_completed_successfully
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
@@ -314,7 +314,7 @@ services:
         condition: service_healthy
       kafka-3:
         condition: service_healthy
-      schema-init:
+      pos-schema-init:
         condition: service_completed_successfully
       mdm-source:
         condition: service_healthy
@@ -370,7 +370,7 @@ services:
         condition: service_completed_successfully
       snowflake-mimic:
         condition: service_started
-      schema-init:
+      pos-schema-init:
         condition: service_completed_successfully
     ports:
       - "8087:8083"
@@ -430,7 +430,7 @@ services:
         condition: service_completed_successfully
       snowflake-mimic:
         condition: service_started
-      schema-init:
+      pos-schema-init:
         condition: service_completed_successfully
       mdm-source:
         condition: service_healthy

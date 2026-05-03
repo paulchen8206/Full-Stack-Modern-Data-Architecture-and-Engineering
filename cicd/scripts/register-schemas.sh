@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Schema Registry URL (override with env var if needed)
-SCHEMA_REGISTRY_URL="${SCHEMA_REGISTRY_URL:-http://edw-dev-vision-schema-registry:8081}"
+SCHEMA_REGISTRY_URL="${SCHEMA_REGISTRY_URL:-http://gndp-dev-vision-schema-registry:8081}"
 # Schemas directory (relative to project root by default)
 SCHEMAS_DIR="${SCHEMAS_DIR:-./platform-services/schemas/avro}"
 

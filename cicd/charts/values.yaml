@@ -2,7 +2,7 @@ schemaRegistry:
   enabled: true
 schemaInit:
   image:
-    repository: schema-init
+    repository: pos-schema-init
     tag: latest
     pullPolicy: IfNotPresent
 legacyConnectorRegistrationHook:

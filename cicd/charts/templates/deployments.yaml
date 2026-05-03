@@ -62,7 +62,7 @@ spec:
             - containerPort: 8080
           env:
             - name: KAFKA_CLUSTERS_0_NAME
-              value: edw-dev
+              value: gndp-dev
             - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
               value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
 ---
@@ -177,6 +177,8 @@ spec:
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
+            - name: SCHEMA_REGISTRY_URL
+              value: http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081
             - name: ICEBERG_WRITER_GROUP_ID
               value: {{ .Values.icebergWriter.groupId | quote }}
             - name: ICEBERG_WRITER_OFFSET_RESET

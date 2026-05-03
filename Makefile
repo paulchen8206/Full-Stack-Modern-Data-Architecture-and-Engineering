@@ -3,9 +3,9 @@
 ###############################################################################
 
 K8S_ENV ?= dev
-KIND_CLUSTER ?= edw-dev
-K8S_NAMESPACE ?= edw-$(K8S_ENV)
-K8S_RELEASE ?= edw-$(K8S_ENV)
+KIND_CLUSTER ?= gndp-dev
+K8S_NAMESPACE ?= gndp-$(K8S_ENV)
+K8S_RELEASE ?= gndp-$(K8S_ENV)
 
 HELM_CHART ?= ./cicd/charts
 HELM_VALUES ?= ./cicd/k8s/helm/values/values-$(K8S_ENV).yaml
@@ -13,7 +13,7 @@ ARGO_APP_MANIFEST ?= ./cicd/argocd/$(K8S_ENV).yaml
 HELM_TIMEOUT ?= 15m
 MDM_SOURCE_IMAGE_REPOSITORY ?= pos-mdm-source
 MDM_SOURCE_IMAGE_TAG ?= 0.1.0
-SCHEMA_INIT_IMAGE_REPOSITORY ?= schema-init
+SCHEMA_INIT_IMAGE_REPOSITORY ?= pos-schema-init
 SCHEMA_INIT_IMAGE_TAG ?= latest
 
 .PHONY: compose-build compose-up compose-down compose-clean images mdm-status mdm-topics-check mdm-flow-check \

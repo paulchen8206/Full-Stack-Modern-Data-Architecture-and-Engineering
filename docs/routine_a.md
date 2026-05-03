@@ -90,7 +90,7 @@ make compose-clean
 ## Notes
 
 - One-shot containers may show `Exited (0)` after successful initialization.
-- Main one-shot services include `kafka-init`, `schema-init`, `minio-init`, `dbz-connect-init`, `ods-connect-init`, `mdm-connect-init`, and `dbt`.
+- Main one-shot services include `kafka-init`, `pos-schema-init`, `minio-init`, `dbz-connect-init`, `ods-connect-init`, `mdm-connect-init`, and `dbt`.
 - Debezium CDC source runs on `dbz-connect`; `mdm-connect` is used for MDM sink connectors.
 
 ## Component Diagram

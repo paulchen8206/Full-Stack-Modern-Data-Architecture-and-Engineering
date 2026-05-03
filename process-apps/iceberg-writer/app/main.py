@@ -370,6 +370,25 @@ def wait_for_trino(server: str, user: str, catalog: str, schema: str) -> None:
             time.sleep(3)
 
 
+def ensure_schema_registry_reachable(schema_registry_url: str) -> None:
+    probe_url = f"{schema_registry_url.rstrip('/')}/subjects"
+    request = urllib.request.Request(url=probe_url, method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            if response.status >= 400:
+                raise RuntimeError(
+                    f"Schema Registry probe failed with HTTP {response.status} at {probe_url}"
+                )
+    except urllib.error.URLError as exc:
+        hint = ""
+        if "localhost" in schema_registry_url:
+            hint = " (inside Kubernetes, use the service DNS name like http://schema-registry:8081)"
+        raise RuntimeError(
+            f"Schema Registry is unreachable at {schema_registry_url}. "
+            "Set SCHEMA_REGISTRY_URL to a reachable endpoint" + hint
+        ) from exc
+
+
 def flush_topic_batch(
     topic: str,
     payloads: list[dict],
@@ -418,11 +437,14 @@ def main() -> None:
     poll_timeout_ms = int(os.getenv("ICEBERG_WRITER_POLL_TIMEOUT_MS", "1000"))
     flush_interval_ms = int(os.getenv("ICEBERG_WRITER_FLUSH_INTERVAL_MS", "5000"))
     max_poll_records = int(os.getenv("ICEBERG_WRITER_MAX_POLL_RECORDS", str(batch_size * len(topics))))
+    schema_registry_url = os.getenv("SCHEMA_REGISTRY_URL", "http://localhost:8081")
 
     # Block until Trino is query-ready before bootstrap DDL and consumption start.
     wait_for_trino(server, user, catalog, schema)
     for sql in bootstrap_sql(schema):
         execute_trino(sql, server, user, catalog, schema)
+
+    ensure_schema_registry_reachable(schema_registry_url)
 
 
     consumer = AvroConsumer({
@@ -430,7 +452,7 @@ def main() -> None:
         'group.id': group_id,
         'auto.offset.reset': os.getenv("ICEBERG_WRITER_OFFSET_RESET", "earliest"),
         'enable.auto.commit': False,
-        'schema.registry.url': os.getenv("SCHEMA_REGISTRY_URL", "http://localhost:8081"),
+        'schema.registry.url': schema_registry_url,
     })
     consumer.subscribe(topics)
 

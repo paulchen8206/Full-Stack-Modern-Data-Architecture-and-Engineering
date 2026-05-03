@@ -283,7 +283,7 @@ OpenMetadata is not part of the default routine. It is available only when runni
 
 ### Container Behavior
 
-- One-shot init containers (`kafka-init`, `schema-init`, `minio-init`, `dbz-connect-init`, `ods-connect-init`, `mdm-connect-init`) and `dbt` will exit with code 0 after completion.
+- One-shot init containers (`kafka-init`, `pos-schema-init`, `minio-init`, `dbz-connect-init`, `ods-connect-init`, `mdm-connect-init`) and `dbt` will exit with code 0 after completion.
 - Trino may start successfully even if no Iceberg tables exist yet (expected until MinIO sink path is upgraded).
 
 ### Troubleshooting FAQ
@@ -316,15 +316,15 @@ kubectl apply -f cicd/argocd/dev.yaml
 Stop local cluster workloads:
 
 ```bash
-kubectl -n argocd delete application edw-dev || true
-kubectl delete namespace edw-dev || true
+kubectl -n argocd delete application gndp-dev || true
+kubectl delete namespace gndp-dev || true
 ```
 
 Run unified day-2 operations (Docker-path parity):
 
 ```bash
-kubectl -n argocd get application edw-dev
-kubectl -n edw-dev get pods
+kubectl -n argocd get application gndp-dev
+kubectl -n gndp-dev get pods
 ```
 
 Recommended command order (matches the runbook):
@@ -347,11 +347,11 @@ Recommended command order (matches the runbook):
    kubectl apply -f cicd/argocd/dev.yaml
    ```
 
-   If the Argo CD UI does not show `edw-dev`, re-apply and validate:
+   If the Argo CD UI does not show `gndp-dev`, re-apply and validate:
 
    ```bash
    kubectl apply -f cicd/argocd/dev.yaml
-   kubectl -n argocd get application edw-dev
+   kubectl -n argocd get application gndp-dev
    ```
 
 4. Validate app and workloads:
@@ -359,7 +359,7 @@ Recommended command order (matches the runbook):
    ```bash
    kubectl -n argocd get pods
    kubectl -n argocd get applications
-   kubectl -n edw-dev get pods
+   kubectl -n gndp-dev get pods
    ```
 
    If Argo CD shows `SYNC STATUS: Unknown` with a `ComparisonError` about repository access,
@@ -374,38 +374,38 @@ Recommended command order (matches the runbook):
 5. Run cluster validation checks:
 
    ```bash
-   kubectl -n argocd get application edw-dev
-   kubectl -n edw-dev get pods
-   kubectl -n edw-dev get jobs
+   kubectl -n argocd get application gndp-dev
+   kubectl -n gndp-dev get pods
+   kubectl -n gndp-dev get jobs
    ```
 
 6. Validate processor pipeline logs:
 
    ```bash
-   kubectl -n edw-dev get pods
-   kubectl -n edw-dev logs deploy/edw-dev-vision-processor --tail=100
+   kubectl -n gndp-dev get pods
+   kubectl -n gndp-dev logs deploy/gndp-dev-vision-processor --tail=100
    ```
 
 7. Validate dbt and Airflow logs:
 
    ```bash
-   kubectl -n edw-dev get pods
-   kubectl -n edw-dev logs job/edw-dev-vision-dbt --tail=100
-   kubectl -n edw-dev logs deploy/edw-dev-vision-airflow --tail=100
-   kubectl -n edw-dev port-forward svc/edw-dev-vision-airflow 8084:8080
-   kubectl -n edw-dev port-forward svc/edw-dev-vision-minio 9001:9001
+   kubectl -n gndp-dev get pods
+   kubectl -n gndp-dev logs job/gndp-dev-vision-dbt --tail=100
+   kubectl -n gndp-dev logs deploy/gndp-dev-vision-airflow --tail=100
+   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-airflow 8084:8080
+   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-minio 9001:9001
    ```
 
 8. Port-forward local access (same UI order as runbook):
 
    ```bash
    kubectl -n argocd port-forward svc/argocd-server 8443:443
-   kubectl -n edw-dev port-forward svc/edw-dev-vision-kafka-ui 8082:8080
-   kubectl -n edw-dev port-forward svc/edw-dev-vision-grafana 3001:3000
-   kubectl -n edw-dev port-forward svc/edw-dev-vision-airflow 8084:8080
-   kubectl -n edw-dev port-forward svc/edw-dev-vision-minio 9001:9001
-   kubectl -n edw-dev port-forward svc/edw-dev-vision-trino 8086:8080
-   kubectl -n edw-dev port-forward svc/edw-dev-vision-postgres 5433:5432
+   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-kafka-ui 8082:8080
+   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-grafana 3001:3000
+   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-airflow 8084:8080
+   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-minio 9001:9001
+   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-trino 8086:8080
+   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-postgres 5433:5432
    ```
 
    | Service | URL / Connection |
@@ -462,7 +462,7 @@ Dev environment behavior:
 
 - `trino` exposes a SQL query engine endpoint for MinIO-backed Iceberg-compatible data.
 - Local Compose endpoint: `http://localhost:8086`
-- Kubernetes endpoint: port-forward `svc/edw-dev-vision-trino 8086:8080`
+- Kubernetes endpoint: port-forward `svc/gndp-dev-vision-trino 8086:8080`
 - The repository includes a repeatable SQL runner: `python3 trino/scripts/trino_query.py --server http://localhost:8086 --file <sql-file>`
 - The repository also includes a shell helper for ad hoc SQL without calling Python directly: `./trino/scripts/trino-sql.sh "SHOW TABLES FROM lakehouse.streaming"`
 - `make trino-shell` opens the Trino CLI inside the Compose service, or runs a SQL file when `SQL_FILE=<path>` is provided
@@ -549,7 +549,7 @@ SELECT * FROM lakehouse.demo.sample_orders LIMIT 10;
 - DAG ID: `dbt_warehouse_schedule`
 - Schedule: every 5 minutes
 - The DAG runs `dbt deps` and `dbt run` against both Trino and the local Compose Postgres warehouse service (`snowflake-mimic`)
-- In the dev Helm path, Airflow runs inside the same release and serves its UI through the `edw-dev-vision-airflow` service
+- In the dev Helm path, Airflow runs inside the same release and serves its UI through the `gndp-dev-vision-airflow` service
 
 ## Data Validation
 
@@ -592,7 +592,7 @@ Static validation:
 
 - `docker compose config` rendered successfully.
 - `helm dependency build cicd/charts` completed successfully.
-- `helm template edw-dev cicd/charts -f environments/dev/values.yaml` rendered successfully.
+- `helm template gndp-dev cicd/charts -f environments/dev/values.yaml` rendered successfully.
 
 Runtime validation (Routine A — Docker Compose):
 
@@ -606,16 +606,16 @@ Runtime validation (Routine A — Docker Compose):
 
 Runtime validation (Routine B cluster — 2026-04-18):
 
-- `kubectl -n argocd get application edw-dev` reported `SYNC=Synced`, `HEALTH=Healthy`.
-- `kubectl -n edw-dev get pods` showed core workloads in `Running`.
-- `kubectl -n edw-dev get jobs` confirmed initialization jobs completed.
-- `kubectl -n edw-dev logs deploy/edw-dev-vision-mdm-cdc-curate --tail=100` showed curated MDM topic publication.
-- `kubectl -n edw-dev logs deploy/edw-dev-vision-iceberg-writer --tail=100` showed streaming Iceberg writes.
+- `kubectl -n argocd get application gndp-dev` reported `SYNC=Synced`, `HEALTH=Healthy`.
+- `kubectl -n gndp-dev get pods` showed core workloads in `Running`.
+- `kubectl -n gndp-dev get jobs` confirmed initialization jobs completed.
+- `kubectl -n gndp-dev logs deploy/gndp-dev-vision-mdm-cdc-curate --tail=100` showed curated MDM topic publication.
+- `kubectl -n gndp-dev logs deploy/gndp-dev-vision-iceberg-writer --tail=100` showed streaming Iceberg writes.
 
 Important GitOps note:
 
 - If Argo CD owns the release, treat Git as source of truth and sync through Argo CD after committing chart changes.
-- If the app is missing in Argo CD UI, re-apply `cicd/argocd/dev.yaml` and validate with `kubectl -n argocd get application edw-dev`.
+- If the app is missing in Argo CD UI, re-apply `cicd/argocd/dev.yaml` and validate with `kubectl -n argocd get application gndp-dev`.
 
 ## Build Commands
 

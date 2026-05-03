@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: edw-dev
+  name: gndp-dev
   namespace: argocd
 spec:
   project: default
@@ -10,12 +10,12 @@ spec:
     targetRevision: main
     path: cicd/charts
     helm:
-      releaseName: edw-dev
+      releaseName: gndp-dev
       valueFiles:
       - ../k8s/helm/values/values-dev.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: edw-dev
+    namespace: gndp-dev
   syncPolicy:
     automated:
       prune: true

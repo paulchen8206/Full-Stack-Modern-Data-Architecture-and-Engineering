@@ -533,7 +533,7 @@ data:
     #!/usr/bin/env sh
     set -eu
 
-    until mc alias set local http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:9000 {{ .Values.minio.rootUser }} {{ .Values.minio.rootPassword }} >/dev/null 2>&1; do
+    until mc alias set local http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:{{ .Values.minio.service.apiPort }} {{ .Values.minio.rootUser }} {{ .Values.minio.rootPassword }} >/dev/null 2>&1; do
       echo "Waiting for MinIO to accept connections..."
       sleep 2
     done
@@ -779,8 +779,8 @@ data:
       "value.converter": "io.confluent.connect.avro.AvroConverter",
       "value.converter.schema.registry.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081",
       "s3.bucket.name": "{{ .Values.minio.bucket }}",
-      "topics.dir": "raw/ods",
-      "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:9000",
+      "topics.dir": {{ .Values.odsConnect.topicsDir | quote }},
+      "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:{{ .Values.minio.service.apiPort }}",
       "s3.region": "us-east-1",
       "aws.access.key.id": "{{ .Values.minio.rootUser }}",
       "aws.secret.access.key": "{{ .Values.minio.rootPassword }}",
@@ -799,8 +799,8 @@ data:
       "value.converter": "io.confluent.connect.avro.AvroConverter",
       "value.converter.schema.registry.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081",
       "s3.bucket.name": "{{ .Values.minio.bucket }}",
-      "topics.dir": "raw/ods",
-      "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:9000",
+      "topics.dir": {{ .Values.odsConnect.topicsDir | quote }},
+      "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:{{ .Values.minio.service.apiPort }}",
       "s3.region": "us-east-1",
       "aws.access.key.id": "{{ .Values.minio.rootUser }}",
       "aws.secret.access.key": "{{ .Values.minio.rootPassword }}",
@@ -819,8 +819,8 @@ data:
       "value.converter": "io.confluent.connect.avro.AvroConverter",
       "value.converter.schema.registry.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081",
       "s3.bucket.name": "{{ .Values.minio.bucket }}",
-      "topics.dir": "raw/ods",
-      "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:9000",
+      "topics.dir": {{ .Values.odsConnect.topicsDir | quote }},
+      "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:{{ .Values.minio.service.apiPort }}",
       "s3.region": "us-east-1",
       "aws.access.key.id": "{{ .Values.minio.rootUser }}",
       "aws.secret.access.key": "{{ .Values.minio.rootPassword }}",

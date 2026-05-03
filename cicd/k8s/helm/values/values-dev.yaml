@@ -1,323 +1,66 @@
-nameOverride: "vision"
-kafkaBootstrapServers: '{{ include "vision.serviceName" (dict "root" . "key" "kafka") }}:9092'
-schemaRegistry:
+# Dev environment overrides.
+# Only values that differ from cicd/charts/values.yaml defaults are listed here.
+argocd:
   enabled: true
-producer:
-  enabled: true
-  replicas: 1
-  image:
-    repository: pos-producer
-    tag: 0.1.0
-    pullPolicy: IfNotPresent
-  intervalMs: 1500
-  rawTopic: raw_sales_orders
+  application:
+    valueFiles:
+    - ../k8s/helm/values/values-dev.yaml
+  destination:
+    namespace: gndp-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
 processor:
-  enabled: true
-  replicas: 1
-  image:
-    repository: pos-processor
-    tag: 0.1.0
-    pullPolicy: IfNotPresent
-  topics:
-    rawSalesOrders: raw_sales_orders
-    salesOrder: sales_order
-    salesOrderLineItem: sales_order_line_item
-    customerSales: customer_sales
   consumerGroupId: realtime-flink-processor-local
-  checkpointIntervalMs: 10000
 icebergWriter:
   enabled: true
-  replicas: 1
-  image:
-    repository: pos-iceberg-writer
-    tag: 0.1.0
-    pullPolicy: IfNotPresent
-  groupId: iceberg-writer
-  offsetReset: earliest
-  batchSize: 50
-  pollTimeoutMs: 1000
-  flushIntervalMs: 5000
-  catalog: lakehouse
   schema: bronze
-kafkaUi:
-  enabled: false
-controlCenter:
-  enabled: false
-  replicas: 1
-  image:
-    repository: confluentinc/cp-enterprise-control-center
-    tag: 7.6.1
-    pullPolicy: IfNotPresent
-  connectCluster: 'http://{{ include "vision.serviceName" (dict "root" . "key" "ods-connect") }}:8083'
-  connectClusterName: ods-connect
-  schemaRegistryUrl: 'http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081'
-  service:
-    type: ClusterIP
-    port: 9021
 minio:
   enabled: true
-  image:
-    repository: minio/minio
-    tag: latest
-    pullPolicy: IfNotPresent
-  mcImage:
-    repository: minio/mc
-    tag: latest
-    pullPolicy: IfNotPresent
-  rootUser: minio
-  rootPassword: minio123
-  bucket: warehouse
-  service:
-    type: ClusterIP
-    apiPort: 9000
-    consolePort: 9001
 trino:
   enabled: true
-  image:
-    repository: trinodb/trino
-    tag: "472"
-    pullPolicy: IfNotPresent
-  service:
-    type: ClusterIP
-    port: 8080
 postgres:
   enabled: true
   image:
-    repository: postgres
     tag: "14"
-    pullPolicy: IfNotPresent
-  auth:
-    user: analytics
-    password: analytics
-    database: analytics
-  service:
-    type: ClusterIP
-    port: 5432
 odsConnect:
   enabled: true
-  image:
-    repository: pos-ods-connect
-    tag: 0.1.0
-    pullPolicy: IfNotPresent
+  groupId: ods-connect-cluster
   curlImage:
     repository: curlimages/curl
     tag: 8.12.1
     pullPolicy: IfNotPresent
-  service:
-    type: ClusterIP
-    port: 8083
-  groupId: ods-connect-cluster
-  configStorageTopic: connect-configs
-  offsetStorageTopic: connect-offsets
-  statusStorageTopic: connect-status
 dbt:
   enabled: true
-  image:
-    repository: pos-dbt
-    tag: 0.1.0
-    pullPolicy: IfNotPresent
 airflow:
   enabled: true
-  image:
-    repository: pos-airflow
-    tag: 0.1.0
-    pullPolicy: IfNotPresent
-  adminUsername: admin
-  adminPassword: admin
-  service:
-    type: ClusterIP
-    port: 8080
 mdm:
-  enabled: true
-  mysql:
-    image:
-      repository: mysql
-      tag: "8.4"
-      pullPolicy: IfNotPresent
-    service:
-      type: ClusterIP
-      port: 3306
-    rootPassword: mdmroot
-    database: mdm
-    serverId: "223344"
   connect:
-    replicas: 1
-    image:
-      repository: pos-mdm-connect
-      tag: 0.1.0
-      pullPolicy: IfNotPresent
-    service:
-      type: ClusterIP
-      port: 8083
-    groupId: mdm-connect-cluster
-    configStorageTopic: mdm-connect-configs
-    offsetStorageTopic: mdm-connect-offsets
-    statusStorageTopic: mdm-connect-status
     curlImage:
       repository: curlimages/curl
       tag: 8.12.1
       pullPolicy: IfNotPresent
-  cdcProducer:
-    replicas: 1
-    image:
-      repository: pos-mdm-cdc-curate
-      tag: 0.1.0
-      pullPolicy: IfNotPresent
-    groupId: mdm-cdc-publisher
-    offsetReset: earliest
-  pysparkSync:
-    replicas: 1
-    image:
-      repository: pos-mdm-rds-pg
-      tag: 0.1.0
-      pullPolicy: IfNotPresent
-    syncIntervalSec: 15
 dbzConnect:
   enabled: true
-  replicas: 1
-  image:
-    repository: pos-dbz-connect
-    tag: 0.1.0
-    pullPolicy: IfNotPresent
   curlImage:
     repository: curlimages/curl
     tag: 8.12.1
     pullPolicy: IfNotPresent
-  service:
-    type: ClusterIP
-    port: 8083
-  groupId: dbz-connect-cluster
-  configStorageTopic: dbz-connect-configs
-  offsetStorageTopic: dbz-connect-offsets
-  statusStorageTopic: dbz-connect-status
 conduktor:
   enabled: true
-  replicas: 1
-  organizationName: local
-  adminEmail: admin
-  adminPassword: admin
-  image:
-    repository: conduktor/conduktor-console
-    tag: 1.28.0
-    pullPolicy: IfNotPresent
-  service:
-    type: ClusterIP
-    port: 8080
-  db:
-    image:
-      repository: postgres
-      tag: "14"
-      pullPolicy: IfNotPresent
-    auth:
-      database: conduktor
-      user: conduktor
-      password: conduktor
 observability:
   enabled: true
-  prometheus:
-    replicas: 1
-    image:
-      repository: prom/prometheus
-      tag: v2.53.0
-      pullPolicy: IfNotPresent
-    service:
-      type: ClusterIP
-      port: 9090
   loki:
     enabled: false
-    replicas: 1
-    image:
-      repository: grafana/loki
-      tag: 2.9.8
-      pullPolicy: IfNotPresent
-    service:
-      type: ClusterIP
-      port: 3100
   promtail:
     enabled: false
-    image:
-      repository: grafana/promtail
-      tag: 2.9.8
-      pullPolicy: IfNotPresent
-  grafana:
-    replicas: 1
-    image:
-      repository: grafana/grafana
-      tag: 11.1.0
-      pullPolicy: IfNotPresent
-    adminUser: admin
-    adminPassword: admin
-    service:
-      type: ClusterIP
-      port: 3000
   blackboxExporter:
     enabled: true
-    image:
-      repository: prom/blackbox-exporter
-      tag: latest
-      pullPolicy: IfNotPresent
-    service:
-      type: ClusterIP
-      port: 9115
-openmetadata:
-  enabled: false
-  db:
-    image:
-      repository: mysql
-      tag: "8.0"
-      pullPolicy: IfNotPresent
-    auth:
-      rootPassword: openmetadata_root
-      database: openmetadata_db
-      user: openmetadata_user
-      password: openmetadata_pass
-    service:
-      type: ClusterIP
-      port: 3306
-  search:
-    image:
-      repository: docker.elastic.co/elasticsearch/elasticsearch
-      tag: 8.14.3
-      pullPolicy: IfNotPresent
-    service:
-      type: ClusterIP
-      port: 9200
-    javaOpts: -Xms1g -Xmx1g
-  server:
-    image:
-      repository: openmetadata/server
-      tag: 1.5.8
-      pullPolicy: IfNotPresent
-    service:
-      type: ClusterIP
-      port: 8585
-  ingestion:
-    image:
-      repository: openmetadata/ingestion
-      tag: 1.5.8
-      pullPolicy: IfNotPresent
-zookeeper:
-  enabled: true
-  replicas: 1
-  image:
-    repository: confluentinc/cp-zookeeper
-    tag: 7.6.1
-    pullPolicy: IfNotPresent
-  service:
-    type: ClusterIP
-    port: 2181
+# Kafka topics for dev: includes dbz-connect topics; omits connect-iceberg-control.
+# Compact policies are not enforced in dev to simplify resets.
 kafka:
-  enabled: true
-  replicas: 1
-  image:
-    repository: confluentinc/cp-kafka
-    tag: 7.6.1
-    pullPolicy: IfNotPresent
-  zookeeperConnect: '{{ include "vision.serviceName" (dict "root" . "key" "zookeeper") }}:2181'
   provisioning:
-    enabled: true
-    numPartitions: 3
-    replicationFactor: 1
     topics:
     - name: raw_sales_orders
       partitions: 3

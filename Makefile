@@ -24,6 +24,7 @@ KAFKA_CONSOLE_CONSUMER ?= /usr/bin/kafka-console-consumer
 KUBECTL ?= kubectl
 KUBECTL_NS ?= $(KUBECTL) -n $(K8S_NAMESPACE)
 KUBECTL_ARGOCD ?= $(KUBECTL) -n argocd
+K8S_CONNECT_URL ?= http://localhost:8083
 UI_PORT_FORWARDS ?= \
 	airflow=18080:8080 \
 	trino=18081:8080 \
@@ -55,7 +56,8 @@ SCHEMA_INIT_IMAGE_TAG ?= latest
 
 .PHONY: compose-build compose-up compose-down compose-clean images mdm-status mdm-topics-check mdm-flow-check \
 	k8s-kind-bootstrap k8s-build-images helm-deps helm-template helm-up helm-down k8s-ui-port-forward \
-	k8s-argocd-apply k8s-status k8s-routine-up k8s-routine-down
+	k8s-argocd-apply k8s-status k8s-register-dbz k8s-register-mdm k8s-register-ods k8s-register-connectors \
+	k8s-routine-up k8s-routine-down
 
 # Build all Docker images
 compose-build:
@@ -142,6 +144,21 @@ k8s-argocd-apply:
 k8s-status:
 	$(KUBECTL_NS) get pods
 	$(KUBECTL_NS) get jobs
+
+# Register Debezium connectors in the in-cluster DBZ Connect deployment
+k8s-register-dbz:
+	bash ./cicd/scripts/register-dbz-connectors.sh --k8s $(K8S_NAMESPACE) $(K8S_RELEASE)-vision-dbz-connect --url $(K8S_CONNECT_URL)
+
+# Register MDM connectors in the in-cluster MDM Connect deployment
+k8s-register-mdm:
+	bash ./cicd/scripts/register-mdm-connectors.sh --k8s $(K8S_NAMESPACE) $(K8S_RELEASE)-vision-mdm-connect --url $(K8S_CONNECT_URL)
+
+# Register ODS connectors in the in-cluster ODS Connect deployment
+k8s-register-ods:
+	bash ./cicd/scripts/register-ods-connectors.sh --k8s $(K8S_NAMESPACE) $(K8S_RELEASE)-vision-ods-connect --url $(K8S_CONNECT_URL)
+
+# Register all connector sets in-cluster
+k8s-register-connectors: k8s-register-dbz k8s-register-mdm k8s-register-ods
 
 # Port-forward all enabled UI services in the selected namespace (Ctrl+C to stop)
 k8s-ui-port-forward:

@@ -37,6 +37,7 @@ postgres:
   enabled: false
 odsConnect:
   enabled: false
+  topicsDir: raw/ods
 dbt:
   enabled: false
 airflow:

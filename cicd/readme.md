@@ -32,9 +32,33 @@ The `cicd` folder is the delivery control plane for this repository. It includes
   - `bootstrap-kind.sh`
 - `scripts/`
   - `build-images.sh`
-  - `register-connectors.sh`
-  - `consolidated-register-connector.sh`
+  - `register-connectors-core.sh` (internal)
+  - `register-dbz-connectors.sh`
+  - `register-mdm-connectors.sh`
+  - `register-ods-connectors.sh`
   - `register-schemas.sh`
+  - `lib/common.sh`
+  - `lib/registration.sh`
+
+### Script Canonical Paths
+
+- Use purpose-specific wrappers for 3 Kafka Connect runtimes:
+  `./cicd/scripts/register-dbz-connectors.sh`,
+  `./cicd/scripts/register-mdm-connectors.sh`,
+  `./cicd/scripts/register-ods-connectors.sh`.
+- `./cicd/scripts/register-connectors-core.sh` is an internal shared engine used by those wrappers.
+- Use `./cicd/scripts/register-schemas.sh` as the canonical schema registration implementation.
+- The schema-init Docker image uses this canonical script and shared libs for parity between Docker Compose and script-based execution.
+
+### Connector Env Knobs
+
+The connector registration wrappers and core script support these runtime knobs:
+
+- `CONNECT_WAIT_SECONDS`: Max seconds to wait for Kafka Connect readiness (`/connector-plugins`) before failing. `0` disables wait (default).
+- `CONNECT_WAIT_INTERVAL_SEC`: Poll interval (seconds) while waiting for Kafka Connect. Default `2`.
+- `CONNECT_UPSERT_RETRIES`: Number of upsert attempts per connector (`PUT`/`POST`). Default `5`.
+- `CONNECT_UPSERT_RETRY_DELAY_SEC`: Delay (seconds) between upsert retries. Default `3`.
+- `ODS_DELETE_LEGACY_CONNECTOR`: When `true`, ODS scope removes legacy `jdbc-sales-warehouse` before registering split ODS connectors. Default `true`.
 
 ## Deployment Model
 

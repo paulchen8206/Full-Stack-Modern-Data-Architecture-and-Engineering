@@ -162,8 +162,8 @@ services:
 
   pos-schema-init:
     build:
-      context: ./platform-services/schemas
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: platform-services/schemas/Dockerfile
     image: pos-schema-init:latest
     container_name: schema_init
     depends_on:

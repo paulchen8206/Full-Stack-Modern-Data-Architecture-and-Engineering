@@ -1,3 +1,4 @@
+{{- if .Values.schemaRegistry.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -7,7 +8,7 @@ metadata:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: schema-registry
 spec:
-  replicas: 1
+  replicas: {{ .Values.schemaRegistry.replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "vision.name" . }}
@@ -21,8 +22,8 @@ spec:
       enableServiceLinks: false
       containers:
         - name: schema-registry
-          image: confluentinc/cp-schema-registry:7.5.3
-          imagePullPolicy: IfNotPresent
+          image: {{ .Values.schemaRegistry.image.repository }}:{{ .Values.schemaRegistry.image.tag }}
+          imagePullPolicy: {{ .Values.schemaRegistry.image.pullPolicy }}
           ports:
             - containerPort: 8081
           env:
@@ -50,3 +51,4 @@ spec:
   selector:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: schema-registry
+{{- end }}

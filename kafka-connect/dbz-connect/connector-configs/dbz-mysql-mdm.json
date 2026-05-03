@@ -16,7 +16,7 @@
     "decimal.handling.mode": "string",
     "time.precision.mode": "connect",
     "schema.history.internal": "io.debezium.storage.kafka.history.KafkaSchemaHistory",
-    "schema.history.internal.kafka.bootstrap.servers": "kafka-1:19092,kafka-2:19093,kafka-3:19094",
+    "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
     "schema.history.internal.kafka.topic": "schema-changes.mdm"
   }
 }

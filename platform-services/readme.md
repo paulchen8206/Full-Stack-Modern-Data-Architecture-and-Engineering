@@ -32,7 +32,6 @@ These services are not domain apps themselves. They provide core capabilities co
   - `init-minio.sh`
 - `schemas/`
   - `Dockerfile`
-  - `register-schemas.sh`
   - `avro/`
 
 ## Component Diagram

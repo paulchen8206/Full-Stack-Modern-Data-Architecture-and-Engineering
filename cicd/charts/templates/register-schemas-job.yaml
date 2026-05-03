@@ -1,3 +1,4 @@
+{{- if .Values.schemaRegistry.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -19,3 +20,4 @@ spec:
           env:
             - name: SCHEMA_REGISTRY_URL
               value: http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081
+{{- end }}

@@ -452,7 +452,8 @@ spec:
     spec:
       initContainers:
         - name: wait-for-kafka
-          image: busybox:1.36
+          image: {{ .Values.mdm.waitImage.repository }}:{{ .Values.mdm.waitImage.tag }}
+          imagePullPolicy: {{ .Values.mdm.waitImage.pullPolicy }}
           command:
             - /bin/sh
             - -c

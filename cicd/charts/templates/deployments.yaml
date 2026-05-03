@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "vision.fullname" . }}-ods-source
+  name: {{ include "vision.fullname" . }}-producer
   labels:
     app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: producer

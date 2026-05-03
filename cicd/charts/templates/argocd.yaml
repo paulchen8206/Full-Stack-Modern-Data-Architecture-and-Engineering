@@ -1,0 +1,31 @@
+{{- if .Values.argocd.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .Values.argocd.application.name | default .Release.Name }}
+  namespace: {{ .Values.argocd.application.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "vision.name" . }}
+    app.kubernetes.io/component: argocd-application
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: {{ .Values.argocd.application.project }}
+  source:
+    repoURL: {{ .Values.argocd.application.repoURL }}
+    targetRevision: {{ .Values.argocd.application.targetRevision }}
+    path: {{ .Values.argocd.application.path }}
+    helm:
+      releaseName: {{ .Release.Name }}
+      valueFiles:
+        {{- toYaml .Values.argocd.application.valueFiles | nindent 8 }}
+  destination:
+    server: {{ .Values.argocd.destination.server }}
+    namespace: {{ .Values.argocd.destination.namespace }}
+  syncPolicy:
+    automated:
+      prune: {{ .Values.argocd.syncPolicy.automated.prune }}
+      selfHeal: {{ .Values.argocd.syncPolicy.automated.selfHeal }}
+    syncOptions:
+      - CreateNamespace=true
+{{- end }}

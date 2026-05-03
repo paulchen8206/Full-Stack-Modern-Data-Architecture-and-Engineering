@@ -1,10 +1,37 @@
 schemaRegistry:
   enabled: true
+  replicas: 1
+  image:
+    repository: confluentinc/cp-schema-registry
+    tag: 7.6.1
+    pullPolicy: IfNotPresent
 schemaInit:
   image:
     repository: pos-schema-init
     tag: latest
     pullPolicy: IfNotPresent
+argocd:
+  # When enabled, renders an ArgoCD Application CR (App-of-Apps pattern).
+  # Apply via: helm upgrade --install OR kubectl apply -f cicd/argocd/<env>.yaml (bootstrap).
+  enabled: false
+  application:
+    # Overrides the Application metadata.name. Defaults to Release.Name when empty.
+    name: ""
+    namespace: argocd
+    project: default
+    repoURL: https://github.com/paulchen8206/GenAI-Enabled-Data-Platform-Architecture-and-Engineering.git
+    targetRevision: main
+    path: cicd/charts
+    # Paths are relative to the chart source path above.
+    valueFiles:
+    - ../k8s/helm/values/values-dev.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gndp-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
 legacyConnectorRegistrationHook:
   enabled: false
 nameOverride: "vision"
@@ -151,6 +178,7 @@ odsConnect:
     type: ClusterIP
     port: 8083
   groupId: ods-connect-cluster-1
+  topicsDir: raw/ods
   configStorageTopic: connect-configs
   offsetStorageTopic: connect-offsets
   statusStorageTopic: connect-status
@@ -210,6 +238,10 @@ mdm:
       repository: alpine
       tag: 3.19
       pullPolicy: IfNotPresent
+  waitImage:
+    repository: busybox
+    tag: 1.36
+    pullPolicy: IfNotPresent
   cdcProducer:
     replicas: 1
     image:

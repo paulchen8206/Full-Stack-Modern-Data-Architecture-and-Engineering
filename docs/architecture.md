@@ -267,47 +267,47 @@ Diagram: logical architecture component diagram.
 ```mermaid
 flowchart LR
   subgraph Bootstrap[Compose Bootstrap and Contracts]
-    KI[Kafka Init Topics]
-    MI[MinIO Init Bucket]
-    SI[Schema Init Avro Subjects]
-    OI[ODS Connect Init Sink Registration]
-    DI[DBZ Connect Init Source Registration]
-    MCI[MDM Connect Init Sink Registration]
+    KI["Kafka Init Topics"]
+    MI["MinIO Init Bucket"]
+    SI["Schema Init Avro Subjects"]
+    OI["ODS Connect Init Sink Registration"]
+    DI["DBZ Connect Init Source Registration"]
+    MCI["MDM Connect Init Sink Registration"]
   end
 
   subgraph Stream[Realtime Streaming Plane]
-    PR[Producer]
-    FL[Processor (Spring Boot and Flink)]
-    K[(Kafka Cluster: kafka-1/kafka-2/kafka-3)]
-    SR[Schema Registry]
+    PR["Producer"]
+    FL["Processor Spring Boot and Flink"]
+    K["Kafka Cluster kafka-1 kafka-2 kafka-3"]
+    SR["Schema Registry"]
     PR -->|Raw Sales Orders| K
     K -->|Consume| FL
-    FL -->|Sales Order / Sales Order Line Item / Customer Sales| K
+    FL -->|Sales Order and Sales Order Line Item and Customer Sales| K
     SR -.Schema Contracts.-> FL
   end
 
   subgraph Connectors[Kafka Connect and CDC Plane]
-    ODS[ODS Connect]
-    DBZ[DBZ Connect]
-    MDMK[MDM Connect]
-    MCP[MDM CDC Curate]
-    MDM[(MySQL MDM Source)]
+    ODS["ODS Connect"]
+    DBZ["DBZ Connect"]
+    MDMK["MDM Connect"]
+    MCP["MDM CDC Curate"]
+    MDM["MySQL MDM Source"]
     MDM -->|Binlog CDC| DBZ
     DBZ -->|Raw MDM CDC Topics| K
     K -->|Curate CDC| MCP
-    MCP -->|MDM Customer / MDM Product| K
+    MCP -->|MDM Customer and MDM Product| K
     K --> ODS
     K --> MDMK
   end
 
   subgraph Analytics[Lakehouse and Warehouse Plane]
-    IO[(MinIO)]
-    PG[(Postgres Snowflake Mimic)]
-    SP[PySpark MDM Sync]
-    TQ[Trino]
-    IW[Iceberg Writer]
-    DBT[dbt Bootstrap Job]
-    AF[Airflow Scheduler]
+    IO["MinIO"]
+    PG["Postgres Snowflake Mimic"]
+    SP["PySpark MDM Sync"]
+    TQ["Trino"]
+    IW["Iceberg Writer"]
+    DBT["dbt Bootstrap Job"]
+    AF["Airflow Scheduler"]
     ODS --> PG
     ODS --> IO
     MDMK --> PG
@@ -321,8 +321,8 @@ flowchart LR
   end
 
   subgraph Meta[Metadata Plane Optional profile openmetadata]
-    OMI[OpenMetadata Ingestion]
-    OM[OpenMetadata Server]
+    OMI["OpenMetadata Ingestion"]
+    OM["OpenMetadata Server"]
     OMI --> OM
     TQ -.Metadata and Lineage.-> OMI
     PG -.Metadata and Lineage.-> OMI
@@ -332,10 +332,10 @@ flowchart LR
   end
 
   subgraph Ops[Observability and Operations]
-    PROM[Prometheus]
-    BBX[Blackbox Exporter]
-    GRAF[Grafana]
-    KUI[Kafka UI or Conduktor]
+    PROM["Prometheus"]
+    BBX["Blackbox Exporter"]
+    GRAF["Grafana"]
+    KUI["Kafka UI or Conduktor"]
     BBX --> PROM
     PROM --> GRAF
     K --> KUI

@@ -28,6 +28,8 @@ Use the troubleshooting sections in this document as the primary operational dia
 
 - [../readme.md](../readme.md)
 - [architecture.md](architecture.md)
+- [routine_a.md](routine_a.md)
+- [routine_b.md](routine_b.md)
 - [adr/README.md](adr/README.md)
 
 ## Component Diagram
@@ -128,6 +130,8 @@ Documentation map:
 - Access to this repository root directory
 
 ## Routine A: Docker Compose
+
+For a self-contained quick-reference guide covering only Routine A, see [routine_a.md](routine_a.md).
 
 ### A1. Start stack
 
@@ -452,6 +456,8 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
   Then deduplicate source rows before MERGE (for example, keep the latest row per key).
 
 ## Routine B: kind + Helm + Argo CD
+
+For a self-contained quick-reference guide covering only Routine B, see [routine_b.md](routine_b.md).
 
 ### B1. Preferred bootstrap (one command)
 

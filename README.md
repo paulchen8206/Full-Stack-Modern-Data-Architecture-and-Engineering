@@ -146,6 +146,8 @@ flowchart LR
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | Architecture diagrams and modern data engineering framework/patterns |
 | [docs/runbook.md](docs/runbook.md) | Day-2 operations procedures for Compose and Argo CD workflows |
+| [docs/routine_a.md](docs/routine_a.md) | Quick-reference operational guide for Routine A (Docker Compose) |
+| [docs/routine_b.md](docs/routine_b.md) | Quick-reference operational guide for Routine B (kind + Helm + Argo CD) |
 | [docs/adr/README.md](docs/adr/README.md) | Architecture Decision Records (ADRs) |
 
 ## Subproject READMEs
@@ -304,7 +306,7 @@ For Kubernetes/GitOps simulation, use:
 ./cicd/k8s/kind/bootstrap-kind.sh
 ```
 
-See [docs/runbook.md](docs/runbook.md) for full Routine B and k8s flows.
+See [docs/routine_b.md](docs/routine_b.md) for the dedicated Routine B operational guide, or [docs/runbook.md](docs/runbook.md) for the combined runbook with all routines.
 
 Bootstrap local cluster via Argo CD app:
 

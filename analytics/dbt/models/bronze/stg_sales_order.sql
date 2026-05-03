@@ -19,7 +19,7 @@ select
   customeremail as customer_email,
   customersegment as customer_segment,
   currency,
-  cast(ordertotal as double) as order_total,
+  cast(null as double) as order_total,
   cast(lineitemcount as integer) as line_item_count
 from warehouse.landing.sales_order
 {% endif %}

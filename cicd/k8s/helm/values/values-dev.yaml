@@ -54,16 +54,6 @@ controlCenter:
   service:
     type: ClusterIP
     port: 9021
-zookeeper:
-  image:
-    repository: confluentinc/cp-zookeeper
-    tag: 7.6.1
-    pullPolicy: IfNotPresent
-kafka:
-  image:
-    repository: confluentinc/cp-kafka
-    tag: 7.6.1
-    pullPolicy: IfNotPresent
 minio:
   enabled: true
   image:
@@ -178,7 +168,7 @@ mdm:
   pysparkSync:
     replicas: 1
     image:
-      repository: pos-mdm-pyspark-sync
+      repository: pos-mdm-rds-pg
       tag: 0.1.0
       pullPolicy: IfNotPresent
     syncIntervalSec: 15

@@ -22,8 +22,8 @@ select
   sku,
   productname as product_name,
   cast(quantity as integer) as quantity,
-  cast(unitprice as double) as unit_price,
-  cast(linetotal as double) as line_total,
+  cast(null as double) as unit_price,
+  cast(null as double) as line_total,
   currency
 from warehouse.landing.sales_order_line_item
 {% endif %}

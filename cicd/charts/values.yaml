@@ -221,7 +221,7 @@ mdm:
   pysparkSync:
     replicas: 1
     image:
-      repository: pos-mdm-pyspark-sync
+      repository: pos-mdm-rds-pg
       tag: 0.1.0
       pullPolicy: IfNotPresent
     syncIntervalSec: 15

@@ -17,7 +17,7 @@ select
   customeremail as customer_email,
   customersegment as customer_segment,
   cast(ordercount as bigint) as order_count,
-  cast(totalspent as double) as total_spent,
+  cast(null as double) as total_spent,
   lastorderid as last_order_id,
   updatedat as updated_at,
   currency

@@ -19,8 +19,26 @@ data:
       - job_name: realtime-app-static
         static_configs:
           - targets:
-              - {{ include "realtime-app.fullname" . }}-processor:8080
+              - {{ include "realtime-app.fullname" . }}-ods-processor:8080
               - {{ include "realtime-app.fullname" . }}-kafka-ui:8080
+{{- if .Values.observability.blackboxExporter.enabled }}
+      - job_name: blackbox-http
+        metrics_path: /probe
+        params:
+          module: [http_2xx]
+        static_configs:
+          - targets:
+              - http://{{ include "realtime-app.fullname" . }}-trino:8080/v1/info
+              - http://{{ include "realtime-app.fullname" . }}-schema-registry:8081/subjects
+              - http://{{ include "realtime-app.fullname" . }}-conduktor:8080
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: instance
+          - target_label: __address__
+            replacement: {{ include "realtime-app.fullname" . }}-blackbox-exporter:9115
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -245,6 +263,66 @@ data:
               job: kubernetes-pods
               namespace: realtime-dev
               __path__: /var/log/pods/realtime-dev_*/*/*.log
+{{- if .Values.observability.blackboxExporter.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-blackbox-config
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: blackbox-exporter
+data:
+  blackbox.yml: |
+    modules:
+      http_2xx:
+        prober: http
+        timeout: 5s
+        http:
+          method: GET
+          preferred_ip_protocol: ip4
+          valid_status_codes: []
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-blackbox-exporter
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: blackbox-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: observability
+      app.kubernetes.io/part: blackbox-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/part: blackbox-exporter
+    spec:
+      containers:
+        - name: blackbox-exporter
+          image: {{ .Values.observability.blackboxExporter.image.repository }}:{{ .Values.observability.blackboxExporter.image.tag }}
+          imagePullPolicy: {{ .Values.observability.blackboxExporter.image.pullPolicy }}
+          args:
+            - --config.file=/etc/blackbox_exporter/config.yml
+          ports:
+            - containerPort: 9115
+          volumeMounts:
+            - name: config
+              mountPath: /etc/blackbox_exporter/config.yml
+              subPath: blackbox.yml
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-blackbox-config
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -494,4 +572,25 @@ spec:
     - name: http
       port: {{ .Values.observability.grafana.service.port }}
       targetPort: 3000
+{{- if .Values.observability.blackboxExporter.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-blackbox-exporter
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: blackbox-exporter
+spec:
+  type: {{ .Values.observability.blackboxExporter.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part: blackbox-exporter
+  ports:
+    - name: http
+      port: {{ .Values.observability.blackboxExporter.service.port }}
+      targetPort: 9115
+{{- end }}
 {{- end }}

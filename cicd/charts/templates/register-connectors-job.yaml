@@ -1,3 +1,4 @@
+{{- if and (hasKey .Values "legacyConnectorRegistrationHook") .Values.legacyConnectorRegistrationHook.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -17,7 +18,7 @@ spec:
             - |
               apk add --no-cache bash curl
               NAMESPACE="$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)"
-              CONNECT_DEPLOYMENT="realtime-dev-realtime-app-ods-connect"
+              CONNECT_DEPLOYMENT="realtime-dev-vision-ods-connect"
               wait_for_connect() {
                 until kubectl exec -n $NAMESPACE deploy/$CONNECT_DEPLOYMENT -- curl -sf http://localhost:8083/connectors >/dev/null; do
                   echo "Waiting for Kafka Connect REST API..."
@@ -38,3 +39,4 @@ spec:
         - name: connector-configs
           configMap:
             name: connector-configs
+{{- end }}

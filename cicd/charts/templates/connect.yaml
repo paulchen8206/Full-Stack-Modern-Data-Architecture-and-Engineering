@@ -1,8 +1,9 @@
+{{- if and (hasKey .Values "legacyConnectTemplate") .Values.legacyConnectTemplate.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: realtime-dev-realtime-app-ods-connect
+  name: realtime-dev-vision-ods-connect
   labels:
     app.kubernetes.io/name: realtime-app
     app.kubernetes.io/component: ods-connect
@@ -26,9 +27,9 @@ spec:
             - containerPort: 8083
           env:
             - name: CONNECT_BOOTSTRAP_SERVERS
-              value: "PLAINTEXT://realtime-dev-realtime-app-kafka:9092"
+              value: "PLAINTEXT://realtime-dev-vision-kafka:9092"
             - name: CONNECT_REST_ADVERTISED_HOST_NAME
-              value: "realtime-dev-realtime-app-ods-connect"
+              value: "realtime-dev-vision-ods-connect"
             - name: CONNECT_GROUP_ID
               value: "ods-connect-cluster"
             - name: CONNECT_CONFIG_STORAGE_TOPIC
@@ -55,7 +56,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: realtime-dev-realtime-app-ods-connect
+  name: realtime-dev-vision-ods-connect
   labels:
     app.kubernetes.io/name: realtime-app
     app.kubernetes.io/component: ods-connect
@@ -69,3 +70,4 @@ spec:
   selector:
     app.kubernetes.io/name: realtime-app
     app.kubernetes.io/component: ods-connect
+{{- end }}

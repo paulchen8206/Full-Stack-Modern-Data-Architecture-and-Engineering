@@ -8,4 +8,4 @@ dependencies:
 - name: kafka
   version: 29.3.4
   repository: https://charts.bitnami.com/bitnami
-  condition: kafka.enabled
+  condition: bitnamiKafka.enabled

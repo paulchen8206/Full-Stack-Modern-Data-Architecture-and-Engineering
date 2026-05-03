@@ -15,6 +15,23 @@ data:
     create schema if not exists silver;
     create schema if not exists gold;
 
+    create table if not exists public.iceberg_tables (
+      catalog_name varchar(255) not null,
+      table_namespace varchar(255) not null,
+      table_name varchar(255) not null,
+      metadata_location varchar(1000),
+      previous_metadata_location varchar(1000),
+      primary key (catalog_name, table_namespace, table_name)
+    );
+
+    create table if not exists public.iceberg_namespace_properties (
+      catalog_name varchar(255) not null,
+      namespace varchar(255) not null,
+      property_key varchar(255) not null,
+      property_value varchar(1000),
+      primary key (catalog_name, namespace, property_key)
+    );
+
     create table if not exists landing.sales_order (
       orderid text,
       ordertimestamp timestamptz,
@@ -119,7 +136,7 @@ data:
       outputs:
         dev:
           type: postgres
-          host: {{ include "realtime-app.fullname" . }}-postgres
+          host: {{ include "realtime-app.fullname" . }}-snowflake-mimic
           port: 5432
           user: {{ .Values.postgres.auth.user }}
           password: {{ .Values.postgres.auth.password }}
@@ -559,7 +576,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-postgres
+  name: {{ include "realtime-app.fullname" . }}-snowflake-mimic
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
@@ -606,7 +623,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-postgres
+  name: {{ include "realtime-app.fullname" . }}-snowflake-mimic
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
@@ -752,7 +769,7 @@ data:
       "topics": "sales_order",
       "value.converter": "org.apache.kafka.connect.json.JsonConverter",
       "value.converter.schemas.enable": "true",
-      "connection.url": "jdbc:postgresql://{{ include "realtime-app.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}",
+      "connection.url": "jdbc:postgresql://{{ include "realtime-app.fullname" . }}-snowflake-mimic:5432/{{ .Values.postgres.auth.database }}",
       "connection.user": "{{ .Values.postgres.auth.user }}",
       "connection.password": "{{ .Values.postgres.auth.password }}",
       "table.name.format": "landing.${topic}",
@@ -782,7 +799,7 @@ data:
       "topics": "sales_order_line_item",
       "value.converter": "org.apache.kafka.connect.json.JsonConverter",
       "value.converter.schemas.enable": "true",
-      "connection.url": "jdbc:postgresql://{{ include "realtime-app.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}",
+      "connection.url": "jdbc:postgresql://{{ include "realtime-app.fullname" . }}-snowflake-mimic:5432/{{ .Values.postgres.auth.database }}",
       "connection.user": "{{ .Values.postgres.auth.user }}",
       "connection.password": "{{ .Values.postgres.auth.password }}",
       "table.name.format": "landing.${topic}",
@@ -812,7 +829,7 @@ data:
       "topics": "customer_sales",
       "value.converter": "org.apache.kafka.connect.json.JsonConverter",
       "value.converter.schemas.enable": "true",
-      "connection.url": "jdbc:postgresql://{{ include "realtime-app.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}",
+      "connection.url": "jdbc:postgresql://{{ include "realtime-app.fullname" . }}-snowflake-mimic:5432/{{ .Values.postgres.auth.database }}",
       "connection.user": "{{ .Values.postgres.auth.user }}",
       "connection.password": "{{ .Values.postgres.auth.password }}",
       "table.name.format": "landing.${topic}",

@@ -1,0 +1,238 @@
+{{- if .Values.openmetadata.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-openmetadata-db
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: openmetadata-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: openmetadata-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: openmetadata-db
+    spec:
+      containers:
+        - name: openmetadata-db
+          image: {{ .Values.openmetadata.db.image.repository }}:{{ .Values.openmetadata.db.image.tag }}
+          imagePullPolicy: {{ .Values.openmetadata.db.image.pullPolicy }}
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: {{ .Values.openmetadata.db.auth.rootPassword | quote }}
+            - name: MYSQL_DATABASE
+              value: {{ .Values.openmetadata.db.auth.database | quote }}
+            - name: MYSQL_USER
+              value: {{ .Values.openmetadata.db.auth.user | quote }}
+            - name: MYSQL_PASSWORD
+              value: {{ .Values.openmetadata.db.auth.password | quote }}
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-openmetadata-db
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: openmetadata-db
+spec:
+  type: {{ .Values.openmetadata.db.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: openmetadata-db
+  ports:
+    - name: mysql
+      port: {{ .Values.openmetadata.db.service.port }}
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-openmetadata-search
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: openmetadata-search
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: openmetadata-search
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: openmetadata-search
+    spec:
+      containers:
+        - name: openmetadata-search
+          image: {{ .Values.openmetadata.search.image.repository }}:{{ .Values.openmetadata.search.image.tag }}
+          imagePullPolicy: {{ .Values.openmetadata.search.image.pullPolicy }}
+          env:
+            - name: discovery.type
+              value: single-node
+            - name: xpack.security.enabled
+              value: "false"
+            - name: ES_JAVA_OPTS
+              value: {{ .Values.openmetadata.search.javaOpts | quote }}
+          ports:
+            - containerPort: 9200
+          volumeMounts:
+            - name: data
+              mountPath: /usr/share/elasticsearch/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-openmetadata-search
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: openmetadata-search
+spec:
+  type: {{ .Values.openmetadata.search.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: openmetadata-search
+  ports:
+    - name: http
+      port: {{ .Values.openmetadata.search.service.port }}
+      targetPort: 9200
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-openmetadata-server
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: openmetadata-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: openmetadata-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: openmetadata-server
+    spec:
+      initContainers:
+        - name: openmetadata-migrate
+          image: {{ .Values.openmetadata.server.image.repository }}:{{ .Values.openmetadata.server.image.tag }}
+          imagePullPolicy: {{ .Values.openmetadata.server.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -lc
+            - ./bootstrap/openmetadata-ops.sh migrate
+          env:
+            - name: DB_DRIVER_CLASS
+              value: com.mysql.cj.jdbc.Driver
+            - name: DB_SCHEME
+              value: mysql
+            - name: DB_USE_SSL
+              value: "false"
+            - name: DB_HOST
+              value: {{ include "realtime-app.fullname" . }}-openmetadata-db
+            - name: DB_PORT
+              value: "3306"
+            - name: OM_DATABASE
+              value: {{ .Values.openmetadata.db.auth.database | quote }}
+            - name: DB_USER
+              value: {{ .Values.openmetadata.db.auth.user | quote }}
+            - name: DB_USER_PASSWORD
+              value: {{ .Values.openmetadata.db.auth.password | quote }}
+      containers:
+        - name: openmetadata-server
+          image: {{ .Values.openmetadata.server.image.repository }}:{{ .Values.openmetadata.server.image.tag }}
+          imagePullPolicy: {{ .Values.openmetadata.server.image.pullPolicy }}
+          env:
+            - name: OPENMETADATA_CLUSTER_NAME
+              value: local
+            - name: SERVER_HOST_API_URL
+              value: http://{{ include "realtime-app.fullname" . }}-openmetadata-server:8585/api
+            - name: DB_DRIVER_CLASS
+              value: com.mysql.cj.jdbc.Driver
+            - name: DB_SCHEME
+              value: mysql
+            - name: DB_USE_SSL
+              value: "false"
+            - name: DB_HOST
+              value: {{ include "realtime-app.fullname" . }}-openmetadata-db
+            - name: DB_PORT
+              value: "3306"
+            - name: OM_DATABASE
+              value: {{ .Values.openmetadata.db.auth.database | quote }}
+            - name: DB_USER
+              value: {{ .Values.openmetadata.db.auth.user | quote }}
+            - name: DB_USER_PASSWORD
+              value: {{ .Values.openmetadata.db.auth.password | quote }}
+            - name: ELASTICSEARCH_HOST
+              value: {{ include "realtime-app.fullname" . }}-openmetadata-search
+            - name: ELASTICSEARCH_PORT
+              value: "9200"
+            - name: ELASTICSEARCH_SCHEME
+              value: http
+          ports:
+            - containerPort: 8585
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-openmetadata-server
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: openmetadata-server
+spec:
+  type: {{ .Values.openmetadata.server.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: openmetadata-server
+  ports:
+    - name: http
+      port: {{ .Values.openmetadata.server.service.port }}
+      targetPort: 8585
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-openmetadata-ingestion
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: openmetadata-ingestion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: openmetadata-ingestion
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: openmetadata-ingestion
+    spec:
+      containers:
+        - name: openmetadata-ingestion
+          image: {{ .Values.openmetadata.ingestion.image.repository }}:{{ .Values.openmetadata.ingestion.image.tag }}
+          imagePullPolicy: {{ .Values.openmetadata.ingestion.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -lc
+            - sleep infinity
+{{- end }}

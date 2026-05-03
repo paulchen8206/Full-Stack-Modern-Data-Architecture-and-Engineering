@@ -1,17 +1,57 @@
-kafkaBootstrapServers: kafka-qa.kafka.svc.cluster.local:9092
+nameOverride: "vision"
+fullnameOverride: ""
+bitnamiKafka:
+  enabled: false
+kafkaBootstrapServers: "kafka-qa.kafka.svc.cluster.local:9092"
+schemaRegistry:
+  enabled: true
 producer:
-	replicas: 1
-	image:
-		repository: my-registry/pos-producer
-		tag: 0.1.0
-		pullPolicy: IfNotPresent
-	intervalMs: 2000
+  enabled: true
+  replicas: 1
+  image:
+    repository: my-registry/pos-producer
+    tag: 0.1.0
+    pullPolicy: IfNotPresent
+  intervalMs: 2000
+  rawTopic: raw_sales_orders
 processor:
-	replicas: 1
-	image:
-		repository: my-registry/pos-processor
-		tag: 0.1.0
-		pullPolicy: IfNotPresent
-	consumerGroupId: realtime-flink-processor-qa
+  enabled: true
+  replicas: 1
+  image:
+    repository: my-registry/pos-processor
+    tag: 0.1.0
+    pullPolicy: IfNotPresent
+  consumerGroupId: realtime-flink-processor-qa
+  checkpointIntervalMs: 10000
+icebergWriter:
+  enabled: false
+kafkaUi:
+  enabled: false
+controlCenter:
+  enabled: false
+minio:
+  enabled: false
+trino:
+  enabled: false
+postgres:
+  enabled: false
+odsConnect:
+  enabled: false
+dbt:
+  enabled: false
+airflow:
+  enabled: false
+mdm:
+  enabled: false
+dbzConnect:
+  enabled: false
+conduktor:
+  enabled: false
+observability:
+  enabled: false
+openmetadata:
+  enabled: false
+zookeeper:
+  enabled: false
 kafka:
-	enabled: false
+  enabled: false

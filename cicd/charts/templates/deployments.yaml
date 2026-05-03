@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-producer
+  name: {{ include "realtime-app.fullname" . }}-ods-source
   labels:
     app.kubernetes.io/name: {{ include "realtime-app.name" . }}
     app.kubernetes.io/component: producer
@@ -25,6 +25,8 @@ spec:
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: {{ .Values.kafkaBootstrapServers | quote }}
+            - name: SCHEMA_REGISTRY_URL
+              value: http://{{ include "realtime-app.fullname" . }}-schema-registry:8081
             - name: RAW_TOPIC
               value: {{ .Values.producer.rawTopic | quote }}
             - name: PRODUCER_INTERVAL_MS
@@ -86,7 +88,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-processor
+  name: {{ include "realtime-app.fullname" . }}-ods-processor
   labels:
     app.kubernetes.io/name: {{ include "realtime-app.name" . }}
     app.kubernetes.io/component: processor
@@ -127,7 +129,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-processor
+  name: {{ include "realtime-app.fullname" . }}-ods-processor
   labels:
     app.kubernetes.io/name: {{ include "realtime-app.name" . }}
     app.kubernetes.io/component: processor
@@ -166,6 +168,12 @@ spec:
         - name: iceberg-writer
           image: {{ .Values.icebergWriter.image.repository }}:{{ .Values.icebergWriter.image.tag }}
           imagePullPolicy: {{ .Values.icebergWriter.image.pullPolicy }}
+          command:
+            - /usr/local/bin/wait-for-it.sh
+            - {{ printf "%s-snowflake-mimic:5432" (include "realtime-app.fullname" .) | quote }}
+            - uv
+            - run
+            - iceberg-writer
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: {{ .Values.kafkaBootstrapServers | quote }}

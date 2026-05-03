@@ -6,13 +6,13 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/paulchen8206/Full-Stack-Modern-Data-Architecture-and-Engineering.git
+    repoURL: https://github.com/paulchen8206/GenAI-Enabled-Data-Platform-Architecture-and-Engineering.git
     targetRevision: main
     path: cicd/charts
     helm:
       releaseName: realtime-dev
       valueFiles:
-      - ../../../environments/dev/values.yaml
+      - ../k8s/helm/values/values-dev.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: realtime-dev

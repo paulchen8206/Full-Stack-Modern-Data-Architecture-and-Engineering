@@ -1,0 +1,311 @@
+{{- if .Values.dbzConnect.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-dbz-connect-config
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: dbz-connect
+data:
+  register-dbz-connectors.sh: |
+    #!/bin/sh
+    set -eu
+
+    CONNECT_URL="${CONNECT_URL:-http://{{ include "realtime-app.fullname" . }}-dbz-connect:8083}"
+    CONNECTOR_CFG="/connectors/dbz-mysql-mdm.json"
+    CONNECTOR_NAME="dbz-mysql-mdm"
+
+    until curl -fsS "${CONNECT_URL}/connector-plugins" >/dev/null 2>&1; do
+      echo "Waiting for Kafka Connect at ${CONNECT_URL} ..."
+      sleep 2
+    done
+
+    echo "Registering connector ${CONNECTOR_NAME}"
+    curl -fsS -X PUT \
+      -H "Content-Type: application/json" \
+      --data @"${CONNECTOR_CFG}" \
+      "${CONNECT_URL}/connectors/${CONNECTOR_NAME}/config"
+  dbz-mysql-mdm.json: |
+    {
+      "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+      "tasks.max": "1",
+      "database.hostname": "{{ include "realtime-app.fullname" . }}-mdm-source",
+      "database.port": "3306",
+      "database.user": "root",
+      "database.password": "{{ .Values.mdm.mysql.rootPassword }}",
+      "database.server.id": "5401",
+      "topic.prefix": "mdm_mysql",
+      "database.include.list": "{{ .Values.mdm.mysql.database }}",
+      "table.include.list": "{{ .Values.mdm.mysql.database }}.customer360,{{ .Values.mdm.mysql.database }}.product_master,{{ .Values.mdm.mysql.database }}.mdm_date",
+      "include.schema.changes": "false",
+      "snapshot.mode": "initial",
+      "decimal.handling.mode": "string",
+      "time.precision.mode": "connect",
+      "schema.history.internal": "io.debezium.storage.kafka.history.KafkaSchemaHistory",
+      "schema.history.internal.kafka.bootstrap.servers": "{{ .Values.kafkaBootstrapServers }}",
+      "schema.history.internal.kafka.topic": "schema-changes.mdm"
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-dbz-connect
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: dbz-connect
+spec:
+  replicas: {{ .Values.dbzConnect.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: dbz-connect
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: dbz-connect
+    spec:
+      containers:
+        - name: dbz-connect
+          image: {{ .Values.dbzConnect.image.repository }}:{{ .Values.dbzConnect.image.tag }}
+          imagePullPolicy: {{ .Values.dbzConnect.image.pullPolicy }}
+          ports:
+            - containerPort: 8083
+          env:
+            - name: BOOTSTRAP_SERVERS
+              value: {{ .Values.kafkaBootstrapServers | quote }}
+            - name: GROUP_ID
+              value: {{ .Values.dbzConnect.groupId | quote }}
+            - name: CONFIG_STORAGE_TOPIC
+              value: {{ .Values.dbzConnect.configStorageTopic | quote }}
+            - name: OFFSET_STORAGE_TOPIC
+              value: {{ .Values.dbzConnect.offsetStorageTopic | quote }}
+            - name: STATUS_STORAGE_TOPIC
+              value: {{ .Values.dbzConnect.statusStorageTopic | quote }}
+            - name: CONFIG_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            - name: OFFSET_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            - name: STATUS_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            - name: KEY_CONVERTER
+              value: org.apache.kafka.connect.storage.StringConverter
+            - name: VALUE_CONVERTER
+              value: org.apache.kafka.connect.json.JsonConverter
+            - name: VALUE_CONVERTER_SCHEMAS_ENABLE
+              value: "false"
+            - name: INTERNAL_KEY_CONVERTER
+              value: org.apache.kafka.connect.json.JsonConverter
+            - name: INTERNAL_VALUE_CONVERTER
+              value: org.apache.kafka.connect.json.JsonConverter
+            - name: REST_ADVERTISED_HOST_NAME
+              value: {{ printf "%s-dbz-connect" (include "realtime-app.fullname" .) | quote }}
+            - name: PLUGIN_PATH
+              value: /kafka/connect,/kafka/connect-plugins,/usr/share/java,/usr/share/confluent-hub-components
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-dbz-connect
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: dbz-connect
+spec:
+  type: {{ .Values.dbzConnect.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: dbz-connect
+  ports:
+    - name: http
+      port: {{ .Values.dbzConnect.service.port }}
+      targetPort: 8083
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-dbz-connect-init
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: dbz-connect-init
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: dbz-connect-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: dbz-connect-init
+          image: {{ .Values.dbzConnect.curlImage.repository }}:{{ .Values.dbzConnect.curlImage.tag }}
+          imagePullPolicy: {{ .Values.dbzConnect.curlImage.pullPolicy }}
+          command: ["/bin/sh", "/scripts/register-dbz-connectors.sh"]
+          volumeMounts:
+            - name: dbz-config
+              mountPath: /scripts/register-dbz-connectors.sh
+              subPath: register-dbz-connectors.sh
+            - name: connector-configs
+              mountPath: /connectors
+      volumes:
+        - name: dbz-config
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-dbz-connect-config
+            defaultMode: 0755
+            items:
+              - key: register-dbz-connectors.sh
+                path: register-dbz-connectors.sh
+        - name: connector-configs
+          configMap:
+            name: {{ include "realtime-app.fullname" . }}-dbz-connect-config
+            items:
+              - key: dbz-mysql-mdm.json
+                path: dbz-mysql-mdm.json
+{{- end }}
+
+{{- if .Values.conduktor.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-conduktor-db
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: conduktor-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: conduktor-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: conduktor-db
+    spec:
+      containers:
+        - name: conduktor-db
+          image: {{ .Values.conduktor.db.image.repository }}:{{ .Values.conduktor.db.image.tag }}
+          imagePullPolicy: {{ .Values.conduktor.db.image.pullPolicy }}
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.conduktor.db.auth.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.conduktor.db.auth.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.conduktor.db.auth.password | quote }}
+            - name: PGDATA
+              value: /var/lib/postgresql/data
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-conduktor-db
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: conduktor-db
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: conduktor-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-conduktor
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: conduktor
+spec:
+  replicas: {{ .Values.conduktor.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/component: conduktor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/component: conduktor
+    spec:
+      containers:
+        - name: conduktor
+          image: {{ .Values.conduktor.image.repository }}:{{ .Values.conduktor.image.tag }}
+          imagePullPolicy: {{ .Values.conduktor.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: CDK_ORGANIZATION_NAME
+              value: {{ .Values.conduktor.organizationName | quote }}
+            - name: CDK_ADMIN_EMAIL
+              value: {{ .Values.conduktor.adminEmail | quote }}
+            - name: CDK_ADMIN_PASSWORD
+              value: {{ .Values.conduktor.adminPassword | quote }}
+            - name: CDK_KAFKA_BROKERS
+              value: {{ .Values.kafkaBootstrapServers | quote }}
+            - name: CDK_DATABASE_URL
+              value: {{ printf "postgresql://%s:%s@%s-conduktor-db:5432/%s" .Values.conduktor.db.auth.user .Values.conduktor.db.auth.password (include "realtime-app.fullname" .) .Values.conduktor.db.auth.database | quote }}
+            - name: CDK_DATABASE_USERNAME
+              value: {{ .Values.conduktor.db.auth.user | quote }}
+            - name: CDK_DATABASE_PASSWORD
+              value: {{ .Values.conduktor.db.auth.password | quote }}
+            - name: CDK_CLUSTERS_0_ID
+              value: local-kafka
+            - name: CDK_CLUSTERS_0_NAME
+              value: local-kafka
+            - name: CDK_CLUSTERS_0_BOOTSTRAPSERVERS
+              value: {{ .Values.kafkaBootstrapServers | quote }}
+            - name: CDK_CLUSTERS_0_SCHEMAREGISTRY_ID
+              value: confluent-sr
+            - name: CDK_CLUSTERS_0_SCHEMAREGISTRY_URL
+              value: {{ printf "http://%s-schema-registry:8081" (include "realtime-app.fullname" .) | quote }}
+            - name: CDK_CLUSTERS_0_KAFKACONNECTS_0_ID
+              value: mdm-connect
+            - name: CDK_CLUSTERS_0_KAFKACONNECTS_0_NAME
+              value: MDM Kafka Connect
+            - name: CDK_CLUSTERS_0_KAFKACONNECTS_0_URL
+              value: {{ printf "http://%s-mdm-connect:8083" (include "realtime-app.fullname" .) | quote }}
+            - name: CDK_CLUSTERS_0_KAFKACONNECTS_1_ID
+              value: dbz-connect
+            - name: CDK_CLUSTERS_0_KAFKACONNECTS_1_NAME
+              value: Debezium Kafka Connect
+            - name: CDK_CLUSTERS_0_KAFKACONNECTS_1_URL
+              value: {{ printf "http://%s-dbz-connect:8083" (include "realtime-app.fullname" .) | quote }}
+            - name: CDK_CLUSTERS_0_KAFKACONNECTS_2_ID
+              value: ods-connect
+            - name: CDK_CLUSTERS_0_KAFKACONNECTS_2_NAME
+              value: ODS Kafka Connect
+            - name: CDK_CLUSTERS_0_KAFKACONNECTS_2_URL
+              value: {{ printf "http://%s-ods-connect:8083" (include "realtime-app.fullname" .) | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realtime-app.fullname" . }}-conduktor
+  labels:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: conduktor
+spec:
+  type: {{ .Values.conduktor.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/component: conduktor
+  ports:
+    - name: http
+      port: {{ .Values.conduktor.service.port }}
+      targetPort: 8080
+{{- end }}

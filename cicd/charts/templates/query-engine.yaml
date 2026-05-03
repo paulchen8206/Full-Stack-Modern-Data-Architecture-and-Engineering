@@ -29,11 +29,11 @@ data:
     iceberg.catalog.type=jdbc
     iceberg.jdbc-catalog.catalog-name=lakehouse
     iceberg.jdbc-catalog.driver-class=org.postgresql.Driver
-    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://{{ include "realtime-app.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}
+    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://{{ include "realtime-app.fullname" . }}-snowflake-mimic:5432/{{ .Values.postgres.auth.database }}
     iceberg.jdbc-catalog.connection-user={{ .Values.postgres.auth.user }}
     iceberg.jdbc-catalog.connection-password={{ .Values.postgres.auth.password }}
     iceberg.jdbc-catalog.default-warehouse-dir=s3://{{ .Values.minio.bucket }}/iceberg
-    iceberg.jdbc-catalog.schema-version=V1
+    iceberg.jdbc-catalog.schema-version=V0
     iceberg.file-format=PARQUET
     iceberg.unique-table-location=true
     iceberg.register-table-procedure.enabled=true
@@ -45,7 +45,7 @@ data:
     s3.aws-secret-key={{ .Values.minio.rootPassword }}
   warehouse.properties: |
     connector.name=postgresql
-    connection-url=jdbc:postgresql://{{ include "realtime-app.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}
+    connection-url=jdbc:postgresql://{{ include "realtime-app.fullname" . }}-snowflake-mimic:5432/{{ .Values.postgres.auth.database }}
     connection-user={{ .Values.postgres.auth.user }}
     connection-password={{ .Values.postgres.auth.password }}
 ---

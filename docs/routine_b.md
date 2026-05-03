@@ -364,6 +364,35 @@ kind delete cluster --name gndp-dev
 - Helm ConfigMap-mounted files (Airflow DAGs, Trino catalog properties) do not hot-reload after `helm upgrade`. Restart the affected Deployments to pick up changes.
 - One-shot init containers that exit with code 0 are healthy completions, not failures.
 
+## Deployment Diagram
+
+```mermaid
+flowchart TB
+  DEV[Developer Machine] --> KIND[kind Cluster gndp-dev]
+  DEV --> PF[Port-forward Sessions]
+
+  subgraph CLUSTER[Kubernetes Cluster]
+    direction TB
+    subgraph ARGO[Namespace argocd]
+      ACD[Argo CD Server and Controllers]
+      APP[gndp-dev Application]
+    end
+
+    subgraph WORK[Namespace gndp-dev]
+      direction TB
+      DEP[Deployments producer processor kafka trino airflow conduktor]
+      JOBS[Init Jobs minio-init dbz-connect-init ods-connect-init mdm-connect-init dbt]
+      SVC[Services kafka trino airflow conduktor minio grafana snowflake-mimic]
+    end
+  end
+
+  ACD --> APP
+  APP --> DEP
+  APP --> JOBS
+  DEP --> SVC
+  PF --> SVC
+```
+
 ## Component Diagram
 
 ```mermaid

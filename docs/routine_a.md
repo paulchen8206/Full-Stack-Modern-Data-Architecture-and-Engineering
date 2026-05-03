@@ -93,6 +93,44 @@ make compose-clean
 - Main one-shot services include `kafka-init`, `pos-schema-init`, `minio-init`, `dbz-connect-init`, `ods-connect-init`, `mdm-connect-init`, and `dbt`.
 - Debezium CDC source runs on `dbz-connect`; `mdm-connect` is used for MDM sink connectors.
 
+## Deployment Diagram
+
+```mermaid
+flowchart TB
+	DEV[Developer Machine] --> DOCKER[Docker Engine]
+
+	subgraph STACK[Compose Runtime]
+		direction TB
+		subgraph BOOTSTRAP[Bootstrap Jobs]
+			KI[kafka-init]
+			SI[pos-schema-init]
+			MI[minio-init]
+			DI[dbz-connect-init]
+			OI[ods-connect-init]
+			MCI[mdm-connect-init]
+			DBTJ[dbt one-shot]
+		end
+
+		subgraph CORE[Long-running Services]
+			KAFKA[Kafka and Schema Registry]
+			CONNECT[dbz-connect and ods-connect and mdm-connect]
+			APPS[producer and ods-processor and mdm-cdc-curate]
+			WAREHOUSE[snowflake-mimic and trino]
+			ORCH[airflow]
+			OBS[prometheus and grafana and blackbox]
+		end
+	end
+
+	DOCKER --> STACK
+	APPS --> KAFKA
+	CONNECT --> KAFKA
+	CONNECT --> WAREHOUSE
+	ORCH --> WAREHOUSE
+
+	CLIENTS[Local Clients] --> PORTS[Published Ports 8080 8084 8086 9001]
+	PORTS --> CORE
+```
+
 ## Component Diagram
 
 ```mermaid

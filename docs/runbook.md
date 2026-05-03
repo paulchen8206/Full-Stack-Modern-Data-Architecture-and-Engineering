@@ -113,7 +113,7 @@ Documentation map:
 | kind + Helm + Argo CD | Validate streaming Iceberg tables received data | `kubectl -n gndp-dev logs deploy/gndp-dev-vision-iceberg-writer --tail=100` |
 | kind + Helm + Argo CD | Open Postgres | `kubectl -n gndp-dev port-forward svc/gndp-dev-vision-postgres 5433:5432` |
 | kind + Helm + Argo CD | Open Grafana | `kubectl -n gndp-dev port-forward svc/gndp-dev-vision-grafana 3001:3000` |
-| kind + Helm + Argo CD | Cluster smoke check | `echo '--- app ---' && kubectl -n argocd get application gndp-dev && echo '--- pods ---' && kubectl -n gndp-dev get pods && echo '--- topics ---' && kubectl -n gndp-dev exec gndp-dev-kafka-controller-0 -- /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server gndp-dev-kafka:9092 --list` |
+| kind + Helm + Argo CD | Cluster smoke check | `echo '--- app ---' && kubectl -n argocd get application gndp-dev && echo '--- pods ---' && kubectl -n gndp-dev get pods && echo '--- topics ---' && POD=$(kubectl -n gndp-dev get pod -l app.kubernetes.io/component=kafka -o jsonpath='{.items[0].metadata.name}') && kubectl -n gndp-dev exec "$POD" -- /usr/bin/kafka-topics --bootstrap-server kafka:9092 --list` |
 | kind + Helm + Argo CD | Recreate app + namespace | `kubectl -n argocd delete application gndp-dev && kubectl delete namespace gndp-dev && kubectl apply -f cicd/argocd/dev.yaml` |
 
 ## Scope and Goals
@@ -636,13 +636,11 @@ kubectl -n gndp-dev port-forward svc/gndp-dev-vision-trino 8086:8080
 ### B6. Validate pipeline topics in cluster
 
 ```bash
-kubectl -n gndp-dev exec gndp-dev-kafka-controller-0 -- \
-  /opt/bitnami/kafka/bin/kafka-topics.sh \
-  --bootstrap-server gndp-dev-kafka:9092 --list
+POD=$(kubectl -n gndp-dev get pod -l app.kubernetes.io/component=kafka -o jsonpath='{.items[0].metadata.name}')
+kubectl -n gndp-dev exec "$POD" -- /usr/bin/kafka-topics --bootstrap-server kafka:9092 --list
 
-kubectl -n gndp-dev exec gndp-dev-kafka-controller-0 -- \
-  /opt/bitnami/kafka/bin/kafka-console-consumer.sh \
-  --bootstrap-server gndp-dev-kafka:9092 \
+kubectl -n gndp-dev exec "$POD" -- /usr/bin/kafka-console-consumer \
+  --bootstrap-server kafka:9092 \
   --topic raw_sales_orders --partition 0 --offset 0 --max-messages 1 --timeout-ms 15000
 ```
 
@@ -716,14 +714,13 @@ Expected healthy state:
 Validate MDM topic flow in cluster:
 
 ```bash
-kubectl -n gndp-dev exec gndp-dev-kafka-controller-0 -- \
-  /opt/bitnami/kafka/bin/kafka-console-consumer.sh \
-  --bootstrap-server gndp-dev-kafka:9092 \
+POD=$(kubectl -n gndp-dev get pod -l app.kubernetes.io/component=kafka -o jsonpath='{.items[0].metadata.name}')
+kubectl -n gndp-dev exec "$POD" -- /usr/bin/kafka-console-consumer \
+  --bootstrap-server kafka:9092 \
   --topic mdm_customer --partition 0 --offset 0 --max-messages 1 --timeout-ms 15000
 
-kubectl -n gndp-dev exec gndp-dev-kafka-controller-0 -- \
-  /opt/bitnami/kafka/bin/kafka-console-consumer.sh \
-  --bootstrap-server gndp-dev-kafka:9092 \
+kubectl -n gndp-dev exec "$POD" -- /usr/bin/kafka-console-consumer \
+  --bootstrap-server kafka:9092 \
   --topic mdm_product --partition 0 --offset 0 --max-messages 1 --timeout-ms 15000
 ```
 
@@ -1014,6 +1011,6 @@ kubectl -n argocd get application gndp-dev && \
 echo '--- gndp-dev pods ---' && \
 kubectl -n gndp-dev get pods && \
 echo '--- topics list ---' && \
-kubectl -n gndp-dev exec gndp-dev-kafka-controller-0 -- \
-/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server gndp-dev-kafka:9092 --list
+POD=$(kubectl -n gndp-dev get pod -l app.kubernetes.io/component=kafka -o jsonpath='{.items[0].metadata.name}') && \
+kubectl -n gndp-dev exec "$POD" -- /usr/bin/kafka-topics --bootstrap-server kafka:9092 --list
 ```

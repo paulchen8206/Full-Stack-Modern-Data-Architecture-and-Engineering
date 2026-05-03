@@ -20,7 +20,7 @@ data:
         static_configs:
           - targets:
               - {{ include "vision.serviceName" (dict "root" . "key" "ods-processor") }}:8080
-              - {{ include "vision.serviceName" (dict "root" . "key" "kafka-ui") }}:8080
+              - {{ include "vision.serviceName" (dict "root" . "key" "conduktor") }}:8080
 {{- if .Values.observability.blackboxExporter.enabled }}
       - job_name: blackbox-http
         metrics_path: /probe

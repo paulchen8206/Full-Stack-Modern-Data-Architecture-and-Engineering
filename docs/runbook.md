@@ -77,10 +77,10 @@ Documentation map:
 | Component | Routine A (Docker Compose) | Routine B (kind + Helm) | Username | Password / Retrieval |
 | --- | --- | --- | --- | --- |
 | Argo CD UI | N/A | `https://localhost:8443` (after `kubectl -n argocd port-forward svc/argocd-server 8443:443`) | admin | `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' \| base64 --decode; echo` |
-| MinIO Console | `http://localhost:9001` | `http://localhost:9001` (after `kubectl -n gndp-dev port-forward svc/gndp-dev-vision-minio 9001:9001`) | minio | minio123 |
-| Postgres | 127.0.0.1:5432 / db `analytics` | 127.0.0.1:5433 / db `analytics` (after `kubectl -n gndp-dev port-forward svc/gndp-dev-vision-postgres 5433:5432`) | analytics | analytics |
-| MySQL MDM | 127.0.0.1:3306 / db `mdm` | 127.0.0.1:3307 / db `mdm` (after `kubectl -n gndp-dev port-forward svc/gndp-dev-vision-mysql-mdm 3307:3306`) | root | mdmroot |
-| Airflow UI | `http://localhost:8084` | `http://localhost:8084` (after `kubectl -n gndp-dev port-forward svc/gndp-dev-vision-airflow 8084:8080`) | admin | admin |
+| MinIO Console | `http://localhost:9001` | `http://localhost:9001` (after `kubectl -n gndp-dev port-forward svc/minio 9001:9001`) | minio | minio123 |
+| Postgres | 127.0.0.1:5432 / db `analytics` | 127.0.0.1:5433 / db `analytics` (after `kubectl -n gndp-dev port-forward svc/snowflake-mimic 5433:5432`) | analytics | analytics |
+| MySQL MDM | 127.0.0.1:3306 / db `mdm` | 127.0.0.1:3307 / db `mdm` (after `kubectl -n gndp-dev port-forward svc/mdm-source 3307:3306`) | root | mdmroot |
+| Airflow UI | `http://localhost:8084` | `http://localhost:8084` (after `kubectl -n gndp-dev port-forward svc/airflow 8084:8080`) | admin | admin |
 
 ## Operator Cheat Sheet
 
@@ -106,13 +106,13 @@ Documentation map:
 | kind + Helm + Argo CD | Validate MDM topic flow | `kubectl -n gndp-dev logs deploy/gndp-dev-vision-mdm-cdc-curate --tail=100` |
 | kind + Helm + Argo CD | Validate Airflow + dbt state | `kubectl -n gndp-dev get pods | grep -E 'airflow|dbt'` |
 | kind + Helm + Argo CD | Open Argo CD UI | `kubectl -n argocd port-forward svc/argocd-server 8443:443` |
-| kind + Helm + Argo CD | Open Kafka UI | `kubectl -n gndp-dev port-forward svc/gndp-dev-vision-kafka-ui 8082:8080` |
-| kind + Helm + Argo CD | Open Airflow UI | `kubectl -n gndp-dev port-forward svc/gndp-dev-vision-airflow 8084:8080` |
-| kind + Helm + Argo CD | Open MinIO Console | `kubectl -n gndp-dev port-forward svc/gndp-dev-vision-minio 9001:9001` |
-| kind + Helm + Argo CD | Check Trino health | `kubectl -n gndp-dev port-forward svc/gndp-dev-vision-trino 8086:8080` |
+| kind + Helm + Argo CD | Open Kafka UI | `kubectl -n gndp-dev port-forward svc/conduktor 8082:8080` |
+| kind + Helm + Argo CD | Open Airflow UI | `kubectl -n gndp-dev port-forward svc/airflow 8084:8080` |
+| kind + Helm + Argo CD | Open MinIO Console | `kubectl -n gndp-dev port-forward svc/minio 9001:9001` |
+| kind + Helm + Argo CD | Check Trino health | `kubectl -n gndp-dev port-forward svc/trino 8086:8080` |
 | kind + Helm + Argo CD | Validate streaming Iceberg tables received data | `kubectl -n gndp-dev logs deploy/gndp-dev-vision-iceberg-writer --tail=100` |
-| kind + Helm + Argo CD | Open Postgres | `kubectl -n gndp-dev port-forward svc/gndp-dev-vision-postgres 5433:5432` |
-| kind + Helm + Argo CD | Open Grafana | `kubectl -n gndp-dev port-forward svc/gndp-dev-vision-grafana 3001:3000` |
+| kind + Helm + Argo CD | Open Postgres | `kubectl -n gndp-dev port-forward svc/snowflake-mimic 5433:5432` |
+| kind + Helm + Argo CD | Open Grafana | `kubectl -n gndp-dev port-forward svc/grafana 3001:3000` |
 | kind + Helm + Argo CD | Cluster smoke check | `echo '--- app ---' && kubectl -n argocd get application gndp-dev && echo '--- pods ---' && kubectl -n gndp-dev get pods && echo '--- topics ---' && POD=$(kubectl -n gndp-dev get pod -l app.kubernetes.io/component=kafka -o jsonpath='{.items[0].metadata.name}') && kubectl -n gndp-dev exec "$POD" -- /usr/bin/kafka-topics --bootstrap-server kafka:9092 --list` |
 | kind + Helm + Argo CD | Recreate app + namespace | `kubectl -n argocd delete application gndp-dev && kubectl delete namespace gndp-dev && kubectl apply -f cicd/argocd/dev.yaml` |
 
@@ -474,7 +474,7 @@ Validate rollout and Trino endpoint after bootstrap:
 ```bash
 kubectl -n argocd get application gndp-dev
 kubectl -n gndp-dev get pods
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-trino 8086:8080
+kubectl -n gndp-dev port-forward svc/trino 8086:8080
 curl -fsS http://localhost:8086/v1/info | cat
 ```
 
@@ -511,7 +511,7 @@ Use this only when you want to run each phase independently.
   ```bash
   kubectl -n argocd get application gndp-dev
   kubectl -n gndp-dev get pods
-  kubectl -n gndp-dev port-forward svc/gndp-dev-vision-trino 8086:8080
+  kubectl -n gndp-dev port-forward svc/trino 8086:8080
   curl -fsS http://localhost:8086/v1/info | cat
   ```
 
@@ -592,7 +592,7 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.pas
 Kafka UI:
 
 ```bash
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-kafka-ui 8082:8080
+kubectl -n gndp-dev port-forward svc/conduktor 8082:8080
 ```
 
 - URL: `http://localhost:8082`
@@ -600,7 +600,7 @@ kubectl -n gndp-dev port-forward svc/gndp-dev-vision-kafka-ui 8082:8080
 Grafana:
 
 ```bash
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-grafana 3001:3000
+kubectl -n gndp-dev port-forward svc/grafana 3001:3000
 ```
 
 - URL: `http://localhost:3001`
@@ -608,7 +608,7 @@ kubectl -n gndp-dev port-forward svc/gndp-dev-vision-grafana 3001:3000
 Airflow:
 
 ```bash
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-airflow 8084:8080
+kubectl -n gndp-dev port-forward svc/airflow 8084:8080
 ```
 
 - URL: `http://localhost:8084`
@@ -618,7 +618,7 @@ kubectl -n gndp-dev port-forward svc/gndp-dev-vision-airflow 8084:8080
 MinIO:
 
 ```bash
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-minio 9001:9001
+kubectl -n gndp-dev port-forward svc/minio 9001:9001
 ```
 
 - URL: `http://localhost:9001`
@@ -628,7 +628,7 @@ kubectl -n gndp-dev port-forward svc/gndp-dev-vision-minio 9001:9001
 Trino:
 
 ```bash
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-trino 8086:8080
+kubectl -n gndp-dev port-forward svc/trino 8086:8080
 ```
 
 - URL: `http://localhost:8086`
@@ -727,8 +727,8 @@ kubectl -n gndp-dev exec "$POD" -- /usr/bin/kafka-console-consumer \
 Open warehouse and scheduling UIs:
 
 ```bash
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-airflow 8084:8080
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-minio 9001:9001
+kubectl -n gndp-dev port-forward svc/airflow 8084:8080
+kubectl -n gndp-dev port-forward svc/minio 9001:9001
 ```
 
 Argo CD source note:

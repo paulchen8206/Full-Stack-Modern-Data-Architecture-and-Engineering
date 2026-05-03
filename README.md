@@ -394,20 +394,20 @@ Recommended command order (matches the runbook):
    kubectl -n gndp-dev get pods
    kubectl -n gndp-dev logs job/gndp-dev-vision-dbt --tail=100
    kubectl -n gndp-dev logs deploy/gndp-dev-vision-airflow --tail=100
-   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-airflow 8084:8080
-   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-minio 9001:9001
+   kubectl -n gndp-dev port-forward svc/airflow 8084:8080
+   kubectl -n gndp-dev port-forward svc/minio 9001:9001
    ```
 
 8. Port-forward local access (same UI order as runbook):
 
    ```bash
    kubectl -n argocd port-forward svc/argocd-server 8443:443
-   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-kafka-ui 8082:8080
-   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-grafana 3001:3000
-   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-airflow 8084:8080
-   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-minio 9001:9001
-   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-trino 8086:8080
-   kubectl -n gndp-dev port-forward svc/gndp-dev-vision-postgres 5433:5432
+   kubectl -n gndp-dev port-forward svc/conduktor 8082:8080
+   kubectl -n gndp-dev port-forward svc/grafana 3001:3000
+   kubectl -n gndp-dev port-forward svc/airflow 8084:8080
+   kubectl -n gndp-dev port-forward svc/minio 9001:9001
+   kubectl -n gndp-dev port-forward svc/trino 8086:8080
+   kubectl -n gndp-dev port-forward svc/snowflake-mimic 5433:5432
    ```
 
    | Service | URL / Connection |
@@ -464,7 +464,7 @@ Dev environment behavior:
 
 - `trino` exposes a SQL query engine endpoint for MinIO-backed Iceberg-compatible data.
 - Local Compose endpoint: `http://localhost:8086`
-- Kubernetes endpoint: port-forward `svc/gndp-dev-vision-trino 8086:8080`
+- Kubernetes endpoint: port-forward `svc/trino 8086:8080`
 - The repository includes a repeatable SQL runner: `python3 trino/scripts/trino_query.py --server http://localhost:8086 --file <sql-file>`
 - The repository also includes a shell helper for ad hoc SQL without calling Python directly: `./trino/scripts/trino-sql.sh "SHOW TABLES FROM lakehouse.streaming"`
 - `make trino-shell` opens the Trino CLI inside the Compose service, or runs a SQL file when `SQL_FILE=<path>` is provided

@@ -150,7 +150,7 @@ kubectl -n gndp-dev logs deploy/gndp-dev-vision-airflow --tail=100
 Port-forward Trino then check health:
 
 ```bash
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-trino 8086:8080 &
+kubectl -n gndp-dev port-forward svc/trino 8086:8080 &
 curl -fsS http://localhost:8086/v1/info | cat
 ```
 
@@ -187,7 +187,7 @@ kubectl -n argocd port-forward svc/argocd-server 8443:443
 Kafka UI:
 
 ```bash
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-kafka-ui 8082:8080
+kubectl -n gndp-dev port-forward svc/conduktor 8082:8080
 ```
 
 - URL: `http://localhost:8082`
@@ -195,7 +195,7 @@ kubectl -n gndp-dev port-forward svc/gndp-dev-vision-kafka-ui 8082:8080
 Airflow:
 
 ```bash
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-airflow 8084:8080
+kubectl -n gndp-dev port-forward svc/airflow 8084:8080
 ```
 
 - URL: `http://localhost:8084`
@@ -204,7 +204,7 @@ kubectl -n gndp-dev port-forward svc/gndp-dev-vision-airflow 8084:8080
 MinIO Console:
 
 ```bash
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-minio 9001:9001
+kubectl -n gndp-dev port-forward svc/minio 9001:9001
 ```
 
 - URL: `http://localhost:9001`
@@ -213,7 +213,7 @@ kubectl -n gndp-dev port-forward svc/gndp-dev-vision-minio 9001:9001
 Trino:
 
 ```bash
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-trino 8086:8080
+kubectl -n gndp-dev port-forward svc/trino 8086:8080
 ```
 
 - URL: `http://localhost:8086`
@@ -221,7 +221,7 @@ kubectl -n gndp-dev port-forward svc/gndp-dev-vision-trino 8086:8080
 Grafana:
 
 ```bash
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-grafana 3001:3000
+kubectl -n gndp-dev port-forward svc/grafana 3001:3000
 ```
 
 - URL: `http://localhost:3001`
@@ -229,7 +229,7 @@ kubectl -n gndp-dev port-forward svc/gndp-dev-vision-grafana 3001:3000
 Postgres (for DBeaver or psql):
 
 ```bash
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-postgres 5433:5432
+kubectl -n gndp-dev port-forward svc/snowflake-mimic 5433:5432
 ```
 
 - Host: `127.0.0.1`, Port: `5433`, Username: `analytics`, Password: `analytics`, DB: `analytics`
@@ -237,7 +237,7 @@ kubectl -n gndp-dev port-forward svc/gndp-dev-vision-postgres 5433:5432
 MySQL MDM:
 
 ```bash
-kubectl -n gndp-dev port-forward svc/gndp-dev-vision-mysql-mdm 3307:3306
+kubectl -n gndp-dev port-forward svc/mdm-source 3307:3306
 ```
 
 - Host: `127.0.0.1`, Port: `3307`, Username: `root`, Password: `mdmroot`, DB: `mdm`

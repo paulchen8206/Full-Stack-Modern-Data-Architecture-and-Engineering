@@ -102,25 +102,25 @@ For full migration detail and workflow, see [docs/architecture.md](docs/architec
 
 ```mermaid
 flowchart LR
-   SA[Source Apps]
-   PA[Processing Apps]
-   KC[Kafka Connect]
-   PS[Platform Services]
-   AN[Analytics (dbt)]
-   QE[Trino]
-   OBS[Observability]
+   SA[Source Apps];
+   PA[Processing Apps];
+   KC[Kafka Connect];
+   PS[Platform Services];
+   AN[Analytics (dbt)];
+   QE[Trino];
+   OBS[Observability];
 
-   SA --> PA
-   SA --> KC
-   PA --> KC
-   KC --> AN
-   PA --> QE
-   PS --> AN
-   PS --> QE
-   QE --> AN
-   OBS --> SA
-   OBS --> PA
-   OBS --> KC
+   SA --> PA;
+   SA --> KC;
+   PA --> KC;
+   KC --> AN;
+   PA --> QE;
+   PS --> AN;
+   PS --> QE;
+   QE --> AN;
+   OBS --> SA;
+   OBS --> PA;
+   OBS --> KC;
 ```
 
 ## Data Flow Diagram

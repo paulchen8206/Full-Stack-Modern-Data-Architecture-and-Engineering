@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-prometheus-config
+  name: {{ include "vision.fullname" . }}-prometheus-config
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: prometheus
 data:
@@ -16,11 +16,11 @@ data:
         static_configs:
           - targets:
               - localhost:9090
-      - job_name: realtime-app-static
+      - job_name: vision-static
         static_configs:
           - targets:
-              - {{ include "realtime-app.fullname" . }}-ods-processor:8080
-              - {{ include "realtime-app.fullname" . }}-kafka-ui:8080
+              - {{ include "vision.serviceName" (dict "root" . "key" "ods-processor") }}:8080
+              - {{ include "vision.serviceName" (dict "root" . "key" "kafka-ui") }}:8080
 {{- if .Values.observability.blackboxExporter.enabled }}
       - job_name: blackbox-http
         metrics_path: /probe
@@ -28,24 +28,24 @@ data:
           module: [http_2xx]
         static_configs:
           - targets:
-              - http://{{ include "realtime-app.fullname" . }}-trino:8080/v1/info
-              - http://{{ include "realtime-app.fullname" . }}-schema-registry:8081/subjects
-              - http://{{ include "realtime-app.fullname" . }}-conduktor:8080
+              - http://{{ include "vision.serviceName" (dict "root" . "key" "trino") }}:8080/v1/info
+              - http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081/subjects
+              - http://{{ include "vision.serviceName" (dict "root" . "key" "conduktor") }}:8080
         relabel_configs:
           - source_labels: [__address__]
             target_label: __param_target
           - source_labels: [__param_target]
             target_label: instance
           - target_label: __address__
-            replacement: {{ include "realtime-app.fullname" . }}-blackbox-exporter:9115
+            replacement: {{ include "vision.serviceName" (dict "root" . "key" "blackbox-exporter") }}:9115
 {{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-loki-config
+  name: {{ include "vision.fullname" . }}-loki-config
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: loki
 data:
@@ -82,9 +82,9 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-grafana-datasources
+  name: {{ include "vision.fullname" . }}-grafana-datasources
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: grafana
 data:
@@ -94,26 +94,26 @@ data:
       - name: Prometheus
         type: prometheus
         access: proxy
-        url: http://{{ include "realtime-app.fullname" . }}-prometheus:9090
+        url: http://{{ include "vision.serviceName" (dict "root" . "key" "prometheus") }}:9090
         isDefault: true
       - name: Loki
         type: loki
         access: proxy
-        url: http://{{ include "realtime-app.fullname" . }}-loki:3100
+        url: http://{{ include "vision.serviceName" (dict "root" . "key" "loki") }}:3100
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-grafana-dashboard-provider
+  name: {{ include "vision.fullname" . }}-grafana-dashboard-provider
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: grafana
 data:
   dashboards.yaml: |
     apiVersion: 1
     providers:
-      - name: realtime-app-starter
+      - name: vision-starter
         orgId: 1
         folder: Realtime App
         type: file
@@ -125,9 +125,9 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-grafana-dashboard-starter
+  name: {{ include "vision.fullname" . }}-grafana-dashboard-starter
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: grafana
 data:
@@ -241,9 +241,9 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-promtail-config
+  name: {{ include "vision.fullname" . }}-promtail-config
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: promtail
 data:
@@ -254,7 +254,7 @@ data:
     positions:
       filename: /run/promtail/positions.yaml
     clients:
-      - url: http://{{ include "realtime-app.fullname" . }}-loki:3100/loki/api/v1/push
+      - url: http://{{ include "vision.serviceName" (dict "root" . "key" "loki") }}:3100/loki/api/v1/push
     scrape_configs:
       - job_name: kubernetes-pods
         static_configs:
@@ -268,9 +268,9 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-blackbox-config
+  name: {{ include "vision.fullname" . }}-blackbox-config
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: blackbox-exporter
 data:
@@ -287,22 +287,22 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-blackbox-exporter
+  name: {{ include "vision.fullname" . }}-blackbox-exporter
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: blackbox-exporter
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: observability
       app.kubernetes.io/part: blackbox-exporter
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: observability
         app.kubernetes.io/part: blackbox-exporter
     spec:
@@ -321,28 +321,28 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-blackbox-config
+            name: {{ include "vision.fullname" . }}-blackbox-config
 {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-prometheus
+  name: {{ include "vision.fullname" . }}-prometheus
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: prometheus
 spec:
   replicas: {{ .Values.observability.prometheus.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: observability
       app.kubernetes.io/part: prometheus
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: observability
         app.kubernetes.io/part: prometheus
     spec:
@@ -365,29 +365,29 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-prometheus-config
+            name: {{ include "vision.fullname" . }}-prometheus-config
         - name: data
           emptyDir: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-loki
+  name: {{ include "vision.fullname" . }}-loki
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: loki
 spec:
   replicas: {{ .Values.observability.loki.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: observability
       app.kubernetes.io/part: loki
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: observability
         app.kubernetes.io/part: loki
     spec:
@@ -408,29 +408,29 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-loki-config
+            name: {{ include "vision.fullname" . }}-loki-config
         - name: data
           emptyDir: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-grafana
+  name: {{ include "vision.fullname" . }}-grafana
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: grafana
 spec:
   replicas: {{ .Values.observability.grafana.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: observability
       app.kubernetes.io/part: grafana
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: observability
         app.kubernetes.io/part: grafana
     spec:
@@ -458,33 +458,33 @@ spec:
       volumes:
         - name: datasources
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-grafana-datasources
+            name: {{ include "vision.fullname" . }}-grafana-datasources
         - name: dashboard-provider
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-grafana-dashboard-provider
+            name: {{ include "vision.fullname" . }}-grafana-dashboard-provider
         - name: dashboard-starter
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-grafana-dashboard-starter
+            name: {{ include "vision.fullname" . }}-grafana-dashboard-starter
 {{- if .Values.observability.promtail.enabled }}
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-promtail
+  name: {{ include "vision.fullname" . }}-promtail
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: promtail
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: observability
       app.kubernetes.io/part: promtail
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: observability
         app.kubernetes.io/part: promtail
     spec:
@@ -508,7 +508,7 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-promtail-config
+            name: {{ include "vision.fullname" . }}-promtail-config
         - name: varlog
           hostPath:
             path: /var/log
@@ -519,15 +519,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-prometheus
+  name: {{ include "vision.fullname" . }}-prometheus
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: prometheus
 spec:
   type: {{ .Values.observability.prometheus.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: prometheus
   ports:
@@ -538,15 +538,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-loki
+  name: {{ include "vision.fullname" . }}-loki
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: loki
 spec:
   type: {{ .Values.observability.loki.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: loki
   ports:
@@ -557,15 +557,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-grafana
+  name: {{ include "vision.fullname" . }}-grafana
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: grafana
 spec:
   type: {{ .Values.observability.grafana.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: grafana
   ports:
@@ -577,15 +577,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-blackbox-exporter
+  name: {{ include "vision.fullname" . }}-blackbox-exporter
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: blackbox-exporter
 spec:
   type: {{ .Values.observability.blackboxExporter.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: observability
     app.kubernetes.io/part: blackbox-exporter
   ports:

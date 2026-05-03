@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-trino-config
+  name: {{ include "vision.fullname" . }}-trino-config
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: trino
 data:
   config.properties: |
@@ -14,7 +14,7 @@ data:
     discovery.uri=http://localhost:8080
   node.properties: |
     node.environment=kubernetes
-    node.id={{ include "realtime-app.fullname" . }}-trino
+    node.id={{ include "vision.fullname" . }}-trino
     node.data-dir=/data/trino
   jvm.config: |
     -server
@@ -29,7 +29,7 @@ data:
     iceberg.catalog.type=jdbc
     iceberg.jdbc-catalog.catalog-name=lakehouse
     iceberg.jdbc-catalog.driver-class=org.postgresql.Driver
-    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://{{ include "realtime-app.fullname" . }}-snowflake-mimic:5432/{{ .Values.postgres.auth.database }}
+    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://{{ include "vision.serviceName" (dict "root" . "key" "snowflake-mimic") }}:5432/{{ .Values.postgres.auth.database }}
     iceberg.jdbc-catalog.connection-user={{ .Values.postgres.auth.user }}
     iceberg.jdbc-catalog.connection-password={{ .Values.postgres.auth.password }}
     iceberg.jdbc-catalog.default-warehouse-dir=s3://{{ .Values.minio.bucket }}/iceberg
@@ -38,34 +38,34 @@ data:
     iceberg.unique-table-location=true
     iceberg.register-table-procedure.enabled=true
     fs.native-s3.enabled=true
-    s3.endpoint=http://{{ include "realtime-app.fullname" . }}-minio:{{ .Values.minio.service.apiPort }}
+    s3.endpoint=http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:{{ .Values.minio.service.apiPort }}
     s3.region=us-east-1
     s3.path-style-access=true
     s3.aws-access-key={{ .Values.minio.rootUser }}
     s3.aws-secret-key={{ .Values.minio.rootPassword }}
   warehouse.properties: |
     connector.name=postgresql
-    connection-url=jdbc:postgresql://{{ include "realtime-app.fullname" . }}-snowflake-mimic:5432/{{ .Values.postgres.auth.database }}
+    connection-url=jdbc:postgresql://{{ include "vision.serviceName" (dict "root" . "key" "snowflake-mimic") }}:5432/{{ .Values.postgres.auth.database }}
     connection-user={{ .Values.postgres.auth.user }}
     connection-password={{ .Values.postgres.auth.password }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-trino
+  name: {{ include "vision.fullname" . }}-trino
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: trino
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: trino
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: trino
     spec:
       containers:
@@ -93,19 +93,19 @@ spec:
       volumes:
         - name: trino-config
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-trino-config
+            name: {{ include "vision.fullname" . }}-trino-config
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-trino
+  name: {{ include "vision.fullname" . }}-trino
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: trino
 spec:
   type: {{ .Values.trino.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: trino
   ports:
     - name: http

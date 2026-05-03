@@ -2,11 +2,11 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-warehouse-config
+  name: {{ include "vision.fullname" . }}-warehouse-config
   annotations:
     argocd.argoproj.io/sync-wave: "0"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: warehouse
 data:
   init.sql: |
@@ -136,7 +136,7 @@ data:
       outputs:
         dev:
           type: postgres
-          host: {{ include "realtime-app.fullname" . }}-snowflake-mimic
+          host: {{ include "vision.serviceName" (dict "root" . "key" "snowflake-mimic") }}
           port: 5432
           user: {{ .Values.postgres.auth.user }}
           password: {{ .Values.postgres.auth.password }}
@@ -449,18 +449,18 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-minio-init
+  name: {{ include "vision.fullname" . }}-minio-init
   annotations:
     argocd.argoproj.io/sync-wave: "0"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: minio
 data:
   init-minio.sh: |
     #!/usr/bin/env sh
     set -eu
 
-    until mc alias set local http://{{ include "realtime-app.fullname" . }}-minio:9000 {{ .Values.minio.rootUser }} {{ .Values.minio.rootPassword }} >/dev/null 2>&1; do
+    until mc alias set local http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:9000 {{ .Values.minio.rootUser }} {{ .Values.minio.rootPassword }} >/dev/null 2>&1; do
       echo "Waiting for MinIO to accept connections..."
       sleep 2
     done
@@ -473,22 +473,22 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-minio
+  name: {{ include "vision.fullname" . }}-minio
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: minio
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: minio
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: minio
     spec:
       containers:
@@ -518,16 +518,16 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-minio
+  name: {{ include "vision.fullname" . }}-minio
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: minio
 spec:
   type: {{ .Values.minio.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: minio
   ports:
     - name: api
@@ -540,18 +540,18 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-minio-init
+  name: {{ include "vision.fullname" . }}-minio-init
   annotations:
     argocd.argoproj.io/sync-wave: "2"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: minio-init
 spec:
   backoffLimit: 6
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: minio-init
     spec:
       restartPolicy: OnFailure
@@ -567,7 +567,7 @@ spec:
       volumes:
         - name: script
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-minio-init
+            name: {{ include "vision.fullname" . }}-minio-init
             defaultMode: 0755
 {{- end }}
 
@@ -576,22 +576,22 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-snowflake-mimic
+  name: {{ include "vision.fullname" . }}-snowflake-mimic
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: postgres
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: postgres
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: postgres
     spec:
       containers:
@@ -618,21 +618,21 @@ spec:
           emptyDir: {}
         - name: init
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-warehouse-config
+            name: {{ include "vision.fullname" . }}-warehouse-config
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-snowflake-mimic
+  name: {{ include "vision.fullname" . }}-snowflake-mimic
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: postgres
 spec:
   type: {{ .Values.postgres.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: postgres
   ports:
     - name: postgres
@@ -645,18 +645,18 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-ods-connect-config
+  name: {{ include "vision.fullname" . }}-ods-connect-config
   annotations:
     argocd.argoproj.io/sync-wave: "0"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: ods-connect
 data:
   register-connectors.sh: |
     #!/usr/bin/env sh
     set -eu
 
-    CONNECT_URL="${CONNECT_URL:-http://{{ include "realtime-app.fullname" . }}-ods-connect:8083}"
+    CONNECT_URL="${CONNECT_URL:-http://{{ include "vision.serviceName" (dict "root" . "key" "ods-connect") }}:8083}"
 
     wait_for_connect() {
       until curl -sf "${CONNECT_URL}/connectors" >/dev/null; do
@@ -715,7 +715,7 @@ data:
       "topics": "sales_order",
       "s3.bucket.name": "{{ .Values.minio.bucket }}",
       "topics.dir": "raw/sales_order",
-      "store.url": "http://{{ include "realtime-app.fullname" . }}-minio:9000",
+      "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:9000",
       "s3.region": "us-east-1",
       "aws.access.key.id": "{{ .Values.minio.rootUser }}",
       "aws.secret.access.key": "{{ .Values.minio.rootPassword }}",
@@ -733,7 +733,7 @@ data:
       "topics": "sales_order_line_item",
       "s3.bucket.name": "{{ .Values.minio.bucket }}",
       "topics.dir": "raw/sales_order_line_item",
-      "store.url": "http://{{ include "realtime-app.fullname" . }}-minio:9000",
+      "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:9000",
       "s3.region": "us-east-1",
       "aws.access.key.id": "{{ .Values.minio.rootUser }}",
       "aws.secret.access.key": "{{ .Values.minio.rootPassword }}",
@@ -751,7 +751,7 @@ data:
       "topics": "customer_sales",
       "s3.bucket.name": "{{ .Values.minio.bucket }}",
       "topics.dir": "raw/customer_sales",
-      "store.url": "http://{{ include "realtime-app.fullname" . }}-minio:9000",
+      "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:9000",
       "s3.region": "us-east-1",
       "aws.access.key.id": "{{ .Values.minio.rootUser }}",
       "aws.secret.access.key": "{{ .Values.minio.rootPassword }}",
@@ -769,7 +769,7 @@ data:
       "topics": "sales_order",
       "value.converter": "org.apache.kafka.connect.json.JsonConverter",
       "value.converter.schemas.enable": "true",
-      "connection.url": "jdbc:postgresql://{{ include "realtime-app.fullname" . }}-snowflake-mimic:5432/{{ .Values.postgres.auth.database }}",
+      "connection.url": "jdbc:postgresql://{{ include "vision.serviceName" (dict "root" . "key" "snowflake-mimic") }}:5432/{{ .Values.postgres.auth.database }}",
       "connection.user": "{{ .Values.postgres.auth.user }}",
       "connection.password": "{{ .Values.postgres.auth.password }}",
       "table.name.format": "landing.${topic}",
@@ -799,7 +799,7 @@ data:
       "topics": "sales_order_line_item",
       "value.converter": "org.apache.kafka.connect.json.JsonConverter",
       "value.converter.schemas.enable": "true",
-      "connection.url": "jdbc:postgresql://{{ include "realtime-app.fullname" . }}-snowflake-mimic:5432/{{ .Values.postgres.auth.database }}",
+      "connection.url": "jdbc:postgresql://{{ include "vision.serviceName" (dict "root" . "key" "snowflake-mimic") }}:5432/{{ .Values.postgres.auth.database }}",
       "connection.user": "{{ .Values.postgres.auth.user }}",
       "connection.password": "{{ .Values.postgres.auth.password }}",
       "table.name.format": "landing.${topic}",
@@ -829,7 +829,7 @@ data:
       "topics": "customer_sales",
       "value.converter": "org.apache.kafka.connect.json.JsonConverter",
       "value.converter.schemas.enable": "true",
-      "connection.url": "jdbc:postgresql://{{ include "realtime-app.fullname" . }}-snowflake-mimic:5432/{{ .Values.postgres.auth.database }}",
+      "connection.url": "jdbc:postgresql://{{ include "vision.serviceName" (dict "root" . "key" "snowflake-mimic") }}:5432/{{ .Values.postgres.auth.database }}",
       "connection.user": "{{ .Values.postgres.auth.user }}",
       "connection.password": "{{ .Values.postgres.auth.password }}",
       "table.name.format": "landing.${topic}",
@@ -856,22 +856,22 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-ods-connect
+  name: {{ include "vision.fullname" . }}-ods-connect
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: ods-connect
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: ods-connect
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: ods-connect
     spec:
       containers:
@@ -882,9 +882,9 @@ spec:
             - containerPort: 8083
           env:
             - name: CONNECT_BOOTSTRAP_SERVERS
-              value: {{ .Values.kafkaBootstrapServers | quote }}
+              value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
             - name: CONNECT_REST_ADVERTISED_HOST_NAME
-              value: {{ printf "%s-ods-connect" (include "realtime-app.fullname" .) | quote }}
+              value: {{ printf "%s-ods-connect" (include "vision.fullname" .) | quote }}
             - name: CONNECT_REST_PORT
               value: "8083"
             - name: CONNECT_GROUP_ID
@@ -917,16 +917,16 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-ods-connect
+  name: {{ include "vision.fullname" . }}-ods-connect
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: ods-connect
 spec:
   type: {{ .Values.odsConnect.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: ods-connect
   ports:
     - name: http
@@ -936,18 +936,18 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-ods-connect-init
+  name: {{ include "vision.fullname" . }}-ods-connect-init
   annotations:
     argocd.argoproj.io/sync-wave: "2"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: ods-connect-init
 spec:
   backoffLimit: 6
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: ods-connect-init
     spec:
       restartPolicy: OnFailure
@@ -965,14 +965,14 @@ spec:
       volumes:
         - name: ods-connect-config
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-ods-connect-config
+            name: {{ include "vision.fullname" . }}-ods-connect-config
             defaultMode: 0755
             items:
               - key: register-connectors.sh
                 path: register-connectors.sh
         - name: connector-configs
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-ods-connect-config
+            name: {{ include "vision.fullname" . }}-ods-connect-config
             items:
               - key: iceberg-sales-order.json
                 path: iceberg-sales-order.json
@@ -993,18 +993,18 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-dbt
+  name: {{ include "vision.fullname" . }}-dbt
   annotations:
     argocd.argoproj.io/sync-wave: "3"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: dbt
 spec:
   backoffLimit: 3
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: dbt
     spec:
       restartPolicy: OnFailure
@@ -1024,7 +1024,7 @@ spec:
       volumes:
         - name: warehouse-config
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-warehouse-config
+            name: {{ include "vision.fullname" . }}-warehouse-config
             items:
               - key: dbt_project.yml
                 path: dbt_project.yml
@@ -1063,11 +1063,11 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-airflow-config
+  name: {{ include "vision.fullname" . }}-airflow-config
   annotations:
     argocd.argoproj.io/sync-wave: "0"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: airflow
 data:
   start-airflow.sh: |
@@ -1119,22 +1119,22 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-airflow
+  name: {{ include "vision.fullname" . }}-airflow
   annotations:
     argocd.argoproj.io/sync-wave: "3"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: airflow
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: airflow
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: airflow
     spec:
       containers:
@@ -1178,20 +1178,20 @@ spec:
           emptyDir: {}
         - name: airflow-script
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-airflow-config
+            name: {{ include "vision.fullname" . }}-airflow-config
             defaultMode: 0755
             items:
               - key: start-airflow.sh
                 path: start-airflow.sh
         - name: airflow-dag
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-airflow-config
+            name: {{ include "vision.fullname" . }}-airflow-config
             items:
               - key: dbt_warehouse_schedule.py
                 path: dbt_warehouse_schedule.py
         - name: warehouse-config
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-warehouse-config
+            name: {{ include "vision.fullname" . }}-warehouse-config
             items:
               - key: dbt_project.yml
                 path: dbt_project.yml
@@ -1227,16 +1227,16 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-airflow
+  name: {{ include "vision.fullname" . }}-airflow
   annotations:
     argocd.argoproj.io/sync-wave: "3"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: airflow
 spec:
   type: {{ .Values.airflow.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: airflow
   ports:
     - name: http

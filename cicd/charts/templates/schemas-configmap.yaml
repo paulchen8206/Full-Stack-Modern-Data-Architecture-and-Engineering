@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: schemas-configmap
   labels:
-    app.kubernetes.io/name: realtime-app
+    app.kubernetes.io/name: vision
     app.kubernetes.io/component: schema-registry
 data:
   # Example: Place your Avro/JSON schemas here as stringified JSON

@@ -2,20 +2,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-openmetadata-db
+  name: {{ include "vision.fullname" . }}-openmetadata-db
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: openmetadata-db
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: openmetadata-db
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: openmetadata-db
     spec:
       containers:
@@ -43,14 +43,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-openmetadata-db
+  name: {{ include "vision.fullname" . }}-openmetadata-db
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: openmetadata-db
 spec:
   type: {{ .Values.openmetadata.db.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: openmetadata-db
   ports:
     - name: mysql
@@ -60,20 +60,20 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-openmetadata-search
+  name: {{ include "vision.fullname" . }}-openmetadata-search
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: openmetadata-search
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: openmetadata-search
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: openmetadata-search
     spec:
       containers:
@@ -99,14 +99,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-openmetadata-search
+  name: {{ include "vision.fullname" . }}-openmetadata-search
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: openmetadata-search
 spec:
   type: {{ .Values.openmetadata.search.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: openmetadata-search
   ports:
     - name: http
@@ -116,20 +116,20 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-openmetadata-server
+  name: {{ include "vision.fullname" . }}-openmetadata-server
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: openmetadata-server
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: openmetadata-server
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: openmetadata-server
     spec:
       initContainers:
@@ -148,7 +148,7 @@ spec:
             - name: DB_USE_SSL
               value: "false"
             - name: DB_HOST
-              value: {{ include "realtime-app.fullname" . }}-openmetadata-db
+              value: {{ include "vision.serviceName" (dict "root" . "key" "openmetadata-db") }}
             - name: DB_PORT
               value: "3306"
             - name: OM_DATABASE
@@ -165,7 +165,7 @@ spec:
             - name: OPENMETADATA_CLUSTER_NAME
               value: local
             - name: SERVER_HOST_API_URL
-              value: http://{{ include "realtime-app.fullname" . }}-openmetadata-server:8585/api
+              value: http://{{ include "vision.serviceName" (dict "root" . "key" "openmetadata-server") }}:8585/api
             - name: DB_DRIVER_CLASS
               value: com.mysql.cj.jdbc.Driver
             - name: DB_SCHEME
@@ -173,7 +173,7 @@ spec:
             - name: DB_USE_SSL
               value: "false"
             - name: DB_HOST
-              value: {{ include "realtime-app.fullname" . }}-openmetadata-db
+              value: {{ include "vision.serviceName" (dict "root" . "key" "openmetadata-db") }}
             - name: DB_PORT
               value: "3306"
             - name: OM_DATABASE
@@ -183,7 +183,7 @@ spec:
             - name: DB_USER_PASSWORD
               value: {{ .Values.openmetadata.db.auth.password | quote }}
             - name: ELASTICSEARCH_HOST
-              value: {{ include "realtime-app.fullname" . }}-openmetadata-search
+              value: {{ include "vision.serviceName" (dict "root" . "key" "openmetadata-search") }}
             - name: ELASTICSEARCH_PORT
               value: "9200"
             - name: ELASTICSEARCH_SCHEME
@@ -194,14 +194,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-openmetadata-server
+  name: {{ include "vision.fullname" . }}-openmetadata-server
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: openmetadata-server
 spec:
   type: {{ .Values.openmetadata.server.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: openmetadata-server
   ports:
     - name: http
@@ -211,20 +211,20 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-openmetadata-ingestion
+  name: {{ include "vision.fullname" . }}-openmetadata-ingestion
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: openmetadata-ingestion
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: openmetadata-ingestion
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: openmetadata-ingestion
     spec:
       containers:

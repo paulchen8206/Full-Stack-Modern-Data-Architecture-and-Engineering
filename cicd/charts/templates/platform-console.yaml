@@ -2,34 +2,68 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-dbz-connect-config
+  name: {{ include "vision.fullname" . }}-dbz-connect-config
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: dbz-connect
 data:
   register-dbz-connectors.sh: |
     #!/bin/sh
     set -eu
 
-    CONNECT_URL="${CONNECT_URL:-http://{{ include "realtime-app.fullname" . }}-dbz-connect:8083}"
+    CONNECT_URL="${CONNECT_URL:-http://{{ include "vision.serviceName" (dict "root" . "key" "dbz-connect") }}:8083}"
     CONNECTOR_CFG="/connectors/dbz-mysql-mdm.json"
     CONNECTOR_NAME="dbz-mysql-mdm"
+    CONNECT_WAIT_SECONDS="${CONNECT_WAIT_SECONDS:-180}"
 
-    until curl -fsS "${CONNECT_URL}/connector-plugins" >/dev/null 2>&1; do
-      echo "Waiting for Kafka Connect at ${CONNECT_URL} ..."
+    start_ts=$(date +%s)
+    attempt=0
+    until curl -sS -f --connect-timeout 2 "${CONNECT_URL}/connector-plugins" >/dev/null 2>&1; do
+      now_ts=$(date +%s)
+      elapsed=$((now_ts - start_ts))
+      attempt=$((attempt + 1))
+      if [ "$elapsed" -ge "$CONNECT_WAIT_SECONDS" ]; then
+        echo "Timed out after ${CONNECT_WAIT_SECONDS}s waiting for Kafka Connect at ${CONNECT_URL}"
+        exit 1
+      fi
+      if [ $((attempt % 10)) -eq 0 ]; then
+        echo "Still waiting for Kafka Connect (${elapsed}s elapsed)..."
+      fi
       sleep 2
     done
 
     echo "Registering connector ${CONNECTOR_NAME}"
-    curl -fsS -X PUT \
-      -H "Content-Type: application/json" \
-      --data @"${CONNECTOR_CFG}" \
-      "${CONNECT_URL}/connectors/${CONNECTOR_NAME}/config"
+    try=1
+    max_try=5
+    while [ "$try" -le "$max_try" ]; do
+      tmp_body="/tmp/${CONNECTOR_NAME}-register-response.json"
+      http_code=$(curl -sS -o "$tmp_body" -w "%{http_code}" \
+        -X PUT \
+        -H "Content-Type: application/json" \
+        --data @"${CONNECTOR_CFG}" \
+        "${CONNECT_URL}/connectors/${CONNECTOR_NAME}/config" || true)
+
+      if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+        echo "Connector registered: ${CONNECTOR_NAME} (HTTP ${http_code})"
+        break
+      fi
+
+      echo "Connector registration failed (attempt ${try}/${max_try}, HTTP ${http_code})"
+      [ -f "$tmp_body" ] && cat "$tmp_body"
+
+      if [ "$try" -eq "$max_try" ]; then
+        echo "Giving up registering connector ${CONNECTOR_NAME}"
+        exit 1
+      fi
+
+      try=$((try + 1))
+      sleep 3
+    done
   dbz-mysql-mdm.json: |
     {
       "connector.class": "io.debezium.connector.mysql.MySqlConnector",
       "tasks.max": "1",
-      "database.hostname": "{{ include "realtime-app.fullname" . }}-mdm-source",
+      "database.hostname": "{{ include "vision.serviceName" (dict "root" . "key" "mdm-source") }}",
       "database.port": "3306",
       "database.user": "root",
       "database.password": "{{ .Values.mdm.mysql.rootPassword }}",
@@ -42,27 +76,27 @@ data:
       "decimal.handling.mode": "string",
       "time.precision.mode": "connect",
       "schema.history.internal": "io.debezium.storage.kafka.history.KafkaSchemaHistory",
-      "schema.history.internal.kafka.bootstrap.servers": "{{ .Values.kafkaBootstrapServers }}",
+      "schema.history.internal.kafka.bootstrap.servers": "{{ tpl .Values.kafkaBootstrapServers . }}",
       "schema.history.internal.kafka.topic": "schema-changes.mdm"
     }
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-dbz-connect
+  name: {{ include "vision.fullname" . }}-dbz-connect
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: dbz-connect
 spec:
   replicas: {{ .Values.dbzConnect.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: dbz-connect
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: dbz-connect
     spec:
       containers:
@@ -73,7 +107,7 @@ spec:
             - containerPort: 8083
           env:
             - name: BOOTSTRAP_SERVERS
-              value: {{ .Values.kafkaBootstrapServers | quote }}
+              value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
             - name: GROUP_ID
               value: {{ .Values.dbzConnect.groupId | quote }}
             - name: CONFIG_STORAGE_TOPIC
@@ -99,21 +133,21 @@ spec:
             - name: INTERNAL_VALUE_CONVERTER
               value: org.apache.kafka.connect.json.JsonConverter
             - name: REST_ADVERTISED_HOST_NAME
-              value: {{ printf "%s-dbz-connect" (include "realtime-app.fullname" .) | quote }}
+              value: {{ include "vision.serviceName" (dict "root" . "key" "dbz-connect") | quote }}
             - name: PLUGIN_PATH
               value: /kafka/connect,/kafka/connect-plugins,/usr/share/java,/usr/share/confluent-hub-components
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-dbz-connect
+  name: {{ include "vision.fullname" . }}-dbz-connect
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: dbz-connect
 spec:
   type: {{ .Values.dbzConnect.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: dbz-connect
   ports:
     - name: http
@@ -123,16 +157,16 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-dbz-connect-init
+  name: {{ include "vision.fullname" . }}-dbz-connect-init
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: dbz-connect-init
 spec:
   backoffLimit: 6
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: dbz-connect-init
     spec:
       restartPolicy: OnFailure
@@ -150,14 +184,14 @@ spec:
       volumes:
         - name: dbz-config
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-dbz-connect-config
+            name: {{ include "vision.fullname" . }}-dbz-connect-config
             defaultMode: 0755
             items:
               - key: register-dbz-connectors.sh
                 path: register-dbz-connectors.sh
         - name: connector-configs
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-dbz-connect-config
+            name: {{ include "vision.fullname" . }}-dbz-connect-config
             items:
               - key: dbz-mysql-mdm.json
                 path: dbz-mysql-mdm.json
@@ -168,20 +202,20 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-conduktor-db
+  name: {{ include "vision.fullname" . }}-conduktor-db
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: conduktor-db
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: conduktor-db
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: conduktor-db
     spec:
       containers:
@@ -209,14 +243,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-conduktor-db
+  name: {{ include "vision.fullname" . }}-conduktor-db
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: conduktor-db
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: conduktor-db
   ports:
     - name: postgres
@@ -226,20 +260,20 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-conduktor
+  name: {{ include "vision.fullname" . }}-conduktor
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: conduktor
 spec:
   replicas: {{ .Values.conduktor.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: conduktor
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: conduktor
     spec:
       containers:
@@ -256,9 +290,9 @@ spec:
             - name: CDK_ADMIN_PASSWORD
               value: {{ .Values.conduktor.adminPassword | quote }}
             - name: CDK_KAFKA_BROKERS
-              value: {{ .Values.kafkaBootstrapServers | quote }}
+              value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
             - name: CDK_DATABASE_URL
-              value: {{ printf "postgresql://%s:%s@%s-conduktor-db:5432/%s" .Values.conduktor.db.auth.user .Values.conduktor.db.auth.password (include "realtime-app.fullname" .) .Values.conduktor.db.auth.database | quote }}
+              value: {{ printf "postgresql://%s:%s@%s-conduktor-db:5432/%s" .Values.conduktor.db.auth.user .Values.conduktor.db.auth.password (include "vision.fullname" .) .Values.conduktor.db.auth.database | quote }}
             - name: CDK_DATABASE_USERNAME
               value: {{ .Values.conduktor.db.auth.user | quote }}
             - name: CDK_DATABASE_PASSWORD
@@ -268,41 +302,41 @@ spec:
             - name: CDK_CLUSTERS_0_NAME
               value: local-kafka
             - name: CDK_CLUSTERS_0_BOOTSTRAPSERVERS
-              value: {{ .Values.kafkaBootstrapServers | quote }}
+              value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
             - name: CDK_CLUSTERS_0_SCHEMAREGISTRY_ID
               value: confluent-sr
             - name: CDK_CLUSTERS_0_SCHEMAREGISTRY_URL
-              value: {{ printf "http://%s-schema-registry:8081" (include "realtime-app.fullname" .) | quote }}
+              value: {{ printf "http://%s-schema-registry:8081" (include "vision.fullname" .) | quote }}
             - name: CDK_CLUSTERS_0_KAFKACONNECTS_0_ID
               value: mdm-connect
             - name: CDK_CLUSTERS_0_KAFKACONNECTS_0_NAME
               value: MDM Kafka Connect
             - name: CDK_CLUSTERS_0_KAFKACONNECTS_0_URL
-              value: {{ printf "http://%s-mdm-connect:8083" (include "realtime-app.fullname" .) | quote }}
+              value: {{ printf "http://%s-mdm-connect:8083" (include "vision.fullname" .) | quote }}
             - name: CDK_CLUSTERS_0_KAFKACONNECTS_1_ID
               value: dbz-connect
             - name: CDK_CLUSTERS_0_KAFKACONNECTS_1_NAME
               value: Debezium Kafka Connect
             - name: CDK_CLUSTERS_0_KAFKACONNECTS_1_URL
-              value: {{ printf "http://%s-dbz-connect:8083" (include "realtime-app.fullname" .) | quote }}
+              value: {{ printf "http://%s-dbz-connect:8083" (include "vision.fullname" .) | quote }}
             - name: CDK_CLUSTERS_0_KAFKACONNECTS_2_ID
               value: ods-connect
             - name: CDK_CLUSTERS_0_KAFKACONNECTS_2_NAME
               value: ODS Kafka Connect
             - name: CDK_CLUSTERS_0_KAFKACONNECTS_2_URL
-              value: {{ printf "http://%s-ods-connect:8083" (include "realtime-app.fullname" .) | quote }}
+              value: {{ printf "http://%s-ods-connect:8083" (include "vision.fullname" .) | quote }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-conduktor
+  name: {{ include "vision.fullname" . }}-conduktor
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: conduktor
 spec:
   type: {{ .Values.conduktor.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: conduktor
   ports:
     - name: http

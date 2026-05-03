@@ -169,7 +169,7 @@ Versions are shown when they are explicitly pinned in this repository.
 | Category | Tooling used in this project |
 | --- | --- |
 | Container and local runtime | Docker Compose, Dockerfiles for service images, Makefile-driven workflows |
-| Kubernetes and GitOps | kind, kubectl, Helm (chart: `realtime-app`), Argo CD |
+| Kubernetes and GitOps | kind, kubectl, Helm (chart: `vision`), Argo CD |
 | Streaming backbone | Apache Kafka `3.7.1`, Kafka UI `v0.7.2` |
 | Stream processing application | Java `17`, Spring Boot `3.2.6`, Apache Flink `1.19.1`, Flink Kafka connector `3.2.0-1.19`, Maven |
 | Data integration and CDC | Kafka Connect (Confluent Platform image `7.6.1`), Debezium Connect `3.0`, JDBC and S3 sink connectors |
@@ -382,29 +382,29 @@ Recommended command order (matches the runbook):
 
    ```bash
    kubectl -n realtime-dev get pods
-   kubectl -n realtime-dev logs deploy/realtime-dev-realtime-app-processor --tail=100
+   kubectl -n realtime-dev logs deploy/realtime-dev-vision-processor --tail=100
    ```
 
 7. Validate dbt and Airflow logs:
 
    ```bash
    kubectl -n realtime-dev get pods
-   kubectl -n realtime-dev logs job/realtime-dev-realtime-app-dbt --tail=100
-   kubectl -n realtime-dev logs deploy/realtime-dev-realtime-app-airflow --tail=100
-   kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-airflow 8084:8080
-   kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-minio 9001:9001
+   kubectl -n realtime-dev logs job/realtime-dev-vision-dbt --tail=100
+   kubectl -n realtime-dev logs deploy/realtime-dev-vision-airflow --tail=100
+   kubectl -n realtime-dev port-forward svc/realtime-dev-vision-airflow 8084:8080
+   kubectl -n realtime-dev port-forward svc/realtime-dev-vision-minio 9001:9001
    ```
 
 8. Port-forward local access (same UI order as runbook):
 
    ```bash
    kubectl -n argocd port-forward svc/argocd-server 8443:443
-   kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-kafka-ui 8082:8080
-   kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-grafana 3001:3000
-   kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-airflow 8084:8080
-   kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-minio 9001:9001
-   kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-trino 8086:8080
-   kubectl -n realtime-dev port-forward svc/realtime-dev-realtime-app-postgres 5433:5432
+   kubectl -n realtime-dev port-forward svc/realtime-dev-vision-kafka-ui 8082:8080
+   kubectl -n realtime-dev port-forward svc/realtime-dev-vision-grafana 3001:3000
+   kubectl -n realtime-dev port-forward svc/realtime-dev-vision-airflow 8084:8080
+   kubectl -n realtime-dev port-forward svc/realtime-dev-vision-minio 9001:9001
+   kubectl -n realtime-dev port-forward svc/realtime-dev-vision-trino 8086:8080
+   kubectl -n realtime-dev port-forward svc/realtime-dev-vision-postgres 5433:5432
    ```
 
    | Service | URL / Connection |
@@ -461,7 +461,7 @@ Dev environment behavior:
 
 - `trino` exposes a SQL query engine endpoint for MinIO-backed Iceberg-compatible data.
 - Local Compose endpoint: `http://localhost:8086`
-- Kubernetes endpoint: port-forward `svc/realtime-dev-realtime-app-trino 8086:8080`
+- Kubernetes endpoint: port-forward `svc/realtime-dev-vision-trino 8086:8080`
 - The repository includes a repeatable SQL runner: `python3 trino/scripts/trino_query.py --server http://localhost:8086 --file <sql-file>`
 - The repository also includes a shell helper for ad hoc SQL without calling Python directly: `./trino/scripts/trino-sql.sh "SHOW TABLES FROM lakehouse.streaming"`
 - `make trino-shell` opens the Trino CLI inside the Compose service, or runs a SQL file when `SQL_FILE=<path>` is provided
@@ -548,7 +548,7 @@ SELECT * FROM lakehouse.demo.sample_orders LIMIT 10;
 - DAG ID: `dbt_warehouse_schedule`
 - Schedule: every 5 minutes
 - The DAG runs `dbt deps` and `dbt run` against both Trino and the local Compose Postgres warehouse service (`snowflake-mimic`)
-- In the dev Helm path, Airflow runs inside the same release and serves its UI through the `realtime-dev-realtime-app-airflow` service
+- In the dev Helm path, Airflow runs inside the same release and serves its UI through the `realtime-dev-vision-airflow` service
 
 ## Data Validation
 
@@ -608,8 +608,8 @@ Runtime validation (Routine B cluster — 2026-04-18):
 - `kubectl -n argocd get application realtime-dev` reported `SYNC=Synced`, `HEALTH=Healthy`.
 - `kubectl -n realtime-dev get pods` showed core workloads in `Running`.
 - `kubectl -n realtime-dev get jobs` confirmed initialization jobs completed.
-- `kubectl -n realtime-dev logs deploy/realtime-dev-realtime-app-mdm-cdc-curate --tail=100` showed curated MDM topic publication.
-- `kubectl -n realtime-dev logs deploy/realtime-dev-realtime-app-iceberg-writer --tail=100` showed streaming Iceberg writes.
+- `kubectl -n realtime-dev logs deploy/realtime-dev-vision-mdm-cdc-curate --tail=100` showed curated MDM topic publication.
+- `kubectl -n realtime-dev logs deploy/realtime-dev-vision-iceberg-writer --tail=100` showed streaming Iceberg writes.
 
 Important GitOps note:
 

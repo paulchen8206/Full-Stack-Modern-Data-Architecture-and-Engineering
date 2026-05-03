@@ -145,8 +145,8 @@ mdm:
   connect:
     replicas: 1
     image:
-      repository: quay.io/debezium/connect
-      tag: "3.0"
+      repository: pos-connect
+      tag: 0.1.0
       pullPolicy: IfNotPresent
     service:
       type: ClusterIP

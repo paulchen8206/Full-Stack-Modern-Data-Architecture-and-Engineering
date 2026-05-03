@@ -7,6 +7,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from confluent_kafka import avro
 from confluent_kafka.avro import AvroProducer
+from requests.exceptions import RequestException
 
 
 SEGMENTS = ["SMB", "MID_MARKET", "ENTERPRISE"]
@@ -97,16 +98,21 @@ def main() -> None:
 
     while True:
         order = build_sales_order()
-        avro_producer.produce(
-            topic=topic,
-            key={"key": order["orderId"]},
-            value=order,
-            key_schema=key_schema,
-            value_schema=value_schema
-        )
-        avro_producer.flush()
-        print(f"published order {order['orderId']} for customer {order['customer']['customerId']}", flush=True)
-        time.sleep(interval_ms / 1000)
+        try:
+            avro_producer.produce(
+                topic=topic,
+                key={"key": order["orderId"]},
+                value=order,
+                key_schema=key_schema,
+                value_schema=value_schema
+            )
+            avro_producer.flush()
+            print(f"published order {order['orderId']} for customer {order['customer']['customerId']}", flush=True)
+            time.sleep(interval_ms / 1000)
+        except (RequestException, OSError, RuntimeError) as exc:
+            # Keep the producer alive while dependencies (Kafka/Schema Registry) are warming up.
+            print(f"producer not ready yet: {exc}", flush=True)
+            time.sleep(5)
 
 
 if __name__ == "__main__":

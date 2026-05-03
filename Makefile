@@ -1,8 +1,20 @@
 ###############################################################################
-# DOCKER-RELATED TARGETS ONLY
+# DOCKER + K8S/HELM ROUTINES
 ###############################################################################
 
-.PHONY: compose-build compose-up compose-down compose-clean images mdm-status mdm-topics-check mdm-flow-check
+K8S_ENV ?= dev
+KIND_CLUSTER ?= realtime-dev
+K8S_NAMESPACE ?= realtime-$(K8S_ENV)
+K8S_RELEASE ?= realtime-$(K8S_ENV)
+
+HELM_CHART ?= ./cicd/charts
+HELM_VALUES ?= ./cicd/k8s/helm/values/values-$(K8S_ENV).yaml
+ARGO_APP_MANIFEST ?= ./cicd/argocd/$(K8S_ENV).yaml
+HELM_TIMEOUT ?= 15m
+
+.PHONY: compose-build compose-up compose-down compose-clean images mdm-status mdm-topics-check mdm-flow-check \
+	k8s-kind-bootstrap k8s-build-images helm-deps helm-template helm-up helm-down \
+	k8s-argocd-apply k8s-status k8s-routine-up k8s-routine-down
 
 # Build all Docker images
 compose-build:
@@ -43,3 +55,54 @@ mdm-topics-check:
 
 # Run complete MDM event-flow validation
 mdm-flow-check: mdm-status mdm-topics-check
+
+
+###############################################################################
+# K8S + HELM ROUTINE TARGETS
+###############################################################################
+
+# Bootstrap kind cluster and Argo CD namespace/control plane
+k8s-kind-bootstrap:
+	@if kind get clusters | grep -qx "$(KIND_CLUSTER)"; then \
+		echo "kind cluster '$(KIND_CLUSTER)' already exists, skipping bootstrap"; \
+	else \
+		CLUSTER_NAME=$(KIND_CLUSTER) ./cicd/k8s/kind/bootstrap-kind.sh; \
+	fi
+
+# Build runtime images and load them into the kind cluster
+k8s-build-images:
+	CLUSTER_NAME=$(KIND_CLUSTER) ./cicd/scripts/build-images.sh
+
+# Resolve chart dependencies
+helm-deps:
+	./cicd/k8s/helm/scripts/helm-deps.sh
+
+# Render templates for quick validation before apply
+helm-template:
+	helm template $(K8S_RELEASE) $(HELM_CHART) -n $(K8S_NAMESPACE) -f $(HELM_VALUES)
+
+# Install/upgrade platform chart into the selected namespace
+helm-up: helm-deps
+	-kubectl -n $(K8S_NAMESPACE) delete job $(K8S_RELEASE)-vision-dbz-connect-init $(K8S_RELEASE)-vision-mdm-connect-init $(K8S_RELEASE)-vision-ods-connect-init $(K8S_RELEASE)-vision-dbt register-schemas-job --ignore-not-found
+	helm upgrade --install $(K8S_RELEASE) $(HELM_CHART) -n $(K8S_NAMESPACE) --create-namespace -f $(HELM_VALUES) --timeout $(HELM_TIMEOUT)
+
+# Remove platform chart and namespace resources
+helm-down:
+	-helm uninstall $(K8S_RELEASE) -n $(K8S_NAMESPACE)
+	-kubectl delete namespace $(K8S_NAMESPACE) --ignore-not-found
+
+# Apply Argo CD application manifest for the selected environment
+k8s-argocd-apply:
+	kubectl apply -f $(ARGO_APP_MANIFEST)
+	kubectl -n argocd get application $(K8S_RELEASE)
+
+# Snapshot workload health in the selected namespace
+k8s-status:
+	kubectl -n $(K8S_NAMESPACE) get pods
+	kubectl -n $(K8S_NAMESPACE) get jobs
+
+# Routine B: kind + image build/load + Helm deploy
+k8s-routine-up: k8s-kind-bootstrap k8s-build-images helm-up k8s-status
+
+# Routine B teardown: remove Helm release and namespace
+k8s-routine-down: helm-down

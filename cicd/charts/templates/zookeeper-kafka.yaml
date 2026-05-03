@@ -3,20 +3,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-zookeeper
+  name: {{ include "vision.fullname" . }}-zookeeper
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: zookeeper
 spec:
   replicas: {{ .Values.zookeeper.replicas | default 1 }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: zookeeper
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: zookeeper
     spec:
       containers:
@@ -34,14 +34,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-zookeeper
+  name: {{ include "vision.fullname" . }}-zookeeper
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: zookeeper
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: zookeeper
   ports:
     - name: client
@@ -54,20 +54,20 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-kafka
+  name: {{ include "vision.fullname" . }}-kafka
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: kafka
 spec:
   replicas: {{ .Values.kafka.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: kafka
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: kafka
     spec:
       containers:
@@ -80,11 +80,11 @@ spec:
             - name: KAFKA_BROKER_ID
               value: "1"
             - name: KAFKA_ZOOKEEPER_CONNECT
-              value: {{ .Values.kafka.zookeeperConnect | quote }}
+              value: {{ tpl .Values.kafka.zookeeperConnect . | quote }}
             - name: KAFKA_LISTENERS
               value: PLAINTEXT://0.0.0.0:9092
             - name: KAFKA_ADVERTISED_LISTENERS
-              value: PLAINTEXT://{{ include "realtime-app.fullname" . }}-kafka:9092
+              value: PLAINTEXT://{{ include "vision.serviceName" (dict "root" . "key" "kafka") }}:9092
             - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
               value: "1"
             - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
@@ -95,14 +95,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-kafka
+  name: {{ include "vision.fullname" . }}-kafka
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: kafka
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: kafka
   ports:
     - name: broker

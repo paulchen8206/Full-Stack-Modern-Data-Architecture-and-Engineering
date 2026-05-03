@@ -9,7 +9,7 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
 
 K8S_MODE=0
 K8S_NAMESPACE="realtime-dev"
-TRINO_DEPLOYMENT="realtime-dev-realtime-app-trino"
+TRINO_DEPLOYMENT="realtime-dev-vision-trino"
 LOCAL_TRINO_PORT=8086
 TRINO_REMOTE_PORT=8080
 

@@ -3,20 +3,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-control-center
+  name: {{ include "vision.fullname" . }}-control-center
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: control-center
 spec:
   replicas: {{ .Values.controlCenter.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: control-center
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: control-center
     spec:
       containers:
@@ -27,13 +27,13 @@ spec:
             - containerPort: 9021
           env:
             - name: CONTROL_CENTER_BOOTSTRAP_SERVERS
-              value: {{ .Values.kafkaBootstrapServers | quote }}
+              value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
             - name: CONTROL_CENTER_ZOOKEEPER_CONNECT
               value: ""
             - name: CONTROL_CENTER_CONNECT_CONNECT_CLUSTER
-              value: {{ .Values.controlCenter.connectCluster | quote }}
+              value: {{ tpl .Values.controlCenter.connectCluster . | quote }}
             - name: CONTROL_CENTER_SCHEMA_REGISTRY_URL
-              value: {{ .Values.controlCenter.schemaRegistryUrl | quote }}
+              value: {{ tpl .Values.controlCenter.schemaRegistryUrl . | quote }}
             - name: CONTROL_CENTER_CONNECT_HEALTHCHECK_ENDPOINT
               value: "/connectors"
             - name: CONTROL_CENTER_CONNECT_CLUSTER
@@ -52,14 +52,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-control-center
+  name: {{ include "vision.fullname" . }}-control-center
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: control-center
 spec:
   type: {{ .Values.controlCenter.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: control-center
   ports:
     - name: http

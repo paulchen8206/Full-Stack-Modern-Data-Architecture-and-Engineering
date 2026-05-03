@@ -2,20 +2,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-ods-source
+  name: {{ include "vision.fullname" . }}-ods-source
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: producer
 spec:
   replicas: {{ .Values.producer.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: producer
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: producer
     spec:
       containers:
@@ -24,9 +24,9 @@ spec:
           imagePullPolicy: {{ .Values.producer.image.pullPolicy }}
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
-              value: {{ .Values.kafkaBootstrapServers | quote }}
+              value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
             - name: SCHEMA_REGISTRY_URL
-              value: http://{{ include "realtime-app.fullname" . }}-schema-registry:8081
+              value: http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081
             - name: RAW_TOPIC
               value: {{ .Values.producer.rawTopic | quote }}
             - name: PRODUCER_INTERVAL_MS
@@ -38,20 +38,20 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-kafka-ui
+  name: {{ include "vision.fullname" . }}-kafka-ui
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: kafka-ui
 spec:
   replicas: {{ .Values.kafkaUi.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: kafka-ui
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: kafka-ui
     spec:
       containers:
@@ -64,19 +64,19 @@ spec:
             - name: KAFKA_CLUSTERS_0_NAME
               value: realtime-dev
             - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
-              value: {{ .Values.kafkaBootstrapServers | quote }}
+              value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-kafka-ui
+  name: {{ include "vision.fullname" . }}-kafka-ui
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: kafka-ui
 spec:
   type: {{ .Values.kafkaUi.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: kafka-ui
   ports:
     - name: http
@@ -88,20 +88,20 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-ods-processor
+  name: {{ include "vision.fullname" . }}-ods-processor
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: processor
 spec:
   replicas: {{ .Values.processor.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: processor
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: processor
     spec:
       containers:
@@ -110,7 +110,7 @@ spec:
           imagePullPolicy: {{ .Values.processor.image.pullPolicy }}
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
-              value: {{ .Values.kafkaBootstrapServers | quote }}
+              value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
             - name: APP_RAW_SALES_ORDERS_TOPIC
               value: {{ .Values.processor.topics.rawSalesOrders | quote }}
             - name: APP_SALES_ORDER_TOPIC
@@ -129,14 +129,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-ods-processor
+  name: {{ include "vision.fullname" . }}-ods-processor
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: processor
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: processor
   ports:
     - name: http
@@ -148,20 +148,20 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-iceberg-writer
+  name: {{ include "vision.fullname" . }}-iceberg-writer
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: iceberg-writer
 spec:
   replicas: {{ .Values.icebergWriter.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: iceberg-writer
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: iceberg-writer
     spec:
       containers:
@@ -170,13 +170,13 @@ spec:
           imagePullPolicy: {{ .Values.icebergWriter.image.pullPolicy }}
           command:
             - /usr/local/bin/wait-for-it.sh
-            - {{ printf "%s-snowflake-mimic:5432" (include "realtime-app.fullname" .) | quote }}
+            - {{ printf "%s:5432" (include "vision.serviceName" (dict "root" . "key" "snowflake-mimic")) | quote }}
             - uv
             - run
             - iceberg-writer
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
-              value: {{ .Values.kafkaBootstrapServers | quote }}
+              value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
             - name: ICEBERG_WRITER_GROUP_ID
               value: {{ .Values.icebergWriter.groupId | quote }}
             - name: ICEBERG_WRITER_OFFSET_RESET
@@ -188,7 +188,7 @@ spec:
             - name: ICEBERG_WRITER_FLUSH_INTERVAL_MS
               value: {{ .Values.icebergWriter.flushIntervalMs | quote }}
             - name: TRINO_URL
-              value: http://{{ include "realtime-app.fullname" . }}-trino:8080
+              value: http://{{ include "vision.serviceName" (dict "root" . "key" "trino") }}:8080
             - name: TRINO_USER
               value: analytics
             - name: ICEBERG_CATALOG

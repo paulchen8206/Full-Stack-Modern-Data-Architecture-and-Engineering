@@ -2,11 +2,11 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-mdm-config
+  name: {{ include "vision.fullname" . }}-mdm-config
   annotations:
     argocd.argoproj.io/sync-wave: "0"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: mdm
 data:
   init.sql: |
@@ -68,7 +68,7 @@ data:
     {
       "connector.class": "io.debezium.connector.mysql.MySqlConnector",
       "tasks.max": "1",
-      "database.hostname": "{{ include "realtime-app.fullname" . }}-mdm-source",
+      "database.hostname": "{{ include "vision.serviceName" (dict "root" . "key" "mdm-source") }}",
       "database.port": "3306",
       "database.user": "root",
       "database.password": "{{ .Values.mdm.mysql.rootPassword }}",
@@ -87,40 +87,169 @@ data:
     #!/usr/bin/env sh
     set -eu
 
-    CONNECT_URL="${CONNECT_URL:-http://{{ include "realtime-app.fullname" . }}-mdm-connect:8083}"
-    CONNECTOR_NAME="dbz-mysql-mdm"
-    CONNECTOR_CFG="/connector-configs/dbz-mysql-mdm.json"
+    CONNECT_URL="${CONNECT_URL:-http://{{ include "vision.serviceName" (dict "root" . "key" "mdm-connect") }}:8083}"
+    CONNECTOR_DIR="/connector-configs"
+    CONNECTOR_FILES="s3-mdm-customer.json,s3-mdm-product.json,s3-mdm-date.json,jdbc-mdm-warehouse.json"
 
     until curl -fsS "${CONNECT_URL}/connector-plugins" >/dev/null; do
       echo "Waiting for Kafka Connect at ${CONNECT_URL} ..."
       sleep 2
     done
 
-    echo "Registering connector ${CONNECTOR_NAME}"
-    curl -fsS -X PUT \
-      -H "Content-Type: application/json" \
-      --data @"${CONNECTOR_CFG}" \
-      "${CONNECT_URL}/connectors/${CONNECTOR_NAME}/config"
+    # Remove stale CDC connector if it was previously mis-registered to mdm-connect.
+    if curl -fsS "${CONNECT_URL}/connectors/dbz-mysql-mdm" >/dev/null 2>&1; then
+      echo "Removing stale connector dbz-mysql-mdm from mdm-connect"
+      curl -fsS -X DELETE "${CONNECT_URL}/connectors/dbz-mysql-mdm" >/dev/null
+    fi
+
+    OLD_IFS="$IFS"
+    IFS=','
+    set -- $CONNECTOR_FILES
+    IFS="$OLD_IFS"
+
+    for file_name in "$@"; do
+      cfg="${CONNECTOR_DIR}/${file_name}"
+      if [ ! -f "$cfg" ]; then
+        echo "Missing connector config: $cfg"
+        continue
+      fi
+
+      name=$(sed -n 's/^[[:space:]]*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$cfg" | head -n 1)
+      if [ -z "$name" ]; then
+        echo "Unable to parse connector name from $cfg"
+        exit 1
+      fi
+
+      echo "Registering connector ${name}"
+      # Ensure a clean connector spec is applied even when this job is re-run.
+      curl -fsS -X DELETE "${CONNECT_URL}/connectors/${name}" >/dev/null 2>&1 || true
+      http_code=$(curl -sS -o /tmp/${name}-create-response.json -w "%{http_code}" \
+        -X POST -H "Content-Type: application/json" --data @"${cfg}" "${CONNECT_URL}/connectors" || true)
+      if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+        echo "Connector create failed for ${name} (HTTP ${http_code})"
+        cat /tmp/${name}-create-response.json || true
+        exit 1
+      fi
+    done
+  s3-mdm-customer.json: |
+    {
+      "name": "s3-mdm-customer",
+      "config": {
+        "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+        "tasks.max": "1",
+        "topics": "mdm_customer",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false",
+        "s3.bucket.name": "{{ .Values.minio.bucket }}",
+        "topics.dir": "raw/mdm",
+        "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:{{ .Values.minio.service.apiPort }}",
+        "s3.region": "us-east-1",
+        "aws.access.key.id": "{{ .Values.minio.rootUser }}",
+        "aws.secret.access.key": "{{ .Values.minio.rootPassword }}",
+        "s3.part.size": "5242880",
+        "flush.size": "1",
+        "storage.class": "io.confluent.connect.s3.storage.S3Storage",
+        "format.class": "io.confluent.connect.s3.format.json.JsonFormat",
+        "partitioner.class": "io.confluent.connect.storage.partitioner.DefaultPartitioner",
+        "schema.compatibility": "NONE"
+      }
+    }
+  s3-mdm-product.json: |
+    {
+      "name": "s3-mdm-product",
+      "config": {
+        "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+        "tasks.max": "1",
+        "topics": "mdm_product",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false",
+        "s3.bucket.name": "{{ .Values.minio.bucket }}",
+        "topics.dir": "raw/mdm",
+        "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:{{ .Values.minio.service.apiPort }}",
+        "s3.region": "us-east-1",
+        "aws.access.key.id": "{{ .Values.minio.rootUser }}",
+        "aws.secret.access.key": "{{ .Values.minio.rootPassword }}",
+        "s3.part.size": "5242880",
+        "flush.size": "1",
+        "storage.class": "io.confluent.connect.s3.storage.S3Storage",
+        "format.class": "io.confluent.connect.s3.format.json.JsonFormat",
+        "partitioner.class": "io.confluent.connect.storage.partitioner.DefaultPartitioner",
+        "schema.compatibility": "NONE"
+      }
+    }
+  s3-mdm-date.json: |
+    {
+      "name": "s3-mdm-date",
+      "config": {
+        "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+        "tasks.max": "1",
+        "topics": "mdm_date",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false",
+        "s3.bucket.name": "{{ .Values.minio.bucket }}",
+        "topics.dir": "raw/mdm",
+        "store.url": "http://{{ include "vision.serviceName" (dict "root" . "key" "minio") }}:{{ .Values.minio.service.apiPort }}",
+        "s3.region": "us-east-1",
+        "aws.access.key.id": "{{ .Values.minio.rootUser }}",
+        "aws.secret.access.key": "{{ .Values.minio.rootPassword }}",
+        "s3.part.size": "5242880",
+        "flush.size": "1",
+        "storage.class": "io.confluent.connect.s3.storage.S3Storage",
+        "format.class": "io.confluent.connect.s3.format.json.JsonFormat",
+        "partitioner.class": "io.confluent.connect.storage.partitioner.DefaultPartitioner",
+        "schema.compatibility": "NONE"
+      }
+    }
+  jdbc-mdm-warehouse.json: |
+    {
+      "name": "jdbc-mdm-warehouse",
+      "config": {
+        "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+        "tasks.max": "1",
+        "topics": "mdm_customer_jdbc,mdm_product_jdbc,mdm_date_jdbc",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "true",
+        "connection.url": "jdbc:postgresql://{{ include "vision.serviceName" (dict "root" . "key" "snowflake-mimic") }}:5432/{{ .Values.postgres.auth.database }}",
+        "connection.user": "{{ .Values.postgres.auth.user }}",
+        "connection.password": "{{ .Values.postgres.auth.password }}",
+        "table.name.format": "landing.${topic}",
+        "transforms": "RouteTopic",
+        "transforms.RouteTopic.type": "org.apache.kafka.connect.transforms.RegexRouter",
+        "transforms.RouteTopic.regex": "(.*)_jdbc",
+        "transforms.RouteTopic.replacement": "$1",
+        "insert.mode": "insert",
+        "auto.create": "true",
+        "auto.evolve": "true",
+        "batch.size": "3000",
+        "delete.enabled": "false",
+        "pk.mode": "none",
+        "errors.tolerance": "all",
+        "errors.log.enable": "true",
+        "errors.log.include.messages": "true",
+        "consumer.override.auto.offset.reset": "latest",
+        "quote.sql.identifiers": "never"
+      }
+    }
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-mdm-source
+  name: {{ include "vision.fullname" . }}-mdm-source
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: mysql-mdm
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: mysql-mdm
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: mysql-mdm
     spec:
       containers:
@@ -150,7 +279,7 @@ spec:
           emptyDir: {}
         - name: init
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-mdm-config
+            name: {{ include "vision.fullname" . }}-mdm-config
             items:
               - key: init.sql
                 path: init.sql
@@ -158,16 +287,16 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-mdm-source
+  name: {{ include "vision.fullname" . }}-mdm-source
   annotations:
     argocd.argoproj.io/sync-wave: "1"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: mysql-mdm
 spec:
   type: {{ .Values.mdm.mysql.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: mysql-mdm
   ports:
     - name: mysql
@@ -177,22 +306,22 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-mdm-connect
+  name: {{ include "vision.fullname" . }}-mdm-connect
   annotations:
     argocd.argoproj.io/sync-wave: "2"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: mdm-connect
 spec:
   replicas: {{ .Values.mdm.connect.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: mdm-connect
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: mdm-connect
     spec:
       containers:
@@ -202,36 +331,52 @@ spec:
           ports:
             - containerPort: 8083
           env:
-            - name: BOOTSTRAP_SERVERS
-              value: {{ .Values.kafkaBootstrapServers | quote }}
-            - name: GROUP_ID
+            - name: CONNECT_BOOTSTRAP_SERVERS
+              value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
+            - name: CONNECT_REST_ADVERTISED_HOST_NAME
+              value: {{ include "vision.serviceName" (dict "root" . "key" "mdm-connect") | quote }}
+            - name: CONNECT_GROUP_ID
               value: {{ .Values.mdm.connect.groupId | quote }}
-            - name: CONFIG_STORAGE_TOPIC
+            - name: CONNECT_CONFIG_STORAGE_TOPIC
               value: {{ .Values.mdm.connect.configStorageTopic | quote }}
-            - name: OFFSET_STORAGE_TOPIC
+            - name: CONNECT_OFFSET_STORAGE_TOPIC
               value: {{ .Values.mdm.connect.offsetStorageTopic | quote }}
-            - name: STATUS_STORAGE_TOPIC
+            - name: CONNECT_STATUS_STORAGE_TOPIC
               value: {{ .Values.mdm.connect.statusStorageTopic | quote }}
-            - name: KEY_CONVERTER
-              value: org.apache.kafka.connect.storage.StringConverter
-            - name: VALUE_CONVERTER
+            - name: CONNECT_KEY_CONVERTER
               value: org.apache.kafka.connect.json.JsonConverter
-            - name: VALUE_CONVERTER_SCHEMAS_ENABLE
+            - name: CONNECT_VALUE_CONVERTER
+              value: org.apache.kafka.connect.json.JsonConverter
+            - name: CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE
               value: "false"
+            - name: CONNECT_INTERNAL_KEY_CONVERTER
+              value: org.apache.kafka.connect.json.JsonConverter
+            - name: CONNECT_INTERNAL_VALUE_CONVERTER
+              value: org.apache.kafka.connect.json.JsonConverter
+            - name: CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            - name: CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            - name: CONNECT_STATUS_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            - name: CONNECT_LOG4J_ROOT_LOGLEVEL
+              value: INFO
+            - name: CONNECT_PLUGIN_PATH
+              value: /usr/share/confluent-hub-components,/usr/share/java
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-mdm-connect
+  name: {{ include "vision.fullname" . }}-mdm-connect
   annotations:
     argocd.argoproj.io/sync-wave: "2"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: mdm-connect
 spec:
   type: {{ .Values.mdm.connect.service.type }}
   selector:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: mdm-connect
   ports:
     - name: http
@@ -241,18 +386,18 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-mdm-connect-init
+  name: {{ include "vision.fullname" . }}-mdm-connect-init
   annotations:
     argocd.argoproj.io/sync-wave: "3"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: mdm-connect-init
 spec:
   backoffLimit: 6
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: mdm-connect-init
     spec:
       restartPolicy: OnFailure
@@ -270,37 +415,43 @@ spec:
       volumes:
         - name: mdm-config
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-mdm-config
+            name: {{ include "vision.fullname" . }}-mdm-config
             defaultMode: 0755
             items:
               - key: register-mdm-connectors.sh
                 path: register-mdm-connectors.sh
         - name: connector-configs
           configMap:
-            name: {{ include "realtime-app.fullname" . }}-mdm-config
+            name: {{ include "vision.fullname" . }}-mdm-config
             items:
-              - key: dbz-mysql-mdm.json
-                path: dbz-mysql-mdm.json
+              - key: s3-mdm-customer.json
+                path: s3-mdm-customer.json
+              - key: s3-mdm-product.json
+                path: s3-mdm-product.json
+              - key: s3-mdm-date.json
+                path: s3-mdm-date.json
+              - key: jdbc-mdm-warehouse.json
+                path: jdbc-mdm-warehouse.json
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-mdm-cdc-curate
+  name: {{ include "vision.fullname" . }}-mdm-cdc-curate
   annotations:
     argocd.argoproj.io/sync-wave: "4"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: mdm-cdc-curate
 spec:
   replicas: {{ .Values.mdm.cdcProducer.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: mdm-cdc-curate
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: mdm-cdc-curate
     spec:
       initContainers:
@@ -310,7 +461,7 @@ spec:
             - /bin/sh
             - -c
             - |
-              until nc -z {{ include "realtime-app.fullname" . }}-kafka 9092; do
+              until nc -z {{ include "vision.serviceName" (dict "root" . "key" "kafka") }} 9092; do
                 echo "Waiting for Kafka broker..."
                 sleep 2
               done
@@ -320,7 +471,7 @@ spec:
           imagePullPolicy: {{ .Values.mdm.cdcProducer.image.pullPolicy }}
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
-              value: {{ .Values.kafkaBootstrapServers | quote }}
+              value: {{ tpl .Values.kafkaBootstrapServers . | quote }}
             - name: MDM_CDC_GROUP_ID
               value: {{ .Values.mdm.cdcProducer.groupId | quote }}
             - name: CDC_CONSUMER_OFFSET_RESET
@@ -329,22 +480,22 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "realtime-app.fullname" . }}-mdm-rds-pg
+  name: {{ include "vision.fullname" . }}-mdm-rds-pg
   annotations:
     argocd.argoproj.io/sync-wave: "4"
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: mdm-pyspark-sync
 spec:
   replicas: {{ .Values.mdm.pysparkSync.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+      app.kubernetes.io/name: {{ include "vision.name" . }}
       app.kubernetes.io/component: mdm-pyspark-sync
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+        app.kubernetes.io/name: {{ include "vision.name" . }}
         app.kubernetes.io/component: mdm-pyspark-sync
     spec:
       containers:
@@ -360,7 +511,7 @@ spec:
             - /app/main.py
           env:
             - name: MDM_MYSQL_HOST
-              value: {{ printf "%s-mdm-source" (include "realtime-app.fullname" .) | quote }}
+              value: {{ include "vision.serviceName" (dict "root" . "key" "mdm-source") | quote }}
             - name: MDM_MYSQL_PORT
               value: {{ .Values.mdm.mysql.service.port | quote }}
             - name: MDM_MYSQL_DB
@@ -370,7 +521,7 @@ spec:
             - name: MDM_MYSQL_PASSWORD
               value: {{ .Values.mdm.mysql.rootPassword | quote }}
             - name: POSTGRES_HOST
-              value: {{ printf "%s-snowflake-mimic" (include "realtime-app.fullname" .) | quote }}
+              value: {{ include "vision.serviceName" (dict "root" . "key" "snowflake-mimic") | quote }}
             - name: POSTGRES_PORT
               value: {{ .Values.postgres.service.port | quote }}
             - name: POSTGRES_DB

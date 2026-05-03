@@ -6,7 +6,7 @@ metadata:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
   labels:
-    app.kubernetes.io/name: {{ include "realtime-app.name" . }}
+    app.kubernetes.io/name: {{ include "vision.name" . }}
     app.kubernetes.io/component: schema-registry
 spec:
   template:
@@ -24,7 +24,7 @@ spec:
                   echo "Registering schema for $subject..."
                   curl -s -o /dev/null -w "%{http_code}\n" -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" \
                     --data @"/schemas/${subject}.json" \
-                    "http://{{ include "realtime-app.fullname" . }}-schema-registry:8081/subjects/${subject}-value/versions"
+                    "http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081/subjects/${subject}-value/versions"
                 else
                   echo "Schema file not found: /schemas/${subject}.json"
                 fi

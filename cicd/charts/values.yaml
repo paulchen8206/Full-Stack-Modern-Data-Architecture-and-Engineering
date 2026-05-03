@@ -2,6 +2,17 @@ schemaRegistry:
   enabled: true
 nameOverride: "vision"
 fullnameOverride: ""
+# Optional service host overrides for Docker-service parity.
+# When unset, templates default to <release>-<nameOverride>-<service-key>.
+# Example docker-style values:
+# serviceNames:
+#   kafka: kafka
+#   dbz-connect: dbz-connect
+#   mdm-connect: mdm-connect
+#   mdm-source: mdm-source
+#   minio: minio
+#   snowflake-mimic: snowflake-mimic
+serviceNames: {}
 producer:
   enabled: true
   replicas: 1
@@ -25,6 +36,23 @@ processor:
     customerSales: customer_sales
   consumerGroupId: realtime-flink-processor
   checkpointIntervalMs: 10000
+kafkaUi:
+  enabled: false
+  replicas: 1
+  image:
+    repository: provectuslabs/kafka-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+icebergWriter:
+  enabled: false
+  replicas: 1
+  image:
+    repository: pos-iceberg-writer
+    tag: 0.1.0
+    pullPolicy: IfNotPresent
   groupId: iceberg-writer
   offsetReset: earliest
   batchSize: 50
@@ -33,15 +61,15 @@ processor:
   catalog: lakehouse
   schema: streaming
 controlCenter:
-  enabled: true
+  enabled: false
   replicas: 1
   image:
     repository: confluentinc/cp-enterprise-control-center
     tag: 7.5.3
     pullPolicy: IfNotPresent
-  connectCluster: 'http://realtime-dev-realtime-app-ods-connect:8083'
+  connectCluster: 'http://{{ include "vision.serviceName" (dict "root" . "key" "ods-connect") }}:8083'
   connectClusterName: 'ods-connect'
-  schemaRegistryUrl: 'http://realtime-dev-realtime-app-schema-registry:8081'
+  schemaRegistryUrl: 'http://{{ include "vision.serviceName" (dict "root" . "key" "schema-registry") }}:8081'
   service:
     type: ClusterIP
     port: 9021
@@ -134,8 +162,8 @@ mdm:
   connect:
     replicas: 1
     image:
-      repository: quay.io/debezium/connect
-      tag: "3.0"
+      repository: pos-connect
+      tag: 0.1.0
       pullPolicy: IfNotPresent
     service:
       type: ClusterIP
@@ -286,7 +314,7 @@ openmetadata:
       repository: openmetadata/ingestion
       tag: 1.5.8
       pullPolicy: IfNotPresent
-kafkaBootstrapServers: "realtime-dev-realtime-app-kafka:9092"
+kafkaBootstrapServers: '{{ include "vision.serviceName" (dict "root" . "key" "kafka") }}:9092'
 zookeeper:
   enabled: true
   image:
@@ -303,7 +331,7 @@ kafka:
     tag: 7.5.3
     pullPolicy: IfNotPresent
   replicas: 1
-  zookeeperConnect: "realtime-dev-realtime-app-zookeeper:2181"
+  zookeeperConnect: '{{ include "vision.serviceName" (dict "root" . "key" "zookeeper") }}:2181'
   provisioning:
     enabled: true
     numPartitions: 3

@@ -90,7 +90,7 @@ data:
       "database.user": "root",
       "database.password": "{{ .Values.mdm.mysql.rootPassword }}",
       "database.server.id": "5401",
-      "topic.prefix": "mdm_mysql",
+      "topic.prefix": "mysql
       "database.include.list": "{{ .Values.mdm.mysql.database }}",
       "table.include.list": "{{ .Values.mdm.mysql.database }}.customer360,{{ .Values.mdm.mysql.database }}.product_master,{{ .Values.mdm.mysql.database }}.date",
       "include.schema.changes": "false",

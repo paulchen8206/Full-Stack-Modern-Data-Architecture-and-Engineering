@@ -132,7 +132,7 @@ flowchart LR
    ODS_TOPICS --> ODS_SINKS[ODS JDBC and S3 Sinks]
    ODS_SINKS --> LANDING[(Landing Schema)]
    LANDING --> DBT[dbt Medallion Models]
-   MDM_MYSQL[(MDM Source MySQL)] --> DBZ[Debezium CDC]
+   MYSQL[(MDM Source MySQL)] --> DBZ[Debezium CDC]
    DBZ --> MDM_CURATE[MDM CDC Curate]
    MDM_CURATE --> MDM_SINKS[MDM JDBC and S3 Sinks]
    MDM_SINKS --> LANDING
@@ -289,7 +289,7 @@ OpenMetadata is not part of the default routine. It is available only when runni
 
 ### Container Behavior
 
-- One-shot init containers (`kafka-init`, `pos-schema-init`, `minio-init`, `dbz-connect-init`, `ods-connect-init`, `mdm-connect-init`) and `dbt` will exit with code 0 after completion.
+- One-shot init containers (`kafka-init`, `schema-init`, `minio-init`, `dbz-connect-init`, `ods-connect-init`, `mdm-connect-init`) and `dbt` will exit with code 0 after completion.
 - Trino may start successfully even if no Iceberg tables exist yet (expected until MinIO sink path is upgraded).
 
 ### Troubleshooting FAQ
@@ -525,8 +525,8 @@ SELECT * FROM lakehouse.demo.sample_orders LIMIT 10;
 - `mdm-source` continuously inserts and updates those master records through its built-in data generator.
 - `dbz-connect` runs Debezium MySQL source connector (`dbz-mysql-mdm`).
 - Debezium raw CDC topics:
-  - `mdm_mysql.mdm.customer360`
-  - `mdm_mysql.mdm.product_master`
+  - `mysql.mdm.customer360`
+  - `mysql.product_master`
 - `mdm-cdc-curate` consumes raw CDC and republishes curated MDM topics:
   - `mdm_customer`
   - `mdm_product`

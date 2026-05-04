@@ -806,7 +806,7 @@ The tables below map every service across both runtimes. "Helm dev" reflects `va
 | Zookeeper | ✅ | ✅ |
 | Kafka (3-broker cluster) | ✅ (`kafka-1/2/3`) | ✅ (single `kafka` deployment) |
 | Schema Registry | ✅ | ✅ |
-| Schema init job | ✅ (`pos-schema-init`) | ✅ (`register-schemas-job`) |
+| Schema init job | ✅ (`schema-init`) | ✅ (`register-schemas-job`) |
 | MinIO | ✅ | ✅ |
 | MinIO init | ✅ (`minio-init`) | ✅ (init container) |
 | Postgres (snowflake-mimic) | ✅ | ✅ |

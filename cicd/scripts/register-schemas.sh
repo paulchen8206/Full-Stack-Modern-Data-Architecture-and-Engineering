@@ -53,7 +53,11 @@ for avsc_file in "${schema_files[@]}"; do
   if http_code=$(register_schema_file "$SCHEMA_REGISTRY_URL" "$subject" "$avsc_file"); then
     log_info "Schema registered subject=$subject http_code=$http_code"
   else
-    log_error "Schema registration failed subject=$subject http_code=$http_code"
+    if [[ -n "${REGISTER_SCHEMA_LAST_ERROR:-}" ]]; then
+      log_error "Schema registration failed subject=$subject http_code=$http_code detail=$REGISTER_SCHEMA_LAST_ERROR"
+    else
+      log_error "Schema registration failed subject=$subject http_code=$http_code"
+    fi
     failures=$((failures + 1))
   fi
 done

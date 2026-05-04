@@ -79,7 +79,7 @@ flowchart LR
 
 - Source: MySQL `mdm` database tables (`customer360`, `product_master`, `date`)
 - Connector class: `io.debezium.connector.mysql.MySqlConnector`
-- Output: Kafka CDC topics with `topic.prefix=mdm_mysql`
+- Output: Kafka CDC topics with `topic.prefix=mysql
 
 ### ODS Connect Sinks
 

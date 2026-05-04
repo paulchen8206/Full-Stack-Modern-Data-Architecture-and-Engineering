@@ -208,7 +208,7 @@ All services should be Up, especially:
 Expected completed containers:
 
 - `kafka-init` exits with code 0 after creating topics.
-- `pos-schema-init` exits with code 0 after registering Avro subjects.
+- `schema-init` exits with code 0 after registering Avro subjects.
 - `minio-init` exits with code 0 after creating the object store bucket.
 - `ods-connect-init` exits with code 0 after registering connectors.
 - `dbz-connect-init` exits with code 0 after registering the Debezium MySQL source connector.
@@ -461,7 +461,7 @@ flowchart TB
 		direction TB
 		subgraph BOOTSTRAP[Bootstrap Jobs]
 			KI[kafka-init]
-			SI[pos-schema-init]
+			SI[schema-init]
 			MI[minio-init]
 			DI[dbz-connect-init]
 			OI[ods-connect-init]

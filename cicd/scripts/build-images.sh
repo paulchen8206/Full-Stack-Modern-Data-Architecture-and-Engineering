@@ -23,7 +23,7 @@ IMAGE_SPECS=(
 	"ODS_CONNECT_IMAGE|pos-ods-connect:0.1.0|kafka-connect/ods-connect"
 	"PROCESSOR_IMAGE|pos-processor:0.1.0|process-apps/ods-processor"
 	"PRODUCER_IMAGE|pos-producer:0.1.0|source-apps/ods-source"
-	"SCHEMA_INIT_IMAGE|pos-schema-init:latest|.|platform-services/schemas/Dockerfile"
+	"SCHEMA_INIT_IMAGE|schema-init:latest|.|platform-services/schemas/Dockerfile"
 )
 
 IMAGES=()

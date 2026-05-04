@@ -149,7 +149,7 @@ All long-running services should show `Up`. One-shot containers exit cleanly wit
 | Container | Expected state |
 |---|---|
 | `kafka-init` | `Exited (0)` — topics created |
-| `pos-schema-init` | `Exited (0)` — Avro subjects registered |
+| `schema-init` | `Exited (0)` — Avro subjects registered |
 | `minio-init` | `Exited (0)` — bucket created |
 | `ods-connect-init` | `Exited (0)` — ODS connectors registered |
 | `dbz-connect-init` | `Exited (0)` — Debezium connector registered |
@@ -166,7 +166,7 @@ flowchart TB
     direction TB
     subgraph BOOTSTRAP[Bootstrap Jobs]
       KI[kafka-init]
-      SI[pos-schema-init]
+      SI[schema-init]
       MI[minio-init]
       DI[dbz-connect-init]
       OI[ods-connect-init]
@@ -501,7 +501,7 @@ Rollback triggers:
 | Zookeeper | ✅ | ✅ |
 | Kafka | ✅ 3-broker cluster (`kafka-1/2/3`) | ✅ single broker (`kafka`) |
 | Schema Registry | ✅ | ✅ |
-| Schema init | ✅ `pos-schema-init` | ✅ `register-schemas-job` |
+| Schema init | ✅ `schema-init` | ✅ `register-schemas-job` |
 | MinIO | ✅ | ✅ |
 | MinIO init | ✅ `minio-init` | ✅ init container |
 | Postgres (snowflake-mimic) | ✅ | ✅ |

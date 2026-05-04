@@ -146,6 +146,10 @@ services:
     depends_on:
       kafka-1:
         condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy       
       kafka-init:
         condition: service_completed_successfully
     ports:
@@ -160,12 +164,12 @@ services:
       retries: 20
       start_period: 20s
 
-  pos-schema-init:
+  schema-init:
+    container_name: schema_init
     build:
       context: .
       dockerfile: platform-services/schemas/Dockerfile
-    image: pos-schema-init:latest
-    container_name: schema_init
+    image: schema-init:latest
     depends_on:
       schema-registry:
         condition: service_healthy
@@ -198,7 +202,7 @@ services:
         condition: service_completed_successfully
       schema-registry:
         condition: service_healthy
-      pos-schema-init:
+      schema-init:
         condition: service_completed_successfully
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
@@ -314,7 +318,7 @@ services:
         condition: service_healthy
       kafka-3:
         condition: service_healthy
-      pos-schema-init:
+      schema-init:
         condition: service_completed_successfully
       mdm-source:
         condition: service_healthy
@@ -371,7 +375,7 @@ services:
         condition: service_completed_successfully
       snowflake-mimic:
         condition: service_started
-      pos-schema-init:
+      schema-init:
         condition: service_completed_successfully
     ports:
       - "8087:8083"
@@ -431,7 +435,7 @@ services:
         condition: service_completed_successfully
       snowflake-mimic:
         condition: service_started
-      pos-schema-init:
+      schema-init:
         condition: service_completed_successfully
       mdm-source:
         condition: service_healthy
@@ -499,11 +503,11 @@ services:
       snowflake-mimic:
         condition: service_started
     environment:
-      MDM_MYSQL_HOST: mdm-source
-      MDM_MYSQL_PORT: 3306
-      MDM_MYSQL_DB: mdm
-      MDM_MYSQL_USER: root
-      MDM_MYSQL_PASSWORD: mdmroot
+      MYSQL_HOST: mdm-source
+      MYSQL_PORT: 3306
+      MYSQL_DB: mdm
+      MYSQL_USER: root
+      MYSQL_PASSWORD: mdmroot
       POSTGRES_HOST: snowflake-mimic
       POSTGRES_PORT: 5432
       POSTGRES_DB: analytics

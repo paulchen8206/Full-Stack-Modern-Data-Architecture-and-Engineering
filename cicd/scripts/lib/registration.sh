@@ -139,12 +139,23 @@ register_schema_file() {
   local avsc_file="$3"
   local payload
   local http_code
+  local response_file
+  local response_body
 
+  REGISTER_SCHEMA_LAST_ERROR=""
   payload=$(jq -c --arg schema "$(jq -c . "$avsc_file")" '{schema: $schema}')
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+  response_file=$(mktemp)
+  http_code=$(curl -sS -o "$response_file" -w "%{http_code}" -X POST \
     -H "Content-Type: application/vnd.schemaregistry.v1+json" \
     --data "$payload" \
     "$schema_registry_url/subjects/${subject}-value/versions")
+
+  response_body=$(tr '\n' ' ' <"$response_file" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')
+  rm -f "$response_file"
+
+  if [[ "$http_code" != "200" && "$http_code" != "201" ]]; then
+    REGISTER_SCHEMA_LAST_ERROR="$response_body"
+  fi
 
   printf '%s\n' "$http_code"
   [[ "$http_code" == "200" || "$http_code" == "201" ]]

@@ -73,7 +73,7 @@ data:
       "database.user": "root",
       "database.password": "{{ .Values.mdm.mysql.rootPassword }}",
       "database.server.id": "5401",
-      "topic.prefix": "mdm_mysql",
+      "topic.prefix": "mysql
       "database.include.list": "{{ .Values.mdm.mysql.database }}",
       "table.include.list": "{{ .Values.mdm.mysql.database }}.customer360,{{ .Values.mdm.mysql.database }}.product_master",
       "include.schema.changes": "false",
@@ -507,15 +507,15 @@ spec:
             - org.postgresql:postgresql:42.7.4,com.mysql:mysql-connector-j:8.4.0
             - /app/main.py
           env:
-            - name: MDM_MYSQL_HOST
+            - name: MYSQL_HOST
               value: {{ include "vision.serviceName" (dict "root" . "key" "mdm-source") | quote }}
-            - name: MDM_MYSQL_PORT
+            - name: MYSQL_PORT
               value: {{ .Values.mdm.mysql.service.port | quote }}
-            - name: MDM_MYSQL_DB
+            - name: MYSQL_DB
               value: {{ .Values.mdm.mysql.database | quote }}
-            - name: MDM_MYSQL_USER
+            - name: MYSQL_USER
               value: root
-            - name: MDM_MYSQL_PASSWORD
+            - name: MYSQL_PASSWORD
               value: {{ .Values.mdm.mysql.rootPassword | quote }}
             - name: POSTGRES_HOST
               value: {{ include "vision.serviceName" (dict "root" . "key" "snowflake-mimic") | quote }}

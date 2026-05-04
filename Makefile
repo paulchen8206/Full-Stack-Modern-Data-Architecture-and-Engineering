@@ -62,7 +62,7 @@ HELM_SET_ARGS ?= \
 	--set schemaInit.image.tag=$(SCHEMA_INIT_IMAGE_TAG)
 MDM_SOURCE_IMAGE_REPOSITORY ?= pos-mdm-source
 MDM_SOURCE_IMAGE_TAG ?= 0.1.0
-SCHEMA_INIT_IMAGE_REPOSITORY ?= pos-schema-init
+SCHEMA_INIT_IMAGE_REPOSITORY ?= schema-init
 SCHEMA_INIT_IMAGE_TAG ?= latest
 
 .PHONY: compose-build compose-up compose-down compose-clean images mdm-status mdm-topics-check mdm-flow-check \

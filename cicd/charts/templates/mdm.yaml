@@ -40,7 +40,7 @@ data:
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS mdm_date (
+    CREATE TABLE IF NOT EXISTS `date` (
       date_key INT PRIMARY KEY,
       full_date DATE NOT NULL,
       day_of_month TINYINT NOT NULL,
@@ -54,7 +54,7 @@ data:
       is_weekend BOOLEAN NOT NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uq_mdm_date_full_date (full_date)
+      UNIQUE KEY uq_date_full_date (full_date)
     );
 
     INSERT IGNORE INTO customer360 (

@@ -222,7 +222,7 @@ def insert_random_data():
         # Date dimension rows are idempotent; duplicate keys only bump audit timestamp.
         cursor.execute(
             """
-            INSERT INTO mdm_date (
+            INSERT INTO `date` (
               date_key,
               full_date,
               day_of_month,
@@ -239,17 +239,17 @@ def insert_random_data():
               updated_at = CURRENT_TIMESTAMP
             """,
             (
-                                int(target_date.strftime("%Y%m%d")),
-                                target_date,
-                                target_date.day,
-                                ((target_date.isoweekday() % 7) + 1),
-                                target_date.strftime("%A"),
-                                int(target_date.strftime("%V")),
-                                target_date.month,
-                                target_date.strftime("%B"),
-                                ((target_date.month - 1) // 3) + 1,
-                                target_date.year,
-                                target_date.weekday() >= 5,
+                int(target_date.strftime("%Y%m%d")),
+                target_date,
+                target_date.day,
+                ((target_date.isoweekday() % 7) + 1),
+                target_date.strftime("%A"),
+                int(target_date.strftime("%V")),
+                target_date.month,
+                target_date.strftime("%B"),
+                ((target_date.month - 1) // 3) + 1,
+                target_date.year,
+                target_date.weekday() >= 5,
             ),
         )
 

@@ -8,7 +8,7 @@ from kafka import KafkaConsumer, KafkaProducer
 TOPIC_MAP = {
     "mdm_mysql.mdm.customer360": "mdm_customer",
     "mdm_mysql.mdm.product_master": "mdm_product",
-    "mdm_mysql.mdm.mdm_date": "mdm_date",
+    "mdm_mysql.mdm.date": "mdm_date",
 }
 
 JDBC_TOPIC_SUFFIX = os.getenv("MDM_JDBC_TOPIC_SUFFIX", "_jdbc")

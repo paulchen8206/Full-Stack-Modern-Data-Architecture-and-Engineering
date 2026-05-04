@@ -23,7 +23,7 @@ BUSINESS_TOPICS=(
 CDC_TOPICS=(
   mdm_mysql.mdm.customer360
   mdm_mysql.mdm.product_master
-  mdm_mysql.mdm.mdm_date
+  mdm_mysql.mdm.date
   schema-changes.mdm
 )
 

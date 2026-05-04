@@ -4,7 +4,7 @@ This folder simulates a Master Data Management (MDM) source system that continuo
 
 - `customer360`: Customer master data
 - `product_master`: Product master data
-- `mdm_date`: Date dimension data
+- `date`: Date dimension data
 
 ## Purpose
 The MDM source system is designed to:
@@ -26,7 +26,7 @@ flowchart LR
 	MYSQL[(MySQL MDM)]
 	C360[customer360]
 	PM[product_master]
-	D[mdm_date]
+	D[date]
 	CDC[Debezium CDC]
 
 	GEN --> MYSQL
@@ -49,7 +49,7 @@ flowchart LR
 ## Example Table Definitions
 - `customer360`: Stores customer profile and attributes
 - `product_master`: Stores product catalog and attributes
-- `mdm_date`: Stores date dimension for analytics
+- `date`: Stores date dimension for analytics
 
 ## How to Use
 1. Deploy a MySQL instance (e.g., via Docker Compose)

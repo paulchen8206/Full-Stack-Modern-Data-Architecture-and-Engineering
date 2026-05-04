@@ -77,7 +77,7 @@ flowchart LR
 
 ### Debezium CDC
 
-- Source: MySQL `mdm` database tables (`customer360`, `product_master`, `mdm_date`)
+- Source: MySQL `mdm` database tables (`customer360`, `product_master`, `date`)
 - Connector class: `io.debezium.connector.mysql.MySqlConnector`
 - Output: Kafka CDC topics with `topic.prefix=mdm_mysql`
 

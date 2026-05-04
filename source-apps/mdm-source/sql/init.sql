@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS product_master (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS mdm_date (
+CREATE TABLE IF NOT EXISTS `date` (
   date_key INT PRIMARY KEY,
   full_date DATE NOT NULL,
   day_of_month TINYINT NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS mdm_date (
   is_weekend BOOLEAN NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_mdm_date_full_date (full_date)
+  UNIQUE KEY uq_date_full_date (full_date)
 );
 
 INSERT IGNORE INTO customer360 (
@@ -77,7 +77,7 @@ INSERT IGNORE INTO product_master (
   ('SKU-103', 'USB-C Dock', 'USD', '2026-01-12 09:00:00', '2026-04-17 11:50:00', 39, 46, 159.95),
   ('SKU-104', 'Noise Cancelling Headset', 'USD', '2026-01-15 09:00:00', '2026-04-16 18:30:00', 58, 65, 199.99);
 
-INSERT IGNORE INTO mdm_date (
+INSERT IGNORE INTO `date` (
   date_key,
   full_date,
   day_of_month,

@@ -92,7 +92,7 @@ data:
       "database.server.id": "5401",
       "topic.prefix": "mdm_mysql",
       "database.include.list": "{{ .Values.mdm.mysql.database }}",
-      "table.include.list": "{{ .Values.mdm.mysql.database }}.customer360,{{ .Values.mdm.mysql.database }}.product_master,{{ .Values.mdm.mysql.database }}.mdm_date",
+      "table.include.list": "{{ .Values.mdm.mysql.database }}.customer360,{{ .Values.mdm.mysql.database }}.product_master,{{ .Values.mdm.mysql.database }}.date",
       "include.schema.changes": "false",
       "snapshot.mode": "initial",
       "decimal.handling.mode": "string",

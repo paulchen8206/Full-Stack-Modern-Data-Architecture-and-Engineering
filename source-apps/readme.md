@@ -15,7 +15,7 @@ The source applications are the starting point of the data pipeline. They publis
 
 - mdm-source
   - MySQL-based master data source simulator
-  - Owns customer360, product_master, and mdm_date tables
+  - Owns customer360, product_master, and date tables
   - Serves as the upstream system for Debezium CDC capture
 
 ## Project Structure

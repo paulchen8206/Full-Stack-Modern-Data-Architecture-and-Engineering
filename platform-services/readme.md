@@ -24,7 +24,6 @@ These services are not domain apps themselves. They provide core capabilities co
   - `dags/`
 - `kafka/`
   - `docker-create-topics.sh`
-  - `kafka-topics.sh`
 - `metadata/`
   - `readme.md`
   - `openmetadata/`

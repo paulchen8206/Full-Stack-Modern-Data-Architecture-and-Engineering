@@ -352,6 +352,7 @@ services:
       - ./kafka-connect/dbz-connect/connector-configs:/connectors:ro
     environment:
       CONNECT_URL: http://dbz-connect:8083
+      DBZ_SCHEMA_HISTORY_BOOTSTRAP_SERVERS: kafka-1:19092,kafka-2:19093,kafka-3:19094
     restart: on-failure
 
   ods-connect:

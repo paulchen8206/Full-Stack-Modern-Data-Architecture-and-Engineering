@@ -7,6 +7,7 @@ CONNECT_URL="${CONNECT_URL:-http://dbz-connect:8083}"
 CONNECTORS_DIR="/connectors"
 CONNECTOR_FILES="dbz-mysql-mdm.json"
 CONNECT_WAIT_SECONDS="${CONNECT_WAIT_SECONDS:-180}"
+DBZ_SCHEMA_HISTORY_BOOTSTRAP_SERVERS="${DBZ_SCHEMA_HISTORY_BOOTSTRAP_SERVERS:-${KAFKA_BOOTSTRAP_SERVERS:-kafka-1:19092,kafka-2:19093,kafka-3:19094}}"
 
 echo "Waiting for Kafka Connect at $CONNECT_URL ..."
 start_ts=$(date +%s)
@@ -39,8 +40,16 @@ for file_name in "$@"; do
   config="$CONNECTORS_DIR/$file_name"
   if [ -f "$config" ]; then
     name=$(jq -r .name "$config")
-    payload=$(jq -c .config "$config")
+    payload=$(jq -c --arg schema_history_bootstrap_servers "$DBZ_SCHEMA_HISTORY_BOOTSTRAP_SERVERS" '
+      .config
+      | if ."connector.class" == "io.debezium.connector.mysql.MySqlConnector" then
+          . + {"schema.history.internal.kafka.bootstrap.servers": $schema_history_bootstrap_servers}
+        else
+          .
+        end
+    ' "$config")
     echo "Registering connector: $name"
+    echo "Using schema history bootstrap servers: $DBZ_SCHEMA_HISTORY_BOOTSTRAP_SERVERS"
 
     attempt=1
     max_attempts=5

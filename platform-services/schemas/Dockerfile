@@ -10,8 +10,8 @@ COPY cicd/scripts/lib/common.sh /opt/cicd/scripts/lib/common.sh
 COPY cicd/scripts/lib/registration.sh /opt/cicd/scripts/lib/registration.sh
 RUN chmod +x /opt/cicd/scripts/register-schemas.sh
 
-# Copy schemas directory (optional, if needed by the script)
-COPY avro /avro
+# Copy schemas directory from repo-root build context.
+COPY platform-services/schemas/avro /avro
 
 WORKDIR /
 

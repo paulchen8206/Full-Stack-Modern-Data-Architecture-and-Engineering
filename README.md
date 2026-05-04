@@ -196,30 +196,35 @@ Related source locations:
 
 - `docker-compose.yml`: Local Routine A service topology for the full stack.
 - `Makefile`: Unified operational entrypoints for build, run, validation, and troubleshooting flows.
+- `analytics/`: Analytics assets including dbt project and SQL bootstrap.
+- `analytics/dbt`: dbt project for bronze, silver, and gold models targeting Trino and Postgres.
+- `analytics/sql`: Postgres bootstrap SQL for landing and MDM sync targets.
 - `source-apps/`: Source-side applications.
-- `source-apps/ods_source`: Python Kafka producer for composite sales orders.
+- `source-apps/ods-source`: Python Kafka producer for composite sales orders.
 - `source-apps/mdm-source`: MySQL-backed MDM source system simulator for CDC testing.
+- `source-apps/mdm-source/sql`: MySQL bootstrap SQL for MDM `customer360` and `product_master` tables.
 - `process-apps/`: Downstream processing and synchronization applications.
-- `process-apps/ods-processor`: Spring Boot application that launches the Flink topology.
-- `process-apps/mdm-cdc-curate`: Python app that consumes Debezium CDC topics and publishes `mdm_customer` and `mdm_product`.
+- `process-apps/ods-processor`: Java processor application and supporting CI assets.
+- `process-apps/mdm-cdc-curate`: Python app that consumes Debezium CDC topics and publishes curated MDM topics.
 - `process-apps/mdm-rds-pg`: Python app that continuously syncs MySQL MDM tables into Postgres landing tables.
-- `process-apps/iceberg-writer`: Python service that consumes Kafka topics and writes directly to Iceberg tables through Trino.
-- `kafka-connect/`: Kafka Connect images and connector configurations.
+- `process-apps/iceberg-writer`: Python service that consumes Kafka topics and writes to Iceberg tables through Trino.
+- `kafka-connect/`: Kafka Connect images, connector configs, and connector registration scripts.
 - `platform-services/`: Platform support images and bootstrap assets.
 - `platform-services/airflow`: Apache Airflow image and DAGs for scheduled dbt orchestration.
-- `platform-services/metadata`: OpenMetadata workflow definitions and metadata-service support assets.
+- `platform-services/kafka`: Kafka topic bootstrap scripts.
+- `platform-services/metadata`: OpenMetadata workflow definitions and support assets.
+- `platform-services/minio`: MinIO bootstrap scripts.
 - `platform-services/schemas`: Schema Registry bootstrap image and Avro schema assets.
-- `analytics/dbt`: dbt project for bronze, silver, and gold models targeting Trino and the Compose Postgres warehouse (`snowflake-mimic`).
-- `analytics/sql`: Postgres bootstrap SQL for landing and MDM sync targets.
-- `source-apps/mdm-source/sql`: MySQL bootstrap SQL for MDM `customer360` and `product_master` tables.
-- `trino/etc`: Trino coordinator and catalog configuration.
-- `trino/sql`: Trino bootstrap and incremental lakehouse SQL scripts.
-- `observability`: Prometheus, Grafana, and Blackbox Exporter configuration and dashboards.
+- `observability/`: Prometheus, Grafana, and Blackbox Exporter configuration and dashboards.
+- `trino/`: Trino coordinator config, SQL bootstrap/incremental scripts, and helper scripts.
+- `cicd/`: CI/CD and GitOps assets, including Argo CD manifests, Helm charts, Kubernetes helpers, and build/registration scripts.
+- `cicd/argocd`: Argo CD environment manifests (`dev`, `qa`, `prd`).
 - `cicd/charts`: Helm chart for Routine B Kubernetes deployment.
-- `cicd/k8s/helm/values`: Helm values for `dev`, `qa`, and `prd`.
-- `cicd`: CI/CD and GitOps assets, including Argo CD manifests, Helm charts, and Kubernetes helpers.
-- `scripts`: Local bootstrap, image build, topic, and query helpers.
+- `cicd/k8s`: Kubernetes support assets (`helm` and `kind`).
+- `cicd/scripts`: Image build and connector/schema registration scripts.
+- `docs/`: Documentation set for architecture, deployment, runbook, and ADRs.
 - `docs/architecture.md`: Architecture diagrams and modern data engineering framework/patterns.
+- `docs/deployment.md`: Deployment guidance.
 - `docs/runbook.md`: Day-2 operations procedures for Compose and Argo CD workflows.
 - `docs/adr`: Architecture Decision Records (ADRs).
 

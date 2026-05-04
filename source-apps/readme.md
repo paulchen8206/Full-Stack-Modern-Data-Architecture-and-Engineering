@@ -8,7 +8,7 @@ The source applications are the starting point of the data pipeline. They publis
 
 ## Applications
 
-- ods_source
+- ods-source
   - Python producer service for sales events
   - Publishes composite sales messages to the raw_sales_orders Kafka topic
   - Drives the realtime stream-processing pipeline
@@ -20,11 +20,14 @@ The source applications are the starting point of the data pipeline. They publis
 
 ## Project Structure
 
-- ods_source/
+- ods-source/
   - app/
   - Dockerfile
   - pyproject.toml
+  - readme.md
 - mdm-source/
+  - data-generator/
+  - entrypoint.sh
   - sql/
   - Dockerfile
   - readme.md
@@ -80,7 +83,7 @@ flowchart LR
   T5 --> T6
 ```
 
-1. ods_source produces raw sales events to Kafka.
+1. ods-source produces raw sales events to Kafka.
 2. mdm-source stores and updates master data in MySQL.
 3. Debezium captures mdm-source table changes and emits CDC topics.
 4. Downstream processing applications and connectors transform and land source data into Postgres, MinIO, and Iceberg targets.

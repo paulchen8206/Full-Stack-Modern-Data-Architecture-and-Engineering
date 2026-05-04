@@ -145,9 +145,8 @@ flowchart LR
 | Document | Purpose |
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | Architecture diagrams and modern data engineering framework/patterns |
-| [docs/runbook.md](docs/runbook.md) | Day-2 operations procedures for Compose and Argo CD workflows |
-| [docs/routine_a.md](docs/routine_a.md) | Quick-reference operational guide for Routine A (Docker Compose) |
-| [docs/routine_b.md](docs/routine_b.md) | Quick-reference operational guide for Routine B (kind + Helm + Argo CD) |
+| [docs/deployment.md](docs/deployment.md) | Deployment guide for all runtimes — Compose, Helm, and cloud Kubernetes |
+| [docs/runbook.md](docs/runbook.md) | Day-2 operations runbook for all routines — Compose, Helm/kind, and cloud Kubernetes |
 | [docs/adr/README.md](docs/adr/README.md) | Architecture Decision Records (ADRs) |
 
 ## Subproject READMEs
@@ -203,7 +202,7 @@ Related source locations:
 - `process-apps/`: Downstream processing and synchronization applications.
 - `process-apps/ods-processor`: Spring Boot application that launches the Flink topology.
 - `process-apps/mdm-cdc-curate`: Python app that consumes Debezium CDC topics and publishes `mdm_customer` and `mdm_product`.
-- `process-apps/mdm-pyspark-sync`: PySpark app that continuously syncs MySQL MDM tables into Postgres landing tables.
+- `process-apps/mdm-rds-pg`: Python app that continuously syncs MySQL MDM tables into Postgres landing tables.
 - `process-apps/iceberg-writer`: Python service that consumes Kafka topics and writes directly to Iceberg tables through Trino.
 - `kafka-connect/`: Kafka Connect images and connector configurations.
 - `platform-services/`: Platform support images and bootstrap assets.
@@ -306,7 +305,7 @@ For Kubernetes/GitOps simulation, use:
 ./cicd/k8s/kind/bootstrap-kind.sh
 ```
 
-See [docs/routine_b.md](docs/routine_b.md) for the dedicated Routine B operational guide, or [docs/runbook.md](docs/runbook.md) for the combined runbook with all routines.
+See [docs/runbook.md](docs/runbook.md) for the full Routine B operational guide and all routines.
 
 Bootstrap local cluster via Argo CD app:
 
@@ -527,7 +526,7 @@ SELECT * FROM lakehouse.demo.sample_orders LIMIT 10;
   - `mdm_customer`
   - `mdm_product`
 - `mdm-connect` runs MDM sink connectors to downstream stores.
-- `mdm-pyspark-sync` periodically reads MySQL MDM source tables and writes them into Postgres `landing.mdm_customer360`, `landing.mdm_product_master`, and `landing.mdm_date`.
+- `mdm-rds-pg` periodically reads MySQL MDM source tables and writes them into Postgres `landing.mdm_customer360`, `landing.mdm_product_master`, and `landing.mdm_date`.
 
 ### dbt and Warehouse Layer
 

@@ -1,9 +1,9 @@
-# MDM CDC Producer
+# MDM CDC Curate
 
-This sub-project is responsible for Change Data Capture (CDC) event production for Master Data Management (MDM) within the GenAI-Enabled Data Platform.
+This sub-project is responsible for curating Change Data Capture (CDC) events for Master Data Management (MDM) within the GenAI-Enabled Data Platform.
 
 ## Overview
-The MDM CDC Producer monitors changes in master data sources (such as customer or product tables) and publishes CDC events to downstream systems, typically via Kafka. This enables real-time synchronization and propagation of master data changes across the platform.
+The MDM CDC Curate service consumes raw Debezium CDC events from Kafka, curates and enriches them, and republishes clean `mdm_customer` and `mdm_product` events to downstream topics.
 
 ## Key Features
 - Captures inserts, updates, and deletes from MDM sources

@@ -20,7 +20,7 @@ Adopt this flow:
 1. mdm-source MySQL stores master entities
 2. dbz-connect captures row-level CDC events
 3. mdm-cdc-curate republishes curated topics such as mdm_customer and mdm_product
-4. mdm-pyspark-sync mirrors MDM source tables into Postgres landing schemas
+4. mdm-rds-pg mirrors MDM source tables into Postgres landing schemas
 
 ## 4. Operational References
 
@@ -60,7 +60,7 @@ Trade-offs:
 - [../runbook.md](../runbook.md)
 - [../../kafka-connect/dbz-connect/connector-configs/dbz-mysql-mdm.json](../../kafka-connect/dbz-connect/connector-configs/dbz-mysql-mdm.json)
 - [../../process-apps/mdm-cdc-curate](../../process-apps/mdm-cdc-curate)
-- [../../process-apps/mdm-pyspark-sync](../../process-apps/mdm-pyspark-sync)
+- [../../process-apps/mdm-rds-pg](../../process-apps/mdm-rds-pg)
 
 ## 9. Diagrams
 

@@ -18,7 +18,7 @@ The `process-apps` folder hosts the core stream and sync workloads used in local
   - Consumes Debezium raw MDM CDC topics
   - Produces curated topics: `mdm_customer`, `mdm_product` (and date stream where configured)
 
-- `mdm-pyspark-sync`
+- `mdm-rds-pg`
   - PySpark sync job from MySQL MDM source to Postgres landing
   - Periodically syncs MDM tables into warehouse landing tables used by analytics
 
@@ -37,7 +37,7 @@ The `process-apps` folder hosts the core stream and sync workloads used in local
   - `app/`
   - `pyproject.toml`
   - `Dockerfile`
-- `mdm-pyspark-sync/`
+- `mdm-rds-pg/`
   - `app/`
   - `Dockerfile`
 - `iceberg-writer/`
@@ -93,7 +93,7 @@ flowchart LR
 2. `ods-processor` normalizes and fans out transactional topics.
 3. Kafka Connect sinks events to Postgres landing and MinIO raw zones.
 4. `mdm-cdc-curate` curates MDM CDC streams for downstream consumers.
-5. `mdm-pyspark-sync` performs table-level MDM synchronization into Postgres landing.
+5. `mdm-rds-pg` performs table-level MDM synchronization into Postgres landing.
 6. `iceberg-writer` writes streaming Kafka data into Iceberg tables via Trino.
 7. dbt and Airflow consume landing/lakehouse assets for medallion analytics workflows.
 

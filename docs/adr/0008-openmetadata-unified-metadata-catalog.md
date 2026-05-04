@@ -61,7 +61,7 @@ Expected trade-offs:
 
 ## 8. References
 
-- [../openmetadata-deployment-plan.md](../openmetadata-deployment-plan.md)
+- [../deployment.md#8-openmetadata-deployment](../deployment.md#8-openmetadata-deployment)
 - [../../docker-compose.yml](../../docker-compose.yml)
 - [0004-trino-lakehouse-query-path-on-minio.md](0004-trino-lakehouse-query-path-on-minio.md)
 - [0005-medallion-elt-with-dbt.md](0005-medallion-elt-with-dbt.md)

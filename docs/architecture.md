@@ -27,6 +27,7 @@ Use architecture notes in this document to diagnose design-level issues, then us
 ## Documentation Map
 
 - Project entrypoint: [../readme.md](../readme.md)
+- Deployment guide (all routines): [deployment.md](deployment.md)
 - Operations runbook: [runbook.md](runbook.md)
 - Architecture Decision Records (ADR): [adr/README.md](adr/README.md)
 
@@ -793,6 +794,75 @@ Cross-reference note:
 - Architecture rationale stays in this document.
 - Step-by-step operator procedure stays in [runbook.md](runbook.md).
 - Command implementation source of truth stays in [../Makefile](../Makefile).
+
+### Docker Compose vs Helm/K8s Service Comparison
+
+The tables below map every service across both runtimes. "Helm dev" reflects `values-dev.yaml` merged over the base `values.yaml`.
+
+#### Core Infrastructure
+
+| Service | Docker Compose | Helm/K8s dev |
+|---|---|---|
+| Zookeeper | ✅ | ✅ |
+| Kafka (3-broker cluster) | ✅ (`kafka-1/2/3`) | ✅ (single `kafka` deployment) |
+| Schema Registry | ✅ | ✅ |
+| Schema init job | ✅ (`pos-schema-init`) | ✅ (`register-schemas-job`) |
+| MinIO | ✅ | ✅ |
+| MinIO init | ✅ (`minio-init`) | ✅ (init container) |
+| Postgres (snowflake-mimic) | ✅ | ✅ |
+
+#### ODS Pipeline
+
+| Service | Docker Compose | Helm/K8s dev |
+|---|---|---|
+| ODS source producer | ✅ (`ods-source`) | ✅ (`producer`) |
+| ODS stream processor | ✅ (`ods-processor`) | ✅ (`processor`) |
+| ODS Kafka Connect | ✅ (`ods-connect` + `ods-connect-init`) | ✅ (`odsConnect`) |
+
+#### MDM / CDC Pipeline
+
+| Service | Docker Compose | Helm/K8s dev |
+|---|---|---|
+| MDM MySQL source | ✅ (`mdm-source`) | ✅ (`mdm.source`) |
+| Debezium Connect | ✅ (`dbz-connect` + `dbz-connect-init`) | ✅ (`dbzConnect`) |
+| MDM Connect (JDBC sink) | ✅ (`mdm-connect` + `mdm-connect-init`) | ✅ (part of `mdm`) |
+| MDM CDC curate | ✅ (`mdm-cdc-curate`) | ✅ (`mdm.cdcCurate`) |
+| MDM RDS PG writer | ✅ (`mdm-rds-pg`) | ✅ (`mdm.rdsPg`) |
+
+#### Lakehouse / Analytics
+
+| Service | Docker Compose | Helm/K8s dev |
+|---|---|---|
+| Trino | ✅ | ✅ |
+| Iceberg writer | ✅ | ✅ |
+| dbt | ✅ (one-shot container) | ✅ (Kubernetes Job) |
+| Airflow | ✅ | ✅ |
+
+#### Observability
+
+| Service | Docker Compose | Helm/K8s dev |
+|---|---|---|
+| Prometheus | ✅ | ✅ |
+| Grafana | ✅ | ✅ |
+| Blackbox exporter | ✅ | ❌ (disabled in dev) |
+| Conduktor (Kafka UI) | ✅ (`conduktor` + `conduktor-db`) | ✅ |
+
+#### Compose-only (no Helm equivalent)
+
+| Service | Notes |
+|---|---|
+| `kafka-init` | One-shot topic creation; Helm uses an init mechanism inside the Kafka deployment |
+| `openmetadata-db`, `openmetadata-search`, `openmetadata-server`, `openmetadata-ingestion` | Present in Compose via `--profile openmetadata`; Helm `openmetadata` block exists but is disabled in dev |
+
+#### Key Differences
+
+| Area | Docker Compose | Helm/K8s dev |
+|---|---|---|
+| Kafka topology | True 3-broker cluster — brokers are `kafka-1:19092`, `kafka-2:19093`, `kafka-3:19094` | Single broker deployment reachable as `kafka:9092` |
+| OpenMetadata | Optional via `--profile openmetadata` | Present in chart but `enabled: false` in dev values |
+| Blackbox exporter | Always started | Disabled in dev values |
+| dbt execution model | Long-running container | Kubernetes Job (exits 0 on completion) |
+| Schema history bootstrap (Debezium) | Must use `kafka-1:19092,...` — `kafka:9092` is not resolvable | Uses `kafka:9092` via `kafkaBootstrapServers` value |
 
 ## 9. CI/CD and GitOps Design
 

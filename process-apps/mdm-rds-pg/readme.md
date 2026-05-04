@@ -1,9 +1,9 @@
-# MDM PySpark Sync
+# MDM RDS PG Sync
 
 This sub-project provides a PySpark-based synchronization service for Master Data Management (MDM) within the GenAI-Enabled Data Platform.
 
 ## Overview
-The MDM PySpark Sync service is designed to efficiently synchronize, transform, and propagate master data between source systems and the platform's analytical layers. It leverages Apache Spark for scalable data processing and can be integrated into batch or streaming pipelines.
+The MDM RDS PG Sync service is designed to efficiently synchronize, transform, and propagate master data between source systems and the platform's analytical layers. It leverages Apache Spark for scalable data processing and can be integrated into batch or streaming pipelines.
 
 ## Key Features
 - Uses Apache Spark (PySpark) for distributed data processing
@@ -41,11 +41,11 @@ flowchart LR
 ## Usage
 1. Build the Docker image:
    ```sh
-   docker build -t mdm-pyspark-sync .
+   docker build -t mdm-rds-pg .
    ```
 2. Run the service (example):
    ```sh
-   docker run --rm mdm-pyspark-sync
+   docker run --rm mdm-rds-pg
    ```
 3. Configure Spark and environment variables as needed for your deployment.
 

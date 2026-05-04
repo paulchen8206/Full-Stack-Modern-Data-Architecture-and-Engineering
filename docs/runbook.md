@@ -28,8 +28,6 @@ Use the troubleshooting sections in this document as the primary operational dia
 
 - [../readme.md](../readme.md)
 - [architecture.md](architecture.md)
-- [routine_a.md](routine_a.md)
-- [routine_b.md](routine_b.md)
 - [adr/README.md](adr/README.md)
 
 ## Component Diagram
@@ -131,8 +129,6 @@ Documentation map:
 
 ## Routine A: Docker Compose
 
-For a self-contained quick-reference guide covering only Routine A, see [routine_a.md](routine_a.md).
-
 ### A1. Start stack
 
 Architecture-to-command map:
@@ -207,7 +203,7 @@ All services should be Up, especially:
 - dbz-connect
 - mdm-connect
 - mdm-cdc-curate
-- mdm-pyspark-sync
+- mdm-rds-pg
 
 Expected completed containers:
 
@@ -366,7 +362,7 @@ docker compose logs --tail=200 mdm-connect
 MDM CDC and sync logs:
 
 ```bash
-docker compose logs --tail=200 mdm-cdc-curate mdm-pyspark-sync
+docker compose logs --tail=200 mdm-cdc-curate mdm-rds-pg
 ```
 
 Manual dbt rerun:
@@ -411,7 +407,7 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 - `mdm-connect` loads Kafka Connect sink plugins for curated MDM topics.
 - `mdm-connect-init` registers MDM JDBC and object-storage sink connectors from `kafka-connect/mdm-connect/connector-configs`.
 - `mdm-cdc-curate` republishes curated `mdm_customer` and `mdm_product` topics.
-- `mdm-pyspark-sync` syncs MySQL MDM tables into Postgres landing MDM tables.
+- `mdm-rds-pg` syncs MySQL MDM tables into Postgres landing MDM tables.
 - `snowflake-mimic` stores `landing`, `bronze`, `silver`, and `gold` schemas for analytics queries.
 - `dbt` transforms landing data into bronze views, silver tables, and gold tables.
 - `airflow` schedules and triggers recurring dbt runs for the warehouse layer.
@@ -427,7 +423,7 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 - Kafka Connect is healthy but landing rows stay at zero:
   Check `docker compose logs --tail=200 ods-connect` and confirm `ods-connect-init` completed successfully.
 - MySQL has rows but MDM landing tables stay at zero:
-  Check `docker compose logs --tail=200 mdm-pyspark-sync` and verify Postgres connectivity.
+  Check `docker compose logs --tail=200 mdm-rds-pg` and verify Postgres connectivity.
 - Debezium MDM connector is not producing raw CDC topics:
   Check `docker compose logs --tail=200 dbz-connect` and ensure `dbz-connect-init` completed successfully.
 - Full stack startup feels blocked around dbt:
@@ -455,9 +451,72 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 
   Then deduplicate source rows before MERGE (for example, keep the latest row per key).
 
-## Routine B: kind + Helm + Argo CD
+### Routine A: Deployment Diagram
 
-For a self-contained quick-reference guide covering only Routine B, see [routine_b.md](routine_b.md).
+```mermaid
+flowchart TB
+	DEV[Developer Machine] --> DOCKER[Docker Engine]
+
+	subgraph STACK[Compose Runtime]
+		direction TB
+		subgraph BOOTSTRAP[Bootstrap Jobs]
+			KI[kafka-init]
+			SI[pos-schema-init]
+			MI[minio-init]
+			DI[dbz-connect-init]
+			OI[ods-connect-init]
+			MCI[mdm-connect-init]
+			DBTJ[dbt one-shot]
+		end
+
+		subgraph CORE[Long-running Services]
+			KAFKA[Kafka and Schema Registry]
+			CONNECT[dbz-connect and ods-connect and mdm-connect]
+			APPS[producer and ods-processor and mdm-cdc-curate]
+			WAREHOUSE[snowflake-mimic and trino]
+			ORCH[airflow]
+			OBS[prometheus and grafana and blackbox]
+		end
+	end
+
+	DOCKER --> STACK
+	APPS --> KAFKA
+	CONNECT --> KAFKA
+	CONNECT --> WAREHOUSE
+	ORCH --> WAREHOUSE
+
+	CLIENTS[Local Clients] --> PORTS[Published Ports 8080 8084 8086 9001]
+	PORTS --> CORE
+```
+
+### Routine A: Component Diagram
+
+```mermaid
+flowchart LR
+	COMPOSE[Docker Compose]
+	DATA[Kafka and Connect Plane]
+	WAREHOUSE[Postgres and Trino]
+	ORCH[dbt and Airflow]
+	OBS[Prometheus and Grafana]
+
+	COMPOSE --> DATA
+	DATA --> WAREHOUSE
+	WAREHOUSE --> ORCH
+	OBS --> DATA
+	OBS --> WAREHOUSE
+```
+
+### Routine A: Data Flow Diagram
+
+```mermaid
+flowchart LR
+	BOOT[Compose Up] --> PIPELINE[Streaming and CDC Pipelines]
+	PIPELINE --> SINKS[Landing and Raw Sinks]
+	SINKS --> TRANSFORM[dbt Transformations]
+	TRANSFORM --> CONSUME[Query and Dashboard Consumption]
+```
+
+## Routine B: kind + Helm + Argo CD
 
 ### B1. Preferred bootstrap (one command)
 
@@ -488,25 +547,25 @@ Use this only when you want to run each phase independently.
   cicd/k8s/kind/bootstrap-kind.sh
   ```
 
-1. Wait until Argo CD pods are Ready:
+2. Wait until Argo CD pods are Ready:
 
   ```bash
   kubectl -n argocd get pods
   ```
 
-1. Build and load app images into kind:
+3. Build and load app images into kind:
 
   ```bash
   ./cicd/scripts/build-images.sh
   ```
 
-1. Deploy via local Helm:
+4. Deploy via local Helm:
 
   ```bash
   kubectl apply -f cicd/argocd/dev.yaml
   ```
 
-1. Validate Trino:
+5. Validate Trino:
 
   ```bash
   kubectl -n argocd get application gndp-dev
@@ -737,6 +796,78 @@ Argo CD source note:
 - Local uncommitted chart edits are validated by direct Helm commands (`make helm-reboot-dev`) but are not synced by Argo CD until pushed.
 - If app status shows `ComparisonError` and `SYNC STATUS: Unknown` with repository auth errors, add repository credentials to Argo CD for `https://github.com/paulchen8206/Full-Stack-Modern-Data-Architecture-and-Engineering.git`.
 - If app status is `Healthy` but `OutOfSync`, treat Git as source of truth and sync the app before trusting runtime drift-sensitive checks.
+
+### Routine B: Notes
+
+- Image prerequisite: all custom service images must be loaded into the kind node before Argo CD or Helm can schedule them. If pods show `ErrImageNeverPull`, rerun `./cicd/scripts/build-images.sh`.
+- Argo CD syncs from the configured Git repo/branch. Local uncommitted chart edits are not reflected by Argo CD sync. Validate locally with `make helm-up` before committing.
+- If Argo CD shows `ComparisonError` and `SYNC STATUS: Unknown`, add repository credentials to Argo CD for the configured source repo.
+- If `iceberg-writer` enters `CrashLoopBackOff` after a fresh deploy, the Postgres Iceberg metastore tables may not yet exist. Delete immutable Jobs, rerun `make helm-up` (which triggers init Jobs), and wait for metastore creation before restarting `iceberg-writer`.
+- Helm upgrades will fail on immutable Job specs. Always delete init/bootstrap Jobs before running `helm upgrade`.
+- Helm ConfigMap-mounted files (Airflow DAGs, Trino catalog properties) do not hot-reload after `helm upgrade`. Restart the affected Deployments to pick up changes.
+- One-shot init containers that exit with code 0 are healthy completions, not failures.
+
+### Routine B: Deployment Diagram
+
+```mermaid
+flowchart TB
+  DEV[Developer Machine] --> KIND[kind Cluster gndp-dev]
+  DEV --> PF[Port-forward Sessions]
+
+  subgraph CLUSTER[Kubernetes Cluster]
+    direction TB
+    subgraph ARGO[Namespace argocd]
+      ACD[Argo CD Server and Controllers]
+      APP[gndp-dev Application]
+    end
+
+    subgraph WORK[Namespace gndp-dev]
+      direction TB
+      DEP[Deployments producer processor kafka trino airflow conduktor]
+      JOBS[Init Jobs minio-init dbz-connect-init ods-connect-init mdm-connect-init dbt]
+      SVC[Services kafka trino airflow conduktor minio grafana snowflake-mimic]
+    end
+  end
+
+  ACD --> APP
+  APP --> DEP
+  APP --> JOBS
+  DEP --> SVC
+  PF --> SVC
+```
+
+### Routine B: Component Diagram
+
+```mermaid
+flowchart LR
+	KIND[kind Cluster]
+	ARGOCD[Argo CD]
+	HELM[Helm Chart vision]
+	DATA[Kafka and Connect Plane]
+	WAREHOUSE[Postgres and Trino]
+	ORCH[dbt and Airflow]
+	OBS[Prometheus and Grafana]
+
+	KIND --> ARGOCD
+	ARGOCD --> HELM
+	HELM --> DATA
+	DATA --> WAREHOUSE
+	WAREHOUSE --> ORCH
+	OBS --> DATA
+	OBS --> WAREHOUSE
+```
+
+### Routine B: Data Flow Diagram
+
+```mermaid
+flowchart LR
+	BOOT[Bootstrap kind and Argo CD] --> IMAGES[Build and Load Images]
+	IMAGES --> DEPLOY[Apply Argo CD App]
+	DEPLOY --> PIPELINE[Streaming and CDC Pipelines]
+	PIPELINE --> SINKS[Landing and Raw Sinks]
+	SINKS --> TRANSFORM[dbt Transformations]
+	TRANSFORM --> CONSUME[Query and Dashboard Consumption]
+```
 
 ## Routine C: QA/PRD GitOps to Cloud Kubernetes (AWS, GCP, Azure)
 

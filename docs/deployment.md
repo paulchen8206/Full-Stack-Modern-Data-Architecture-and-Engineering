@@ -86,6 +86,7 @@ docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server k
 docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic sales_order --max-messages 1 --timeout-ms 15000
 docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic mdm_customer --max-messages 1 --timeout-ms 15000
 docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic mdm_product --max-messages 1 --timeout-ms 15000
+docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic mdm_date --max-messages 1 --timeout-ms 15000
 ```
 
 Warehouse layer check:
@@ -268,7 +269,7 @@ kubectl -n gndp-dev exec "$POD" -- /usr/bin/kafka-console-consumer \
   --partition 0 --offset 0 --max-messages 1 --timeout-ms 15000
 ```
 
-Repeat for: `sales_order`, `mdm_customer`, `mdm_product`.
+Repeat for: `sales_order`, `mdm_customer`, `mdm_product`, `mdm_date`.
 
 End-to-end smoke check:
 
@@ -869,6 +870,7 @@ source:
           - customer_sales
           - mdm_customer
           - mdm_product
+          - mdm_date
 sink:
   type: metadata-rest
   config:

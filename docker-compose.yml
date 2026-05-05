@@ -6,7 +6,7 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: minio
+      MINIO_ROOT_USER: minio123
       MINIO_ROOT_PASSWORD: minio123
     command: server /data --console-address ":9001"
     volumes:
@@ -612,24 +612,24 @@ services:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
 
-  openmetadata-db:
-    container_name: openmetadata_db
+  omd-db:
+    container_name: omd_db
     image: mysql:latest
-    profiles: [ "openmetadata" ]
+    profiles: [ "omd" ]
     environment:
-      MYSQL_ROOT_PASSWORD: openmetadata_root
-      MYSQL_DATABASE: openmetadata_db
-      MYSQL_USER: openmetadata_user
-      MYSQL_PASSWORD: openmetadata_pass
+      MYSQL_ROOT_PASSWORD: omd_root
+      MYSQL_DATABASE: omd_db
+      MYSQL_USER: omd_user
+      MYSQL_PASSWORD: omd_pass
     ports:
       - "3307:3306"
     volumes:
-      - openmetadata-db-data:/var/lib/mysql
+      - omd-db-data:/var/lib/mysql
 
-  openmetadata-search:
-    container_name: openmetadata_search
+  omd-search:
+    container_name: omd_search
     image: docker.elastic.co/elasticsearch:8.14.3
-    profiles: [ "openmetadata" ]
+    profiles: [ "omd" ]
     environment:
       discovery.type: single-node
       xpack.security.enabled: "false"
@@ -637,41 +637,41 @@ services:
     ports:
       - "9200:9200"
     volumes:
-      - openmetadata-es-data:/usr/share/elasticsearch/data
+      - omd-es-data:/usr/share/elasticsearch/data
 
-  openmetadata-server:
-    container_name: openmetadata_server
+  omd-server:
+    container_name: omd_server
     image: openmetadata/server:1.5.8
-    profiles: [ "openmetadata" ]
+    profiles: [ "omd" ]
     depends_on:
-      - openmetadata-db
-      - openmetadata-search
+      - omd-db
+      - omd-search
     environment:
-      OPENMETADATA_CLUSTER_NAME: local
-      SERVER_HOST_API_URL: http://openmetadata-server:8585/api
+      OMD_CLUSTER_NAME: local
+      SERVER_HOST_API_URL: http://omd-server:8585/api
       DB_DRIVER_CLASS: com.mysql.cj.jdbc.Driver
       DB_SCHEME: mysql
       DB_USE_SSL: "false"
-      DB_HOST: openmetadata-db
+      DB_HOST: omd-db
       DB_PORT: "3306"
-      OM_DATABASE: openmetadata_db
-      DB_USER: openmetadata_user
-      DB_USER_PASSWORD: openmetadata_pass
-      ELASTICSEARCH_HOST: openmetadata-search
+      OM_DATABASE: omd_db
+      DB_USER: omd_user
+      DB_USER_PASSWORD: omd_pass
+      ELASTICSEARCH_HOST: omd-search
       ELASTICSEARCH_PORT: "9200"
       ELASTICSEARCH_SCHEME: http
     ports:
       - "8585:8585"
 
-  openmetadata-ingestion:
-    container_name: openmetadata_ingestion
+  omd-ingestion:
+    container_name: omd_ingestion
     image: openmetadata/ingestion:1.5.8
-    profiles: [ "openmetadata" ]
+    profiles: [ "omd" ]
     depends_on:
-      - openmetadata-server
+      - omd-server
     entrypoint: [ "/bin/bash", "-lc", "sleep infinity" ]
     volumes:
-      - ./platform-services/metadata/openmetadata:/opt/openmetadata/metadata
+      - ./platform-services/metadata/omd:/opt/openmetadata/metadata
       - ./analytics/dbt:/opt/openmetadata/metadata/analytics/dbt:ro
       - airflow-data:/opt/airflow:ro
 
@@ -702,7 +702,7 @@ services:
       - "8088:8080"
     environment:
       CDK_ORGANIZATION_NAME: "local"
-      CDK_ADMIN_EMAIL: "admin"
+      CDK_ADMIN_EMAIL: "admin@conduktor.com"
       CDK_ADMIN_PASSWORD: "admin"
       CDK_KAFKA_BROKERS: "kafka-1:19092,kafka-2:19093,kafka-3:19094"
       CDK_DATABASE_URL: "postgresql://conduktor:conduktor@conduktor-db:5432/conduktor"
@@ -727,6 +727,10 @@ services:
     depends_on:
       kafka-1:
         condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
       schema-registry:
         condition: service_started
       ods-connect:
@@ -745,10 +749,10 @@ volumes:
   mdm-source-data:
   prometheus-data:
   grafana-data:
-  openmetadata-db-data:
-  openmetadata-es-data:
+  omd-db-data:
+  omd-es-data:
   conduktor-db-data:
 
 networks:
   default:
-    name: genai-enabled-data-platform-architecture-and-engineering_default
+    name: gndp_default

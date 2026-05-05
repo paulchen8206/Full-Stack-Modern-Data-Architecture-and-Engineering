@@ -37,11 +37,11 @@ def write_postgres_table(df, jdbc_url: str, table: str, user: str, password: str
 
 
 def main() -> None:
-    mysql_host = env("MDM_MYSQL_HOST", "mysql-mdm")
-    mysql_port = env("MDM_MYSQL_PORT", "3306")
-    mysql_db = env("MDM_MYSQL_DB", "mdm")
-    mysql_user = env("MDM_MYSQL_USER", "root")
-    mysql_password = env("MDM_MYSQL_PASSWORD", "mdmroot")
+    mysql_host = env("MYSQL_HOST", "mysql-mdm")
+    mysql_port = env("MYSQL_PORT", "3306")
+    mysql_db = env("MYSQL_DB", "mdm")
+    mysql_user = env("MYSQL_USER", "root")
+    mysql_password = env("MYSQL_PASSWORD", "mdmroot")
 
     pg_host = env("POSTGRES_HOST", "snowflake-mimic")
     pg_port = env("POSTGRES_PORT", "5432")

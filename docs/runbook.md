@@ -227,6 +227,7 @@ docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server k
 docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic customer_sales --max-messages 1 --timeout-ms 15000
 docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic mdm_customer --max-messages 1 --timeout-ms 15000
 docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic mdm_product --max-messages 1 --timeout-ms 15000
+docker compose exec kafka-3 /usr/bin/kafka-console-consumer --bootstrap-server kafka-3:19094 --topic mdm_date --max-messages 1 --timeout-ms 15000
 ```
 
 Quick full check:
@@ -401,12 +402,12 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 - `processor` runs the Spring Boot application with the embedded Flink topology.
 - `ods-connect` loads Kafka Connect sink plugins and exposes the REST API on port 8083.
 - `ods-connect-init` registers the JDBC and object-storage sink connectors from `kafka-connect/ods-connect/connector-configs`.
-- `mdm-source` stores `mdm.customer360`, `mdm.product_master`, and `mdm_date` source tables and runs the built-in data generator.
+- `mdm-source` stores `mdm.customer360`, `mdm.product_master`, and `mdm.date` source tables and runs the built-in data generator.
 - `dbz-connect` runs Debezium MySQL source capture and publishes raw CDC topics.
 - `dbz-connect-init` registers the Debezium connector from `kafka-connect/dbz-connect/connector-configs/dbz-mysql-mdm.json`.
 - `mdm-connect` loads Kafka Connect sink plugins for curated MDM topics.
 - `mdm-connect-init` registers MDM JDBC and object-storage sink connectors from `kafka-connect/mdm-connect/connector-configs`.
-- `mdm-cdc-curate` republishes curated `mdm_customer` and `mdm_product` topics.
+- `mdm-cdc-curate` republishes curated `mdm_customer`, `mdm_product`, and `mdm_date` topics.
 - `mdm-rds-pg` syncs MySQL MDM tables into Postgres landing MDM tables.
 - `snowflake-mimic` stores `landing`, `bronze`, `silver`, and `gold` schemas for analytics queries.
 - `dbt` transforms landing data into bronze views, silver tables, and gold tables.
@@ -710,6 +711,7 @@ Repeat the consumer command for:
 - customer_sales
 - mdm_customer
 - mdm_product
+- mdm_date
 
 ### B7. Resync and full reset
 
@@ -781,6 +783,10 @@ kubectl -n gndp-dev exec "$POD" -- /usr/bin/kafka-console-consumer \
 kubectl -n gndp-dev exec "$POD" -- /usr/bin/kafka-console-consumer \
   --bootstrap-server kafka:9092 \
   --topic mdm_product --partition 0 --offset 0 --max-messages 1 --timeout-ms 15000
+
+kubectl -n gndp-dev exec "$POD" -- /usr/bin/kafka-console-consumer \
+  --bootstrap-server kafka:9092 \
+  --topic mdm_date --partition 0 --offset 0 --max-messages 1 --timeout-ms 15000
 ```
 
 Open warehouse and scheduling UIs:

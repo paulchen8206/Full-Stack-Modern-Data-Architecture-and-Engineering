@@ -1,0 +1,57 @@
+{
+  "groups": [
+    {
+      "name": "app",
+      "type": "com.example.realtime.config.RealtimeProperties",
+      "sourceType": "com.example.realtime.config.RealtimeProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "app.checkpoint-interval-ms",
+      "type": "java.lang.Long",
+      "sourceType": "com.example.realtime.config.RealtimeProperties"
+    },
+    {
+      "name": "app.consumer-group-id",
+      "type": "java.lang.String",
+      "sourceType": "com.example.realtime.config.RealtimeProperties"
+    },
+    {
+      "name": "app.consumer-start-offset",
+      "type": "java.lang.String",
+      "sourceType": "com.example.realtime.config.RealtimeProperties"
+    },
+    {
+      "name": "app.customer-sales-topic",
+      "type": "java.lang.String",
+      "sourceType": "com.example.realtime.config.RealtimeProperties"
+    },
+    {
+      "name": "app.kafka-bootstrap-servers",
+      "type": "java.lang.String",
+      "sourceType": "com.example.realtime.config.RealtimeProperties"
+    },
+    {
+      "name": "app.raw-sales-orders-topic",
+      "type": "java.lang.String",
+      "sourceType": "com.example.realtime.config.RealtimeProperties"
+    },
+    {
+      "name": "app.sales-order-line-item-topic",
+      "type": "java.lang.String",
+      "sourceType": "com.example.realtime.config.RealtimeProperties"
+    },
+    {
+      "name": "app.sales-order-topic",
+      "type": "java.lang.String",
+      "sourceType": "com.example.realtime.config.RealtimeProperties"
+    },
+    {
+      "name": "app.schema-registry-url",
+      "type": "java.lang.String",
+      "sourceType": "com.example.realtime.config.RealtimeProperties"
+    }
+  ],
+  "hints": []
+}

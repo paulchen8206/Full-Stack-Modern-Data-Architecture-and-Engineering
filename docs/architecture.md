@@ -508,7 +508,7 @@ flowchart LR
   M -->|Binlog CDC| DBZ
   DBZ -->|Raw MDM CDC Topics| K
   K -->|Curate CDC| MCP
-  MCP -->|MDM Customer / MDM Product| K
+  MCP -->|MDM Customer / MDM Product / MDM Date| K
   K --> MDMK
   MDMK --> PG
   M --> SP
@@ -516,9 +516,9 @@ flowchart LR
   PG --> DBT
 ```
 
-1. MDM writer upserts `customer360` and `product_master` entities into MySQL.
+1. MDM writer upserts `customer360`, `product_master`, and `date` entities into MySQL.
 2. Debezium captures MySQL binlog changes and emits raw CDC topics.
-3. CDC publisher normalizes/curates CDC records into analytics-friendly topics (`mdm_customer`, `mdm_product`).
+3. CDC publisher normalizes/curates CDC records into analytics-friendly topics (`mdm_customer`, `mdm_product`, `mdm_date`).
 4. PySpark sync job loads MySQL MDM tables into Postgres landing MDM tables.
 5. dbt joins transactional and MDM data to build conformed dimensions and facts.
 

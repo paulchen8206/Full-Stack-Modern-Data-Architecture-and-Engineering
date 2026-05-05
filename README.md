@@ -202,7 +202,7 @@ Related source locations:
 - `source-apps/`: Source-side applications.
 - `source-apps/ods-source`: Python Kafka producer for composite sales orders.
 - `source-apps/mdm-source`: MySQL-backed MDM source system simulator for CDC testing.
-- `source-apps/mdm-source/sql`: MySQL bootstrap SQL for MDM `customer360` and `product_master` tables.
+- `source-apps/mdm-source/sql`: MySQL bootstrap SQL for MDM `customer360`, `product_master`, and `date` tables.
 - `process-apps/`: Downstream processing and synchronization applications.
 - `process-apps/ods-processor`: Java processor application and supporting CI assets.
 - `process-apps/mdm-cdc-curate`: Python app that consumes Debezium CDC topics and publishes curated MDM topics.
@@ -525,11 +525,13 @@ SELECT * FROM lakehouse.demo.sample_orders LIMIT 10;
 - `mdm-source` continuously inserts and updates those master records through its built-in data generator.
 - `dbz-connect` runs Debezium MySQL source connector (`dbz-mysql-mdm`).
 - Debezium raw CDC topics:
-  - `mysql.mdm.customer360`
-  - `mysql.product_master`
+   - `mysql.mdm.customer360`
+   - `mysql.mdm.product_master`
+   - `mysql.mdm.date`
 - `mdm-cdc-curate` consumes raw CDC and republishes curated MDM topics:
-  - `mdm_customer`
-  - `mdm_product`
+   - `mdm_customer`
+   - `mdm_product`
+   - `mdm_date`
 - `mdm-connect` runs MDM sink connectors to downstream stores.
 - `mdm-rds-pg` periodically reads MySQL MDM source tables and writes them into Postgres `landing.mdm_customer360`, `landing.mdm_product_master`, and `landing.mdm_date`.
 

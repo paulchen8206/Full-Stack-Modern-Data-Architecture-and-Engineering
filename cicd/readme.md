@@ -47,8 +47,8 @@ The `cicd` folder is the delivery control plane for this repository. It includes
   `./cicd/scripts/register-mdm-connectors.sh`,
   `./cicd/scripts/register-ods-connectors.sh`.
 - `./cicd/scripts/register-connectors-core.sh` is an internal shared engine used by those wrappers.
-- Use `./cicd/scripts/register-schemas.sh` as the canonical schema registration implementation.
-- The schema-init Docker image uses this canonical script and shared libs for parity between Docker Compose and script-based execution.
+- Use `./cicd/scripts/register-schemas.sh` for script-driven registration flows (for example CI jobs and manual script runs).
+- The Docker Compose `schema-init` image uses `./platform-services/schemas/scripts/register-schemas.sh`, which is container-local and optimized for bootstrap execution inside the schema-init image.
 
 ### Connector Env Knobs
 

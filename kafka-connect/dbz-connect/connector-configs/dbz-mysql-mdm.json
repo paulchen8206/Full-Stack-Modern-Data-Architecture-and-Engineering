@@ -8,7 +8,7 @@
     "database.user": "root",
     "database.password": "mdmroot",
     "database.server.id": "5401",
-    "topic.prefix": "mysql
+    "topic.prefix": "mysql",
     "database.include.list": "mdm",
     "table.include.list": "mdm.customer360,mdm.product_master,mdm.date",
     "include.schema.changes": "false",

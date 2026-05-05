@@ -3,7 +3,7 @@
 This sub-project is responsible for curating Change Data Capture (CDC) events for Master Data Management (MDM) within the GenAI-Enabled Data Platform.
 
 ## Overview
-The MDM CDC Curate service consumes raw Debezium CDC events from Kafka, curates and enriches them, and republishes clean `mdm_customer` and `mdm_product` events to downstream topics.
+The MDM CDC Curate service consumes raw Debezium CDC events from Kafka, curates and enriches them, and republishes clean `mdm_customer`, `mdm_product`, and `mdm_date` events to downstream topics.
 
 ## Key Features
 - Captures inserts, updates, and deletes from MDM sources

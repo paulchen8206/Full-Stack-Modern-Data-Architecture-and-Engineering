@@ -21,9 +21,9 @@ BUSINESS_TOPICS=(
 )
 
 CDC_TOPICS=(
-  mdm_mysql.mdm.customer360
-  mdm_mysql.mdm.product_master
-  mdm_mysql.mdm.date
+  mysql.mdm.customer360
+  mysql.mdm.product_master
+  mysql.mdm.date
   schema-changes.mdm
 )
 

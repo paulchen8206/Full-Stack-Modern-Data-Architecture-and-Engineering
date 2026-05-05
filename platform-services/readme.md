@@ -32,6 +32,7 @@ These services are not domain apps themselves. They provide core capabilities co
 - `schemas/`
   - `Dockerfile`
   - `avro/`
+  - `scripts/register-schemas.sh`
 
 ## Component Diagram
 

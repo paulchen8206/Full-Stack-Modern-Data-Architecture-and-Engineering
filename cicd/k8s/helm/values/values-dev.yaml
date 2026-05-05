@@ -73,10 +73,10 @@ kafka:
     - name: mdm_product
       partitions: 3
       replicationFactor: 1
-    - name: mdm_mysql.mdm.customer360
+    - name: mysql.mdm.customer360
       partitions: 3
       replicationFactor: 1
-    - name: mdm_mysql.mdm.product_master
+    - name: mysql.mdm.product_master
       partitions: 3
       replicationFactor: 1
     - name: connect-configs

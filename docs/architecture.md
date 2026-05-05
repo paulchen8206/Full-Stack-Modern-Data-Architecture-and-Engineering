@@ -270,7 +270,7 @@ flowchart LR
 
   subgraph Stream[Realtime Streaming Plane]
     PR["producer"]
-    FL["ods-processor (Spring Boot + Flink)"]
+    FL["ods-processor (Spring Boot and Flink)"]
     K["Kafka Cluster (kafka-1, kafka-2, kafka-3)"]
     SR["schema-registry"]
     PR -->|Raw Sales Orders| K
@@ -279,7 +279,7 @@ flowchart LR
     SR -.Schema Contracts.-> FL
   end
 
-  subgraph Connectors[Kafka Connect + CDC Plane]
+  subgraph Connectors[Kafka Connect and CDC Plane]
     ODS["ods-connect"]
     DBZ["dbz-connect"]
     MDMK["mdm-connect"]
@@ -293,7 +293,7 @@ flowchart LR
     K --> MDMK
   end
 
-  subgraph Analytics[Lakehouse + Warehouse Plane]
+  subgraph Analytics[Lakehouse and Warehouse Plane]
     IO["minio"]
     PG["snowflake-mimic (Postgres)"]
     SP["PySpark MDM Sync"]
@@ -313,7 +313,7 @@ flowchart LR
     AF --> DBT
   end
 
-  subgraph Meta[Metadata Plane (Optional openmetadata Profile)]
+  subgraph Meta[Metadata Plane - Optional openmetadata profile]
     OMI["OpenMetadata Ingestion"]
     OM["OpenMetadata Server"]
     OMI --> OM
@@ -324,7 +324,7 @@ flowchart LR
     K -.Topic Metadata.-> OMI
   end
 
-  subgraph Ops[Observability + Operations]
+  subgraph Ops[Observability and Operations]
     PROM["prometheus"]
     BBX["blackbox-exporter"]
     GRAF["grafana"]
@@ -365,7 +365,7 @@ flowchart LR
   subgraph P[Pipeline Processing]
     K[(Kafka Cluster)]
     SR[schema-registry]
-    PROC[ods-processor (Spring Boot + Flink)]
+    PROC[ods-processor (Spring Boot and Flink)]
     ODS[ods-connect Sink Tasks]
     DBZ[dbz-connect]
     MCP[mdm-cdc-curate]
@@ -378,7 +378,7 @@ flowchart LR
   end
 
   subgraph T[Targets]
-    TGT1[(Postgres Landing + Analytics)]
+    TGT1[(Postgres Landing and Analytics)]
     TGT2[(MinIO Raw Objects)]
     TGT3[(Iceberg Tables on MinIO)]
     TGT4[OpenMetadata Catalog (Optional)]
@@ -416,7 +416,7 @@ flowchart LR
   TGT1 -.Warehouse Metadata.-> TGT4
   DBT -.Lineage Metadata.-> TGT4
 
-  OBS[blackbox-exporter + prometheus] --> TGT5
+  OBS[blackbox-exporter and prometheus] --> TGT5
 ```
 
 ### 5.1 Realtime Sales Domain Flow
@@ -433,7 +433,7 @@ flowchart LR
 
   subgraph P1[Pipeline]
     K[(Kafka Cluster)]
-    F[ods-processor (Spring Boot + Flink)]
+    F[ods-processor (Spring Boot and Flink)]
     SR[schema-registry]
     ODS[ods-connect]
     IW[iceberg-writer]
@@ -490,7 +490,7 @@ flowchart LR
     MCP[mdm-cdc-curate]
     MDMK[mdm-connect]
     SP[mdm-rds-pg]
-    DBT[dbt Silver + Gold Joins]
+    DBT[dbt Silver and Gold Joins]
   end
 
   subgraph T2[Target]
@@ -530,7 +530,7 @@ flowchart LR
     A[airflow Metadata]
   end
 
-  subgraph P3[Metadata + Monitoring Pipeline]
+  subgraph P3[Metadata and Monitoring Pipeline]
     OMI[openmetadata Ingestion]
     BBX[blackbox-exporter]
     PROM[prometheus]
@@ -706,7 +706,7 @@ Diagram: Kubernetes implementation diagram.
 ```mermaid
 flowchart LR
   subgraph Git[Git Repository]
-    CH[Helm Chart + Values]
+    CH[Helm Chart and Values]
     APP[Argo CD Application Manifests]
   end
 
@@ -714,7 +714,7 @@ flowchart LR
     ARGO[Argo CD Reconciler]
   end
 
-  subgraph K8S[Kind / Kubernetes Cluster]
+  subgraph K8S[Kind and Kubernetes Cluster]
     subgraph NS[gndp-dev Namespace]
       KAFKA[Kafka]
       CONNECT[Kafka Connect]
@@ -873,15 +873,15 @@ Diagram: GitOps delivery flowchart.
 
 ```mermaid
 flowchart LR
-  DEV[Engineer Updates Code + Values] --> PR[Pull Request + Review]
+  DEV[Engineer Updates Code and Values] --> PR[Pull Request and Review]
   PR --> MERGE[Merge to main]
   MERGE --> REPO[Git Repository State Updated]
   REPO --> ARGO[Argo CD Detects Drift]
   ARGO --> RENDER[Helm Render with Environment Values]
   RENDER --> APPLY[Apply Desired Manifests to Cluster]
-  APPLY --> HEALTH[Argo CD Health + Sync Checks]
+  APPLY --> HEALTH[Argo CD Health and Sync Checks]
   HEALTH -->|Healthy| VERIFY[Run Architecture Validation Commands]
-  HEALTH -->|Degraded| FIX[Revert Commit / Fix Values]
+  HEALTH -->|Degraded| FIX[Revert Commit or Fix Values]
   VERIFY --> PROMOTE[Promote Same Pattern to QA then PRD]
 ```
 
@@ -890,10 +890,10 @@ Diagram: tooling validation flowchart.
 ```mermaid
 flowchart LR
   A[Make MDM Flow Check] --> B[Docker Compose Config]
-  A --> C[Helm Lint + Render]
+  A --> C[Helm Lint and Render]
   D[Make openmetadata Status] --> E[openmetadata Health]
   F[Make Ops Status] --> G[Runtime Endpoint Checks]
-  H[Kubectl Get App + Pods] --> I[GitOps Runtime Parity Checks]
+  H[Kubectl Get App and Pods] --> I[GitOps Runtime Parity Checks]
 ```
 
 ## 10. Non-Functional Considerations

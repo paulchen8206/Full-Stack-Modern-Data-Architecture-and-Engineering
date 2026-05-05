@@ -1,0 +1,47 @@
+groups:
+- name: kafka-topic-lag-alerts
+  rules:
+  - alert: KafkaTopicMaxLagInSecondsHigh
+    expr: max by (topic) (maxlaginsec{topic!=""}) > 300
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Kafka topic lag is high"
+      description: "Topic {{ $labels.topic }} maxlaginsec has been above 300 seconds for 5m (current value: {{ $value }})."
+  - alert: KafkaTopicMaxLagInSecondsCritical
+    expr: max by (topic) (maxlaginsec{topic!=""}) > 900
+    for: 10m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Kafka topic lag is critical"
+      description: "Topic {{ $labels.topic }} maxlaginsec has been above 900 seconds for 10m (current value: {{ $value }})."
+- name: kafka-connect-error-alerts
+  rules:
+  - alert: KafkaConnectEndpointDown
+    expr: max by (instance) (probe_success{job=~"docker_services|blackbox-http",instance=~".*(dbz-connect|ods-connect|mdm-connect):8083/connectors$"}) < 1
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Kafka Connect endpoint is down"
+      description: "Kafka Connect endpoint {{ $labels.instance }} has failed health probes for more than 2m."
+- name: flink-error-alerts
+  rules:
+  - alert: FlinkProcessorErrorSuspected
+    expr: max by (topic) (maxlaginsec{topic="raw_sales_orders"}) > 600
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Flink processor error suspected"
+      description: "Input topic {{ $labels.topic }} maxlaginsec stayed above 600 seconds for 10m, indicating possible Flink processing failure/backpressure (current value: {{ $value }})."
+  - alert: FlinkProcessorErrorCritical
+    expr: max by (topic) (maxlaginsec{topic="raw_sales_orders"}) > 900
+    for: 10m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Flink processor lag is critical"
+      description: "Input topic {{ $labels.topic }} maxlaginsec stayed above 900 seconds for 10m, indicating likely Flink processing outage/severe backlog (current value: {{ $value }})."

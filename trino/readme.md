@@ -14,7 +14,6 @@ Trino is an open-source distributed SQL query engine designed for running fast a
 
 ## Project Structure
 - `etc/`: Trino configuration files (e.g., `config.properties`, `catalog/`)
-- `sql/`: Example SQL scripts and queries for Trino
 
 ## Component Diagram
 

@@ -28,7 +28,7 @@ flowchart LR
 	MODELS[Models]
 	MACROS[Macros]
 	PROFILES[profiles.yml]
-	WAREHOUSE[(Snowflake Mimic and Trino)]
+	WAREHOUSE[(Snowflake Mimic + trino)]
 
 	DBT --> MODELS
 	DBT --> MACROS

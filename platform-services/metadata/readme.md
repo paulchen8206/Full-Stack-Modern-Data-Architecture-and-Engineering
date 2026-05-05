@@ -22,11 +22,11 @@ The Metadata Service is responsible for cataloging, managing, and serving metada
 
 ```mermaid
 flowchart LR
-	OM[OpenMetadata]
+	OM[openmetadata]
 	DB[(Metadata MySQL)]
 	ES[(Search index)]
 	INGEST[Ingestion Workflows]
-	SOURCES[dbt, Trino, and Airflow]
+	SOURCES[dbt, trino, airflow]
 
 	OM --> DB
 	OM --> ES
@@ -41,7 +41,7 @@ flowchart LR
 	ASSETS[Platform Assets] --> CONNECTORS[Metadata Connectors]
 	CONNECTORS --> CATALOG[Metadata Catalog]
 	CATALOG --> SEARCH[Indexed Discovery]
-	CATALOG --> LINEAGE[Lineage and Governance]
+	CATALOG --> LINEAGE[Lineage + Governance]
 ```
 
 ## Usage

@@ -36,7 +36,7 @@ Use architecture notes in this document to diagnose design-level issues, then us
 This platform demonstrates how to build a full-stack modern data system with these goals:
 
 - Capture and process real-time events with Kafka and Flink.
-- Persist data in a lakehouse pattern using S3-compatible object storage locally, with a path to true Iceberg tables and SQL querying, and in an analytics warehouse pattern (Postgres used to mimic Snowflake-like warehouse behavior).
+- Persist data in a lakehouse pattern using local S3-compatible object storage, with a path to true Iceberg tables and SQL querying, plus an analytics warehouse pattern (Postgres is used to mimic Snowflake-like warehouse behavior).
 - Apply ELT transformations with dbt using medallion layers (bronze, silver, gold).
 - Incorporate dimensional modeling for analytics consumption.
 - Centralize metadata, lineage, and discovery in OpenMetadata as the data catalog surface.
@@ -53,22 +53,14 @@ Out of scope for this demo:
 
 ## 2. Architectural Principles
 
-- Event-driven first:
-  Domain changes are emitted as immutable events to Kafka.
-- Separation of concerns:
-  Ingestion, stream processing, storage, and transformation are independently deployable components.
-- ELT over ETL:
-  Raw/landing data is loaded first, then transformed in the warehouse/lakehouse layer with dbt.
-- Streaming plus batch unification:
-  Streaming outputs are continuously available while batch-style analytics models are refreshed on schedule.
-- Declarative operations:
-  Helm values and Argo CD manifests drive environment consistency.
-- Progressive environment promotion:
-  Same topology across dev, qa, and prd with environment overlays.
-- Metadata as a product:
-  Data assets are discoverable and governed through a shared metadata catalog and lineage model.
-- Observability by default:
-  Runtime, metadata, and delivery paths expose health and diagnostics.
+- Event-driven first: Domain changes are emitted as immutable events to Kafka.
+- Separation of concerns: Ingestion, stream processing, storage, and transformation are independently deployable components.
+- ELT over ETL: Raw/landing data is loaded first, then transformed in the warehouse/lakehouse layer with dbt.
+- Streaming plus batch unification: Streaming outputs are continuously available while batch-style analytics models are refreshed on schedule.
+- Declarative operations: Helm values and Argo CD manifests drive environment consistency.
+- Progressive environment promotion: The same topology is used across dev, qa, and prd with environment overlays.
+- Metadata as a product: Data assets are discoverable and governed through a shared metadata catalog and lineage model.
+- Observability by default: Runtime, metadata, and delivery paths expose health and diagnostics.
 
 ## 3. Technology Mapping
 
@@ -271,42 +263,42 @@ flowchart LR
     KI["Kafka Init Topics"]
     MI["MinIO Init Bucket"]
     SI["Schema Init Avro Subjects"]
-    OI["ODS Connect Init Sink Registration"]
-    DI["DBZ Connect Init Source Registration"]
-    MCI["MDM Connect Init Sink Registration"]
+    OI["ods-connect Init Sink Registration"]
+    DI["dbz-connect Init Source Registration"]
+    MCI["mdm-connect Init Sink Registration"]
   end
 
   subgraph Stream[Realtime Streaming Plane]
-    PR["Producer"]
-    FL["Processor Spring Boot and Flink"]
-    K["Kafka Cluster kafka-1 kafka-2 kafka-3"]
-    SR["Schema Registry"]
+    PR["producer"]
+    FL["ods-processor (Spring Boot + Flink)"]
+    K["Kafka Cluster (kafka-1, kafka-2, kafka-3)"]
+    SR["schema-registry"]
     PR -->|Raw Sales Orders| K
     K -->|Consume| FL
-    FL -->|Sales Order and Sales Order Line Item and Customer Sales| K
+    FL -->|Sales Order + Sales Order Line Item + Customer Sales| K
     SR -.Schema Contracts.-> FL
   end
 
-  subgraph Connectors[Kafka Connect and CDC Plane]
-    ODS["ODS Connect"]
-    DBZ["DBZ Connect"]
-    MDMK["MDM Connect"]
-    MCP["MDM CDC Curate"]
+  subgraph Connectors[Kafka Connect + CDC Plane]
+    ODS["ods-connect"]
+    DBZ["dbz-connect"]
+    MDMK["mdm-connect"]
+    MCP["mdm-cdc-curate"]
     MDM["MySQL MDM Source"]
     MDM -->|Binlog CDC| DBZ
     DBZ -->|Raw MDM CDC Topics| K
     K -->|Curate CDC| MCP
-    MCP -->|MDM Customer and MDM Product| K
+    MCP -->|MDM Customer + MDM Product| K
     K --> ODS
     K --> MDMK
   end
 
-  subgraph Analytics[Lakehouse and Warehouse Plane]
-    IO["MinIO"]
-    PG["Postgres Snowflake Mimic"]
+  subgraph Analytics[Lakehouse + Warehouse Plane]
+    IO["minio"]
+    PG["snowflake-mimic (Postgres)"]
     SP["PySpark MDM Sync"]
-    TQ["Trino"]
-    IW["Iceberg Writer"]
+    TQ["trino"]
+    IW["iceberg-writer"]
     DBT["dbt Bootstrap Job"]
     AF["Airflow Scheduler"]
     ODS --> PG
@@ -315,28 +307,28 @@ flowchart LR
     MDM --> SP
     SP --> PG
     K --> IW
-    IW -->|Write via Trino Catalog| TQ
+    IW -->|Write via trino Catalog| TQ
     TQ --> IO
     PG --> DBT
     AF --> DBT
   end
 
-  subgraph Meta[Metadata Plane Optional profile openmetadata]
+  subgraph Meta[Metadata Plane (Optional openmetadata Profile)]
     OMI["OpenMetadata Ingestion"]
     OM["OpenMetadata Server"]
     OMI --> OM
-    TQ -.Metadata and Lineage.-> OMI
-    PG -.Metadata and Lineage.-> OMI
-    DBT -.Artifacts and Lineage.-> OMI
+    TQ -.Metadata + Lineage.-> OMI
+    PG -.Metadata + Lineage.-> OMI
+    DBT -.Artifacts + Lineage.-> OMI
     AF -.Pipeline Metadata.-> OMI
     K -.Topic Metadata.-> OMI
   end
 
-  subgraph Ops[Observability and Operations]
-    PROM["Prometheus"]
-    BBX["Blackbox Exporter"]
-    GRAF["Grafana"]
-    KUI["Kafka UI or Conduktor"]
+  subgraph Ops[Observability + Operations]
+    PROM["prometheus"]
+    BBX["blackbox-exporter"]
+    GRAF["grafana"]
+    KUI["Kafka UI (Conduktor)"]
     BBX --> PROM
     PROM --> GRAF
     K --> KUI
@@ -349,10 +341,10 @@ flowchart LR
   DI --> DBZ
   MCI --> MDMK
 
-  Ops -.Health and Metrics.-> Stream
-  Ops -.Health and Metrics.-> Connectors
-  Ops -.Health and Metrics.-> Analytics
-  Ops -.Health and Metrics.-> Meta
+  Ops -.Health + Metrics.-> Stream
+  Ops -.Health + Metrics.-> Connectors
+  Ops -.Health + Metrics.-> Analytics
+  Ops -.Health + Metrics.-> Meta
 ```
 
 ## 5. End-to-End Data Flow
@@ -370,26 +362,26 @@ flowchart LR
     BOOT2[Schema Init Contracts]
   end
 
-  subgraph P[Pipeline processing]
+  subgraph P[Pipeline Processing]
     K[(Kafka Cluster)]
-    SR[Schema Registry]
-    PROC[Spring Boot and Flink Processor]
-    ODS[ODS Connect Sink Tasks]
-    DBZ[DBZ Connect]
-    MCP[MDM CDC Curate]
-    MDMK[MDM Connect Sink Tasks]
-    SP[MDM PySpark Sync]
-    IW[Iceberg Writer]
-    TR[Trino SQL Write Path]
+    SR[schema-registry]
+    PROC[ods-processor (Spring Boot + Flink)]
+    ODS[ods-connect Sink Tasks]
+    DBZ[dbz-connect]
+    MCP[mdm-cdc-curate]
+    MDMK[mdm-connect Sink Tasks]
+    SP[mdm-rds-pg]
+    IW[iceberg-writer]
+    TR[trino SQL Write Path]
     DBT[dbt Medallion Build]
     AF[Airflow Schedule Trigger]
   end
 
   subgraph T[Targets]
-    TGT1[(Postgres Landing and Analytics)]
+    TGT1[(Postgres Landing + Analytics)]
     TGT2[(MinIO Raw Objects)]
     TGT3[(Iceberg Tables on MinIO)]
-    TGT4[OpenMetadata Catalog Optional]
+    TGT4[OpenMetadata Catalog (Optional)]
     TGT5[Grafana Dashboards]
   end
 
@@ -424,7 +416,7 @@ flowchart LR
   TGT1 -.Warehouse Metadata.-> TGT4
   DBT -.Lineage Metadata.-> TGT4
 
-  OBS[Blackbox Exporter and Prometheus] --> TGT5
+  OBS[blackbox-exporter + prometheus] --> TGT5
 ```
 
 ### 5.1 Realtime Sales Domain Flow
@@ -436,17 +428,17 @@ Diagram: Routine A realtime sales dataflow.
 ```mermaid
 flowchart LR
   subgraph S[Source]
-    P[Sales Producer]
+    P[Sales producer]
   end
 
   subgraph P1[Pipeline]
     K[(Kafka Cluster)]
-    F[Spring Boot and Flink Processor]
-    SR[Schema Registry]
-    ODS[ODS Connect]
-    IW[Iceberg Writer]
-    T[Trino]
-    A[Airflow]
+    F[ods-processor (Spring Boot + Flink)]
+    SR[schema-registry]
+    ODS[ods-connect]
+    IW[iceberg-writer]
+    T[trino]
+    A[airflow]
     D[dbt Medallion Models]
   end
 
@@ -493,12 +485,12 @@ flowchart LR
   end
 
   subgraph P2[Pipeline]
-    DBZ[DBZ Connect]
+    DBZ[dbz-connect]
     K[(Kafka Cluster)]
-    MCP[MDM CDC Curate]
-    MDMK[MDM Connect]
-    SP[MDM PySpark Sync]
-    DBT[dbt Silver and Gold Joins]
+    MCP[mdm-cdc-curate]
+    MDMK[mdm-connect]
+    SP[mdm-rds-pg]
+    DBT[dbt Silver + Gold Joins]
   end
 
   subgraph T2[Target]
@@ -532,21 +524,21 @@ Diagram: Routine A metadata and observability dataflow.
 flowchart LR
   subgraph S3[Source Assets]
     K[(Kafka Cluster)]
-    T[Trino]
+    T[trino]
     PG[(Postgres Analytics)]
     D[dbt Artifacts]
-    A[Airflow Metadata]
+    A[airflow Metadata]
   end
 
-  subgraph P3[Metadata and Monitoring Pipeline]
-    OMI[OpenMetadata Ingestion]
-    BBX[Blackbox Exporter]
-    PROM[Prometheus]
+  subgraph P3[Metadata + Monitoring Pipeline]
+    OMI[openmetadata Ingestion]
+    BBX[blackbox-exporter]
+    PROM[prometheus]
   end
 
   subgraph T3[Target Systems]
-    OMS[OpenMetadata Server]
-    GRAF[Grafana]
+    OMS[openmetadata Server]
+    GRAF[grafana]
   end
 
   K -.Topic Metadata.-> OMI
@@ -621,11 +613,11 @@ Diagram: Routine A Docker Compose runtime topology.
 flowchart LR
   subgraph Init[One-Shot Init Jobs]
     KI[Kafka Init]
-    MI[MinIO Init]
+    MI[minio Init]
     SI[Schema Init]
-    OI[ODS Connect Init]
-    DI[DBZ Connect Init]
-    MCI[MDM Connect Init]
+    OI[ods-connect Init]
+    DI[dbz-connect Init]
+    MCI[mdm-connect Init]
     DBTJ[dbt Bootstrap Job]
   end
 
@@ -635,24 +627,24 @@ flowchart LR
     K2[Kafka 2]
     K3[Kafka 3]
     K[(Kafka Cluster)]
-    SR[Schema Registry]
-    PR[Producer]
-    PROC[Processor]
-    ODS[ODS Connect]
-    DBZ[DBZ Connect]
-    MDMK[MDM Connect]
-    MCP[MDM CDC Curate]
-    SP[MDM PySpark Sync]
+    SR[schema-registry]
+    PR[producer]
+    PROC[ods-processor]
+    ODS[ods-connect]
+    DBZ[dbz-connect]
+    MDMK[mdm-connect]
+    MCP[mdm-cdc-curate]
+    SP[mdm-rds-pg]
     MDM[(MDM Source MySQL)]
     PG[(Snowflake Mimic Postgres)]
-    MINIO[(MinIO)]
-    TRINO[Trino]
-    IW[Iceberg Writer]
-    AF[Airflow]
-    PROM[Prometheus]
-    BBX[Blackbox Exporter]
-    GRAF[Grafana]
-    KUI[Kafka UI or Conduktor]
+    MINIO[(minio)]
+    TRINO[trino]
+    IW[iceberg-writer]
+    AF[airflow]
+    PROM[prometheus]
+    BBX[blackbox-exporter]
+    GRAF[grafana]
+    KUI[Kafka UI (Conduktor)]
   end
 
   ZK --> K1
@@ -714,7 +706,7 @@ Diagram: Kubernetes implementation diagram.
 ```mermaid
 flowchart LR
   subgraph Git[Git Repository]
-    CH[Helm Chart and Values]
+    CH[Helm Chart + Values]
     APP[Argo CD Application Manifests]
   end
 
@@ -722,20 +714,20 @@ flowchart LR
     ARGO[Argo CD Reconciler]
   end
 
-  subgraph K8S[Kind or Kubernetes Cluster]
+  subgraph K8S[Kind / Kubernetes Cluster]
     subgraph NS[gndp-dev Namespace]
       KAFKA[Kafka]
       CONNECT[Kafka Connect]
-      TRINO[Trino]
+      TRINO[trino]
       POSTGRES[Postgres]
-      MINIO[MinIO]
-      AIRFLOW[Airflow]
+      MINIO[minio]
+      AIRFLOW[airflow]
       DBT[dbt Job]
-      OPM[OpenMetadata Server]
-      OMI[OpenMetadata Ingestion]
-      PROM[Prometheus]
-      GRAF[Grafana]
-      BBX[Blackbox]
+      OPM[openmetadata Server]
+      OMI[openmetadata Ingestion]
+      PROM[prometheus]
+      GRAF[grafana]
+      BBX[blackbox]
     end
   end
 
@@ -880,16 +872,16 @@ This section describes Git as source of truth, Argo CD reconciliation, and deplo
 Diagram: GitOps delivery flowchart.
 
 ```mermaid
-flowchart TD
-  DEV[Engineer Updates Code and Values] --> PR[Pull Request and Review]
+flowchart LR
+  DEV[Engineer Updates Code + Values] --> PR[Pull Request + Review]
   PR --> MERGE[Merge to main]
   MERGE --> REPO[Git Repository State Updated]
   REPO --> ARGO[Argo CD Detects Drift]
   ARGO --> RENDER[Helm Render with Environment Values]
   RENDER --> APPLY[Apply Desired Manifests to Cluster]
-  APPLY --> HEALTH[Argo CD Health and Sync Checks]
+  APPLY --> HEALTH[Argo CD Health + Sync Checks]
   HEALTH -->|Healthy| VERIFY[Run Architecture Validation Commands]
-  HEALTH -->|Degraded| FIX[Revert Commit or Fix Values]
+  HEALTH -->|Degraded| FIX[Revert Commit / Fix Values]
   VERIFY --> PROMOTE[Promote Same Pattern to QA then PRD]
 ```
 
@@ -898,10 +890,10 @@ Diagram: tooling validation flowchart.
 ```mermaid
 flowchart LR
   A[Make MDM Flow Check] --> B[Docker Compose Config]
-  A --> C[Helm Lint and Render]
-  D[Make OpenMetadata Status] --> E[OpenMetadata Health]
+  A --> C[Helm Lint + Render]
+  D[Make openmetadata Status] --> E[openmetadata Health]
   F[Make Ops Status] --> G[Runtime Endpoint Checks]
-  H[Kubectl Get App and Pods] --> I[GitOps Runtime Parity Checks]
+  H[Kubectl Get App + Pods] --> I[GitOps Runtime Parity Checks]
 ```
 
 ## 10. Non-Functional Considerations

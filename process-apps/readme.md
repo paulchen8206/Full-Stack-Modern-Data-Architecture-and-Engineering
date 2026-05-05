@@ -52,24 +52,24 @@ Diagram: processing applications pipeline (left to right).
 ```mermaid
 flowchart LR
   subgraph S[Sources]
-    SRC1[Sales Source Producer]
+    SRC1[Sales Source producer]
     SRC2[MDM Source MySQL]
     SRC3[Debezium Raw CDC Topics]
   end
 
   subgraph P[Processing Applications]
-    APP1[ODS Processor]
-    APP2[MDM CDC Curate]
-    APP3[MDM PySpark Sync]
-    APP4[Iceberg Writer]
+    APP1[ods-processor]
+    APP2[mdm-cdc-curate]
+    APP3[mdm-rds-pg]
+    APP4[iceberg-writer]
   end
 
   subgraph T[Targets]
     T1[(Kafka normalized topics)]
     T2[(Kafka Curated MDM Topics)]
     T3[(Postgres Landing Tables)]
-    T4[(Iceberg Tables on MinIO via Trino)]
-    T5[dbt and Airflow Analytics Workflows]
+    T4[(iceberg Tables on minio via trino)]
+    T5[dbt + airflow Analytics Workflows]
   end
 
   SRC1 --> APP1
@@ -82,7 +82,6 @@ flowchart LR
   APP3 --> T3
 
   T1 --> APP4
-  T2 --> APP4
   APP4 --> T4
 
   T3 --> T5

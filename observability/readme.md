@@ -22,9 +22,9 @@ The Observability Stack integrates monitoring, logging, and alerting tools to en
 ```mermaid
 flowchart LR
 	TARGETS[Platform services]
-	BLACKBOX[Blackbox Exporter]
-	PROM[Prometheus]
-	GRAFANA[Grafana]
+	BLACKBOX[blackbox-exporter]
+	PROM[prometheus]
+	GRAFANA[grafana]
 
 	TARGETS --> BLACKBOX
 	TARGETS --> PROM
@@ -36,8 +36,8 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-	METRICS[Service metrics] --> PROM[Prometheus scrape]
-	PROBES[HTTP/TCP probes] --> BLACKBOX[Blackbox Exporter]
+	METRICS[Service metrics] --> PROM[prometheus scrape]
+	PROBES[HTTP/TCP probes] --> BLACKBOX[blackbox-exporter]
 	BLACKBOX --> PROM
 	PROM --> DASH[Dashboards]
 	DASH --> ALERTS[Operations Response]

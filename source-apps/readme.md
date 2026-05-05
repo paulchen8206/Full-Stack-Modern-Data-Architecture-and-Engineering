@@ -45,21 +45,21 @@ flowchart LR
 
   subgraph P[Pipeline]
     K[(Kafka Raw Topic: raw_sales_orders)]
-    DBZ[Debezium CDC]
-    PROC[ODS Processor]
-    MDMCDC[MDM CDC Curate]
-    SPARK[MDM PySpark Sync]
+    DBZ[debezium-cdc]
+    PROC[ods-processor]
+    MDMCDC[mdm-cdc-curate]
+    SPARK[mdm-rds-pg]
     CONNECT[Kafka Connect sinks]
-    IWR[Iceberg Writer via Trino]
+    IWR[iceberg-writer via trino]
   end
 
   subgraph T[Targets]
     T1[(Kafka normalized topics)]
     T2[(Kafka Curated MDM Topics)]
     T3[(Postgres Landing)]
-    T4[(MinIO Raw Objects)]
-    T5[(Iceberg Tables on MinIO)]
-    T6[dbt and Airflow Analytics]
+    T4[(minio Raw Objects)]
+    T5[(iceberg Tables on minio)]
+    T6[dbt + airflow Analytics]
   end
 
   APP1 --> K

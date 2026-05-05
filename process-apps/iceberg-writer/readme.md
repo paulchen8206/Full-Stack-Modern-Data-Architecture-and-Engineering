@@ -22,9 +22,9 @@ The Iceberg Writer is responsible for ingesting, transforming, and persisting da
 ```mermaid
 flowchart LR
    TOPICS[(Sales Order Topics)]
-   WRITER[Iceberg Writer]
-   TRINO[Trino]
-   ICEBERG[(Iceberg Tables)]
+   WRITER[iceberg-writer]
+   TRINO[trino]
+   ICEBERG[(iceberg Tables)]
    MINIO[(MinIO Object Store)]
 
    TOPICS --> WRITER
@@ -39,8 +39,8 @@ flowchart LR
 flowchart LR
    CONSUME[Consume Kafka Batches] --> DEDUPE[Deduplicate by Business Key]
    DEDUPE --> MERGE[Generate MERGE Statements]
-   MERGE --> EXEC[Execute in Trino]
-   EXEC --> TABLES[Upsert Iceberg Tables]
+   MERGE --> EXEC[Execute in trino]
+   EXEC --> TABLES[Upsert iceberg Tables]
 ```
 
 ## Usage

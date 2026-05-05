@@ -23,7 +23,7 @@ The Processor service is responsible for transforming, enriching, and routing da
 ```mermaid
 flowchart LR
    RAW[(raw_sales_orders)]
-   PROC[ODS Processor]
+   PROC[ods-processor]
    SO[sales_order]
    SOLI[sales_order_line_item]
    CS[customer_sales]
@@ -38,7 +38,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-   EVENT[Raw Order Event] --> PARSE[Deserialize and Validate]
+   EVENT[Raw Order Event] --> PARSE[Deserialize + Validate]
    PARSE --> PROJECT[Build Projections]
    PROJECT --> PUBLISH[Publish Normalized Topics]
 ```

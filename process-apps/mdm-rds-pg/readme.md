@@ -33,9 +33,9 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-   EXTRACT[Extract MySQL Tables] --> TRANSFORM[Cast and Align Schema]
+   EXTRACT[Extract MySQL Tables] --> TRANSFORM[Cast + Align Schema]
    TRANSFORM --> LOAD[Overwrite Postgres Landing Tables]
-   LOAD --> CONSUME[Analytics and Downstream Jobs]
+   LOAD --> CONSUME[Analytics + Downstream Jobs]
 ```
 
 ## Usage

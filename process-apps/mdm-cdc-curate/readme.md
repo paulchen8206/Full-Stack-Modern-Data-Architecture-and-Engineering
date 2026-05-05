@@ -21,7 +21,7 @@ The MDM CDC Curate service consumes raw Debezium CDC events from Kafka, curates 
 ```mermaid
 flowchart LR
    RAWCDC[(Debezium Raw CDC Topics)]
-   CURATE[MDM CDC Curate]
+   CURATE[mdm-cdc-curate]
    CURATED[(mdm_customer, mdm_product, mdm_date)]
    JDBC[(mdm_*_jdbc Topics)]
 

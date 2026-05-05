@@ -38,10 +38,10 @@ These services are not domain apps themselves. They provide core capabilities co
 
 ```mermaid
 flowchart LR
-  AIRFLOW[Airflow]
+  AIRFLOW[airflow]
   KAFKA_INIT[Kafka Topic Bootstrap]
   SCHEMA_INIT[Schema Initialization]
-  MINIO_INIT[MinIO Initialization]
+  MINIO_INIT[minio Initialization]
   META[Metadata Assets]
   RUNTIME[Runtime Services]
 
@@ -57,9 +57,9 @@ flowchart LR
 ```mermaid
 flowchart LR
   BOOT[Bootstrap Scripts] --> TOPICS[Kafka Topics]
-  BOOT --> SCHEMAS[Schema Registry Subjects]
-  BOOT --> BUCKETS[MinIO Buckets]
-  AIRFLOW[Airflow DAGs] --> DBT[dbt runs]
+  BOOT --> SCHEMAS[schema-registry Subjects]
+  BOOT --> BUCKETS[minio Buckets]
+  AIRFLOW[airflow DAGs] --> DBT[dbt runs]
   DBT --> WAREHOUSE[(Warehouse Tables)]
 ```
 

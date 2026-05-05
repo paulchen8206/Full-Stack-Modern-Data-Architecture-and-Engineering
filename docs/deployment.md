@@ -1,6 +1,7 @@
 # Deployment Guide
 
-This document is the single reference for bringing up, operating, and tearing down the platform across all three runtime paths.
+This document is the single reference for bringing up, operating, and tearing
+down the platform across all three runtime paths.
 
 - **Routine A** — Docker Compose local runtime
 - **Routine B** — kind + Helm + Argo CD local GitOps
@@ -29,7 +30,7 @@ Cross-references:
 
 ## 1. Prerequisites
 
-### Routine A
+### Routine A (Docker Compose)
 
 - Docker Desktop running
 
@@ -42,7 +43,8 @@ Cross-references:
 ### Routine C (adds to B)
 
 - Container images published to a registry reachable by the target cluster
-- QA/PRD values maintained in `cicd/k8s/helm/values/values-qa.yaml` and `cicd/k8s/helm/values/values-prd.yaml`
+- QA/PRD values maintained in `cicd/k8s/helm/values/values-qa.yaml` and
+  `cicd/k8s/helm/values/values-prd.yaml`
 - Argo CD installed and reachable in the control cluster
 - kubeconfig with contexts for QA and PRD target clusters
 
@@ -50,7 +52,7 @@ Cross-references:
 
 ## 2. Routine A: Docker Compose
 
-### Start
+### Start (Routine A)
 
 Bring up the full stack:
 
@@ -64,7 +66,7 @@ Direct Compose path:
 docker compose up -d --build
 ```
 
-### Validate
+### Validate (Routine A)
 
 Check core status:
 
@@ -103,7 +105,7 @@ Validate Trino endpoint:
 make trino-smoke
 ```
 
-### Operate
+### Operate (Routine A)
 
 Run dbt on demand:
 
@@ -123,13 +125,7 @@ Tail producer and processor logs:
 docker compose logs --tail=200 --no-color --since=10m producer processor
 ```
 
-Iceberg smoke test:
-
-```bash
-make trino-smoke
-```
-
-### Stop and Clean
+### Stop and Clean (Routine A)
 
 Stop only:
 
@@ -145,22 +141,23 @@ make compose-clean
 
 ### Expected Container States
 
-All long-running services should show `Up`. One-shot containers exit cleanly with code 0:
+All long-running services should show `Up`. One-shot containers exit cleanly
+with code 0:
 
-| Container | Expected state |
-|---|---|
-| `kafka-init` | `Exited (0)` — topics created |
-| `schema-init` | `Exited (0)` — Avro subjects registered |
-| `minio-init` | `Exited (0)` — bucket created |
-| `ods-connect-init` | `Exited (0)` — ODS connectors registered |
-| `dbz-connect-init` | `Exited (0)` — Debezium connector registered |
+| Container          | Expected state                                |
+| ------------------ | --------------------------------------------- |
+| `kafka-init`       | `Exited (0)` — topics created                 |
+| `schema-init`      | `Exited (0)` — Avro subjects registered       |
+| `minio-init`       | `Exited (0)` — bucket created                 |
+| `ods-connect-init` | `Exited (0)` — ODS connectors registered      |
+| `dbz-connect-init` | `Exited (0)` — Debezium connector registered  |
 | `mdm-connect-init` | `Exited (0)` — MDM sink connectors registered |
-| `dbt` | `Exited (0)` — dbt run completed |
+| `dbt`              | `Exited (0)` — dbt run completed              |
 
-### Deployment Diagram
+### Deployment Diagram (Routine A)
 
 ```mermaid
-flowchart TB
+flowchart LR
   DEV[Developer Machine] --> DOCKER[Docker Engine]
 
   subgraph STACK[Compose Runtime]
@@ -176,12 +173,14 @@ flowchart TB
     end
 
     subgraph CORE[Long-running Services]
-      KAFKA[Kafka and Schema Registry]
-      CONNECT[dbz-connect and ods-connect and mdm-connect]
-      APPS[producer and ods-processor and mdm-cdc-curate]
-      WAREHOUSE[snowflake-mimic and trino]
+      KAFKA[Kafka + schema-registry]
+      CONNECT[dbz-connect, ods-connect, mdm-connect]
+      APPS[producer, ods-processor, mdm-cdc-curate, mdm-rds-pg]
+      WAREHOUSE[snowflake-mimic, trino]
+      LAKE[iceberg-writer]
       ORCH[airflow]
-      OBS[prometheus and grafana and blackbox]
+      OBS[prometheus, grafana, blackbox-exporter]
+      UIs[conduktor, grafana, airflow, trino]
     end
   end
 
@@ -189,17 +188,23 @@ flowchart TB
   APPS --> KAFKA
   CONNECT --> KAFKA
   CONNECT --> WAREHOUSE
+  KAFKA --> LAKE
+  LAKE --> WAREHOUSE
   ORCH --> WAREHOUSE
+  OBS --> KAFKA
+  OBS --> CONNECT
+  OBS --> WAREHOUSE
+  OBS --> ORCH
 
-  CLIENTS[Local Clients] --> PORTS[Published Ports 8080 8084 8086 9001]
-  PORTS --> CORE
+  CLIENTS[Local Clients] --> PORTS[Published Ports 3000 8080 8084 8086 9001]
+  PORTS --> UIs
 ```
 
 ---
 
 ## 3. Routine B: kind + Helm + Argo CD
 
-### Start
+### Start (Routine B)
 
 #### Preferred bootstrap (one command sequence)
 
@@ -237,7 +242,7 @@ kubectl -n gndp-dev delete job \
 make helm-up
 ```
 
-### Validate
+### Validate (Routine B)
 
 App and workload state:
 
@@ -247,16 +252,17 @@ kubectl -n gndp-dev get pods
 kubectl -n gndp-dev get jobs
 ```
 
-All long-running Deployments should reach `Running`. Expected completed one-shot Jobs:
+All long-running Deployments should reach `Running`. Expected completed one-shot
+Jobs:
 
-| Job | Expected state |
-|---|---|
-| `gndp-dev-vision-minio-init` | `Complete` — bucket created |
-| `gndp-dev-vision-ods-connect-init` | `Complete` — ODS connectors registered |
-| `gndp-dev-vision-dbz-connect-init` | `Complete` — Debezium connector registered |
-| `gndp-dev-vision-mdm-connect-init` | `Complete` — MDM connectors registered |
-| `gndp-dev-vision-dbt` | `Complete` — dbt run finished |
-| `gndp-dev-vision-register-schemas-job` | `Complete` — Avro schemas registered |
+| Job                                    | Expected state                             |
+| -------------------------------------- | ------------------------------------------ |
+| `gndp-dev-vision-minio-init`           | `Complete` — bucket created                |
+| `gndp-dev-vision-ods-connect-init`     | `Complete` — ODS connectors registered     |
+| `gndp-dev-vision-dbz-connect-init`     | `Complete` — Debezium connector registered |
+| `gndp-dev-vision-mdm-connect-init`     | `Complete` — MDM connectors registered     |
+| `gndp-dev-vision-dbt`                  | `Complete` — dbt run finished              |
+| `gndp-dev-vision-register-schemas-job` | `Complete` — Avro schemas registered       |
 
 Topic and dataflow validation:
 
@@ -269,20 +275,12 @@ kubectl -n gndp-dev exec "$POD" -- /usr/bin/kafka-console-consumer \
   --partition 0 --offset 0 --max-messages 1 --timeout-ms 15000
 ```
 
-Repeat for: `sales_order`, `mdm_customer`, `mdm_product`, `mdm_date`.
+Repeat the same check for: `sales_order`, `mdm_customer`, `mdm_product`, and `mdm_date`.
 
-End-to-end smoke check:
+For an all-in-one smoke validation, run the same checks above in sequence:
+app status, pod and job status, topic list, and at least one sample consumer read.
 
-```bash
-echo '--- app status ---' && kubectl -n argocd get application gndp-dev && \
-echo '--- pods ---' && kubectl -n gndp-dev get pods && \
-echo '--- jobs ---' && kubectl -n gndp-dev get jobs && \
-echo '--- topics ---' && \
-POD=$(kubectl -n gndp-dev get pod -l app.kubernetes.io/component=kafka -o jsonpath='{.items[0].metadata.name}') && \
-kubectl -n gndp-dev exec "$POD" -- /usr/bin/kafka-topics --bootstrap-server kafka:9092 --list
-```
-
-### Operate
+### Operate (Routine B)
 
 Register connectors manually if init Jobs failed:
 
@@ -316,7 +314,8 @@ Snapshot dev namespace health:
 make helm-health-dev
 ```
 
-Ensure Iceberg JDBC metastore tables exist (run once after fresh deploy if `iceberg-writer` crashes):
+Ensure Iceberg JDBC metastore tables exist (run once after fresh deploy if
+`iceberg-writer` crashes):
 
 ```bash
 make helm-metastore-migrate-dev
@@ -338,7 +337,7 @@ kubectl delete namespace gndp-dev
 kubectl apply -f cicd/argocd/dev.yaml
 ```
 
-### Stop and Clean
+### Stop and Clean (Routine B)
 
 Stop cluster workloads (Argo CD path):
 
@@ -365,25 +364,25 @@ Full teardown in one target:
 make k8s-routine-down
 ```
 
-### Deployment Diagram
+### Deployment Diagram (Routine B)
 
 ```mermaid
-flowchart TB
+flowchart LR
   DEV[Developer Machine] --> KIND[kind Cluster gndp-dev]
   DEV --> PF[Port-forward Sessions]
 
   subgraph CLUSTER[Kubernetes Cluster]
     direction TB
     subgraph ARGO[Namespace argocd]
-      ACD[Argo CD Server and Controllers]
+      ACD[Argo CD Server + Controllers]
       APP[gndp-dev Application]
     end
 
     subgraph WORK[Namespace gndp-dev]
       direction TB
-      DEP[Deployments producer processor kafka trino airflow conduktor]
-      JOBS[Init Jobs minio-init dbz-connect-init ods-connect-init mdm-connect-init dbt]
-      SVC[Services kafka trino airflow conduktor minio grafana snowflake-mimic]
+      DEP[Deployments: producer, processor, kafka, trino, airflow, conduktor, dbz-connect, ods-connect, mdm-connect, mdm-cdc-curate, mdm-rds-pg, iceberg-writer, prometheus, grafana]
+      JOBS[Init Jobs: minio-init, dbz-connect-init, ods-connect-init, mdm-connect-init, dbt, register-schemas-job]
+      SVC[Services: kafka, trino, airflow, conduktor, minio, grafana, prometheus, snowflake-mimic]
     end
   end
 
@@ -391,6 +390,7 @@ flowchart TB
   APP --> DEP
   APP --> JOBS
   DEP --> SVC
+  DEP --> JOBS
   PF --> SVC
 ```
 
@@ -471,7 +471,8 @@ Or revert the Git commit and let Argo CD reconcile.
 
 - [ ] Gate 1: Change review approved; image tags are immutable
 - [ ] Gate 2: QA sync completed — app is Healthy/Synced
-- [ ] Gate 3: QA smoke checks passed (pods ready, topic list valid, sample consume succeeds)
+- [ ] Gate 3: QA smoke checks passed (pods ready, topic list valid, sample
+      consume succeeds)
 - [ ] Gate 4: Production change window and on-call owner confirmed
 - [ ] Gate 5: PRD sync completed — app is Healthy/Synced
 - [ ] Gate 6: PRD post-deploy checks passed
@@ -487,7 +488,8 @@ Rollback triggers:
 - Promote in order: `dev → qa → prd`
 - Keep `prd` with `prune: false` unless explicitly approved
 - Use environment-specific immutable image tags; never deploy `latest` to prd
-- Always validate Kafka reachability and topic health in target namespaces after each promotion
+- Always validate Kafka reachability and topic health in target namespaces after
+  each promotion
 
 ---
 
@@ -497,100 +499,119 @@ Rollback triggers:
 
 ### Core Infrastructure
 
-| Service | Docker Compose | Helm/K8s dev |
-|---|---|---|
-| Zookeeper | ✅ | ✅ |
-| Kafka | ✅ 3-broker cluster (`kafka-1/2/3`) | ✅ single broker (`kafka`) |
-| Schema Registry | ✅ | ✅ |
-| Schema init | ✅ `schema-init` | ✅ `register-schemas-job` |
-| MinIO | ✅ | ✅ |
-| MinIO init | ✅ `minio-init` | ✅ init container |
-| Postgres (snowflake-mimic) | ✅ | ✅ |
+| Service                    | Docker Compose                      | Helm/K8s dev               |
+| -------------------------- | ----------------------------------- | -------------------------- |
+| Zookeeper                  | ✅                                  | ✅                         |
+| Kafka                      | ✅ 3-broker cluster (`kafka-1/2/3`) | ✅ single broker (`kafka`) |
+| Schema Registry            | ✅                                  | ✅                         |
+| Schema init                | ✅ `schema-init`                    | ✅ `register-schemas-job`  |
+| MinIO                      | ✅                                  | ✅                         |
+| MinIO init                 | ✅ `minio-init`                     | ✅ init container          |
+| Postgres (snowflake-mimic) | ✅                                  | ✅                         |
 
 ### ODS Pipeline
 
-| Service | Docker Compose | Helm/K8s dev |
-|---|---|---|
-| ODS source producer | ✅ `ods-source` | ✅ `producer` |
-| ODS stream processor | ✅ `ods-processor` | ✅ `processor` |
-| ODS Kafka Connect | ✅ `ods-connect` + `ods-connect-init` | ✅ `odsConnect` |
+| Service              | Docker Compose                        | Helm/K8s dev    |
+| -------------------- | ------------------------------------- | --------------- |
+| ODS source producer  | ✅ `ods-source`                       | ✅ `producer`   |
+| ODS stream processor | ✅ `ods-processor`                    | ✅ `processor`  |
+| ODS Kafka Connect    | ✅ `ods-connect` + `ods-connect-init` | ✅ `odsConnect` |
 
 ### MDM / CDC Pipeline
 
-| Service | Docker Compose | Helm/K8s dev |
-|---|---|---|
-| MDM MySQL source | ✅ `mdm-source` | ✅ `mdm.source` |
-| Debezium Connect | ✅ `dbz-connect` + `dbz-connect-init` | ✅ `dbzConnect` |
-| MDM Connect (JDBC sink) | ✅ `mdm-connect` + `mdm-connect-init` | ✅ part of `mdm` |
-| MDM CDC curate | ✅ `mdm-cdc-curate` | ✅ `mdm.cdcCurate` |
-| MDM RDS PG writer | ✅ `mdm-rds-pg` | ✅ `mdm.rdsPg` |
+| Service                 | Docker Compose                        | Helm/K8s dev       |
+| ----------------------- | ------------------------------------- | ------------------ |
+| MDM MySQL source        | ✅ `mdm-source`                       | ✅ `mdm.source`    |
+| Debezium Connect        | ✅ `dbz-connect` + `dbz-connect-init` | ✅ `dbzConnect`    |
+| MDM Connect (JDBC sink) | ✅ `mdm-connect` + `mdm-connect-init` | ✅ part of `mdm`   |
+| MDM CDC curate          | ✅ `mdm-cdc-curate`                   | ✅ `mdm.cdcCurate` |
+| MDM RDS PG writer       | ✅ `mdm-rds-pg`                       | ✅ `mdm.rdsPg`     |
 
 ### Lakehouse / Analytics
 
-| Service | Docker Compose | Helm/K8s dev |
-|---|---|---|
-| Trino | ✅ | ✅ |
-| Iceberg writer | ✅ | ✅ |
-| dbt | ✅ one-shot container | ✅ Kubernetes Job |
-| Airflow | ✅ | ✅ |
+| Service        | Docker Compose        | Helm/K8s dev      |
+| -------------- | --------------------- | ----------------- |
+| Trino          | ✅                    | ✅                |
+| Iceberg writer | ✅                    | ✅                |
+| dbt            | ✅ one-shot container | ✅ Kubernetes Job |
+| Airflow        | ✅                    | ✅                |
 
 ### Observability
 
-| Service | Docker Compose | Helm/K8s dev |
-|---|---|---|
-| Prometheus | ✅ | ✅ |
-| Grafana | ✅ | ✅ |
-| Blackbox exporter | ✅ | ❌ disabled in dev |
-| Conduktor (Kafka UI) | ✅ `conduktor` + `conduktor-db` | ✅ |
+| Service              | Docker Compose                  | Helm/K8s dev       |
+| -------------------- | ------------------------------- | ------------------ |
+| Prometheus           | ✅                              | ✅                 |
+| Grafana              | ✅                              | ✅                 |
+| Blackbox exporter    | ✅                              | ❌ disabled in dev |
+| Conduktor (Kafka UI) | ✅ `conduktor` + `conduktor-db` | ✅                 |
 
 ### Compose-only (no Helm equivalent)
 
-| Service | Notes |
-|---|---|
-| `kafka-init` | One-shot topic creation; Helm uses an init mechanism inside the Kafka deployment |
+| Service          | Notes                                                                                          |
+| ---------------- | ---------------------------------------------------------------------------------------------- |
+| `kafka-init`     | One-shot topic creation; Helm uses an init mechanism inside the Kafka deployment               |
 | `openmetadata-*` | Present in Compose via `--profile openmetadata`; Helm block exists but `enabled: false` in dev |
 
 ### Key Differences
 
-| Area | Docker Compose | Helm/K8s dev |
-|---|---|---|
-| Kafka topology | 3-broker cluster: `kafka-1:19092`, `kafka-2:19093`, `kafka-3:19094` | Single broker: `kafka:9092` |
-| OpenMetadata | Optional `--profile openmetadata` | Present in chart, disabled in dev |
-| Blackbox exporter | Always started | Disabled in dev values |
-| dbt execution model | Long-running container | Kubernetes Job (exits 0 on completion) |
-| Schema history bootstrap (Debezium) | Must use `kafka-1:19092,...` — `kafka:9092` not resolvable | Uses `kafka:9092` via `kafkaBootstrapServers` |
+| Area                                | Docker Compose                                                      | Helm/K8s dev                                  |
+| ----------------------------------- | ------------------------------------------------------------------- | --------------------------------------------- |
+| Kafka topology                      | 3-broker cluster: `kafka-1:19092`, `kafka-2:19093`, `kafka-3:19094` | Single broker: `kafka:9092`                   |
+| OpenMetadata                        | Optional `--profile openmetadata`                                   | Present in chart, disabled in dev             |
+| Blackbox exporter                   | Always started                                                      | Disabled in dev values                        |
+| dbt execution model                 | Long-running container                                              | Kubernetes Job (exits 0 on completion)        |
+| Schema history bootstrap (Debezium) | Must use `kafka-1:19092,...` — `kafka:9092` not resolvable          | Uses `kafka:9092` via `kafkaBootstrapServers` |
 
 ---
 
 ## 6. Endpoints Reference
 
-### Routine A (Docker Compose)
+### Routine A Failures (Docker Compose)
 
-| Service | Local URL |
-|---|---|
-| Kafka broker (external) | `localhost:9094` |
-| Conduktor / Kafka UI | `http://localhost:8080` |
-| Airflow | `http://localhost:8084` — `admin` / `admin` |
-| Trino coordinator | `http://localhost:8086` |
-| Debezium Connect REST | `http://localhost:8085` |
-| MinIO Console | `http://localhost:9001` — `minio` / `minio123` |
-| Prometheus | `http://localhost:9090` |
-| Grafana | `http://localhost:3000` |
-| MySQL MDM | `localhost:3306` — `root` / `mdmroot` |
-| Postgres | `localhost:5432` — `analytics` / `analytics` |
+| Service                 | Local URL                                      |
+| ----------------------- | ---------------------------------------------- |
+| Kafka broker (external) | `localhost:9094`                               |
+| Conduktor / Kafka UI    | `http://localhost:8080`                        |
+| Airflow                 | `http://localhost:8084` — `admin` / `admin`    |
+| Trino coordinator       | `http://localhost:8086`                        |
+| Debezium Connect REST   | `http://localhost:8085`                        |
+| MinIO Console           | `http://localhost:9001` — `minio` / `minio123` |
+| Prometheus              | `http://localhost:9090`                        |
+| Grafana                 | `http://localhost:3000`                        |
+| MySQL MDM               | `localhost:3306` — `root` / `mdmroot`          |
+| Postgres                | `localhost:5432` — `analytics` / `analytics`   |
 
 ### Routine B (kind + Helm — after port-forward)
 
-| Service | Port-forward command | Local URL |
-|---|---|---|
-| Argo CD | `kubectl -n argocd port-forward svc/argocd-server 8443:443` | `https://localhost:8443` |
-| Conduktor / Kafka UI | `kubectl -n gndp-dev port-forward svc/conduktor 8082:8080` | `http://localhost:8082` |
-| Airflow | `kubectl -n gndp-dev port-forward svc/airflow 8084:8080` | `http://localhost:8084` — `admin` / `admin` |
-| Trino | `kubectl -n gndp-dev port-forward svc/trino 8086:8080` | `http://localhost:8086` |
-| MinIO Console | `kubectl -n gndp-dev port-forward svc/minio 9001:9001` | `http://localhost:9001` — `minio` / `minio123` |
-| Grafana | `kubectl -n gndp-dev port-forward svc/grafana 3001:3000` | `http://localhost:3001` |
-| Postgres | `kubectl -n gndp-dev port-forward svc/snowflake-mimic 5433:5432` | `localhost:5433` — `analytics` / `analytics` |
-| MySQL MDM | `kubectl -n gndp-dev port-forward svc/mdm-source 3307:3306` | `localhost:3307` — `root` / `mdmroot` |
+#### Canonical Routine B UI Access Block
+
+Use this block as the source of truth for all Routine B port-forward commands:
+
+```bash
+kubectl -n argocd port-forward svc/argocd-server 8443:443
+kubectl -n gndp-dev port-forward svc/conduktor 8082:8080
+kubectl -n gndp-dev port-forward svc/airflow 8084:8080
+kubectl -n gndp-dev port-forward svc/trino 8086:8080
+kubectl -n gndp-dev port-forward svc/minio 9001:9001
+kubectl -n gndp-dev port-forward svc/grafana 3001:3000
+kubectl -n gndp-dev port-forward svc/snowflake-mimic 5433:5432
+kubectl -n gndp-dev port-forward svc/mdm-source 3307:3306
+```
+
+#### Routine B Endpoint URLs
+
+Use the command block above for access commands.
+
+| Service | Local URL |
+| --- | --- |
+| Argo CD | `https://localhost:8443` |
+| Conduktor / Kafka UI | `http://localhost:8082` |
+| Airflow | `http://localhost:8084` (admin/admin) |
+| Trino | `http://localhost:8086` |
+| MinIO Console | `http://localhost:9001` (minio/minio123) |
+| Grafana | `http://localhost:3001` |
+| Postgres | `localhost:5433` (analytics/analytics) |
+| MySQL MDM | `localhost:3307` (root/mdmroot) |
 
 Port-forward all UIs at once (Routine B):
 
@@ -604,111 +625,223 @@ make k8s-ui-port-forward
 
 ### Routine A
 
-| Symptom | Resolution |
-|---|---|
-| No `bronze` rows with `landing` rows present | Run `make dbt-run`, then recheck bronze counts |
-| `dbt` shows `Exited (0)` | Expected — one-shot container completed successfully |
-| Landing rows stay at zero, Kafka Connect healthy | Check `docker compose logs --tail=200 ods-connect`; confirm `ods-connect-init` completed |
-| MDM landing tables empty, MySQL has rows | Check `docker compose logs --tail=200 mdm-cdc-curate`; verify Postgres connectivity |
-| Debezium not producing raw CDC topics | Check `docker compose logs --tail=200 dbz-connect`; ensure `dbz-connect-init` completed |
-| Airflow webserver fails with stale PID file | `docker compose exec airflow rm -f /opt/airflow/airflow-webserver.pid && docker compose restart airflow` |
-| Trino connection reset right after restart | Wait for Trino healthcheck to pass, then rerun `make trino-smoke` |
-| Trino incremental sync fails with duplicate MERGE keys | Query duplicates: `SELECT orderid, count(*) FROM warehouse.landing.sales_order GROUP BY orderid HAVING count(*) > 1` |
-| Debezium `KafkaException: No resolvable bootstrap urls` | Schema history bootstrap servers must use `kafka-1:19092,...` not `kafka:9092` in Compose |
+1. No `bronze` rows with `landing` rows present
 
-### Routine B
+    Resolution:
 
-| Symptom | Resolution |
-|---|---|
-| Pods show `ErrImageNeverPull` | Rerun `./cicd/scripts/build-images.sh` to load images into kind node |
-| `iceberg-writer` in `CrashLoopBackOff` | Run `make helm-metastore-migrate-dev` to create Iceberg metastore tables |
-| Argo CD shows `ComparisonError` / `SYNC STATUS: Unknown` | Add repository credentials to Argo CD for the configured source repo |
-| `helm upgrade` fails on immutable Job spec | Delete init Jobs with `kubectl -n gndp-dev delete job ...`, then rerun `make helm-up` |
-| Helm ConfigMap-mounted DAGs/configs not reloaded | Restart affected Deployments after `helm upgrade` |
-| Argo CD app missing from UI | `kubectl apply -f cicd/argocd/dev.yaml` |
-| Port-forward exits immediately | Kill stale listeners: `lsof -ti tcp:<port> \| xargs -r kill`, then retry |
+    ```bash
+    make dbt-run
+    ```
+
+    Then recheck bronze counts.
+
+1. `dbt` shows `Exited (0)`
+
+    Resolution: expected one-shot container completion.
+
+1. Landing rows stay at zero, Kafka Connect healthy
+
+    Resolution:
+
+    ```bash
+    docker compose logs --tail=200 ods-connect
+    ```
+
+    Confirm `ods-connect-init` completed.
+
+1. MDM landing tables empty, MySQL has rows
+
+    Resolution:
+
+    ```bash
+    docker compose logs --tail=200 mdm-cdc-curate
+    ```
+
+    Verify Postgres connectivity.
+
+1. Debezium not producing raw CDC topics
+
+    Resolution:
+
+    ```bash
+    docker compose logs --tail=200 dbz-connect
+    ```
+
+    Ensure `dbz-connect-init` completed.
+
+1. Airflow webserver fails with stale PID file
+
+    Resolution:
+
+    ```bash
+    docker compose exec airflow rm -f /opt/airflow/airflow-webserver.pid
+    docker compose restart airflow
+    ```
+
+1. Trino connection reset right after restart
+
+    Resolution: wait for Trino healthcheck, then rerun:
+
+    ```bash
+    make trino-smoke
+    ```
+
+1. Trino incremental sync fails with duplicate MERGE keys
+
+    Resolution query:
+
+    ```sql
+    SELECT orderid, count(*)
+    FROM warehouse.landing.sales_order
+    GROUP BY orderid
+    HAVING count(*) > 1;
+    ```
+
+1. Debezium `KafkaException: No resolvable bootstrap urls`
+
+    Resolution: use `kafka-1:19092,...` for schema history bootstrap servers,
+    not `kafka:9092` in Compose.
+
+### Routine B Failures (kind + Helm)
+
+1. Pods show `ErrImageNeverPull`
+
+    Resolution:
+
+    ```bash
+    ./cicd/scripts/build-images.sh
+    ```
+
+1. `iceberg-writer` in `CrashLoopBackOff`
+
+    Resolution:
+
+    ```bash
+    make helm-metastore-migrate-dev
+    ```
+
+1. Argo CD shows `ComparisonError` / `SYNC STATUS: Unknown`
+
+    Resolution: add repository credentials for the configured source repo.
+
+1. `helm upgrade` fails on immutable Job spec
+
+    Resolution:
+
+    ```bash
+    kubectl -n gndp-dev delete job ...
+    make helm-up
+    ```
+
+1. Helm ConfigMap-mounted DAGs/configs not reloaded
+
+    Resolution: restart affected Deployments after `helm upgrade`.
+
+1. Argo CD app missing from UI
+
+    Resolution:
+
+    ```bash
+    kubectl apply -f cicd/argocd/dev.yaml
+    ```
+
+1. Port-forward exits immediately
+
+    Resolution:
+
+    ```bash
+    lsof -ti tcp:<port> | xargs -r kill
+    ```
+
+    Then retry port-forward.
 
 ---
 
 ## 8. OpenMetadata Deployment
 
-This section covers deploying OpenMetadata alongside Routine A (Docker Compose) to provide unified metadata, lineage, and data discovery across Trino, Postgres, dbt, Airflow, and Kafka.
+This section covers deploying OpenMetadata alongside Routine A (Docker Compose)
+to provide unified metadata, lineage, and data discovery across Trino, Postgres,
+dbt, Airflow, and Kafka.
 
-Out of scope: production hardening (SSO, TLS, HA, backup policy) and Kubernetes deployment manifests.
+Out of scope: production hardening (SSO, TLS, HA, backup policy) and Kubernetes
+deployment manifests.
 
 ### Stack Mapping
 
-| Service | Internal address |
-|---|---|
-| Trino | `trino:8080` (host port `8086`) |
-| Postgres warehouse | `snowflake-mimic:5432` |
-| Kafka | `kafka:9092` |
-| Schema Registry | `schema-registry:8081` |
-| Airflow | `airflow:8080` (host port `8084`) |
-| dbt | `analytics/dbt` (project path) |
+| Service            | Internal address                  |
+| ------------------ | --------------------------------- |
+| Trino              | `trino:8080` (host port `8086`)   |
+| Postgres warehouse | `snowflake-mimic:5432`            |
+| Kafka              | `kafka:9092`                      |
+| Schema Registry    | `schema-registry:8081`            |
+| Airflow            | `airflow:8080` (host port `8084`) |
+| dbt                | `analytics/dbt` (project path)    |
 
 ### Hardening Notes (applied 2026-04-20)
 
-- Postgres runs with `shared_preload_libraries=pg_stat_statements` and `pg_stat_statements.track=all`; metadata ingestion runs `CREATE EXTENSION IF NOT EXISTS pg_stat_statements` before Postgres ingestion.
-- Kafka ingestion uses `schemaRegistryURL: http://schema-registry:8081` to satisfy `CheckSchemaRegistry` and remove schema-registry warning noise.
+- Postgres runs with `shared_preload_libraries=pg_stat_statements` and
+  `pg_stat_statements.track=all`; metadata ingestion runs
+  `CREATE EXTENSION IF NOT EXISTS pg_stat_statements` before Postgres ingestion.
+- Kafka ingestion uses `schemaRegistryURL: http://schema-registry:8081` to
+  satisfy `CheckSchemaRegistry` and remove schema-registry warning noise.
 
 ### Compose Service Blueprint
 
 Add the following to `docker-compose.yml`:
 
 ```yaml
-  openmetadata-db:
-    image: mysql:8.4
-    environment:
-      MYSQL_ROOT_PASSWORD: openmetadata_root
-      MYSQL_DATABASE: openmetadata_db
-      MYSQL_USER: openmetadata_user
-      MYSQL_PASSWORD: openmetadata_pass
-    ports:
-      - "3307:3306"
-    volumes:
-      - openmetadata-db-data:/var/lib/mysql
+openmetadata-db:
+  image: mysql:8.4
+  environment:
+    MYSQL_ROOT_PASSWORD: openmetadata_root
+    MYSQL_DATABASE: openmetadata_db
+    MYSQL_USER: openmetadata_user
+    MYSQL_PASSWORD: openmetadata_pass
+  ports:
+    - "3307:3306"
+  volumes:
+    - openmetadata-db-data:/var/lib/mysql
 
-  openmetadata-search:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - ES_JAVA_OPTS=-Xms1g -Xmx1g
-    ports:
-      - "9200:9200"
-    volumes:
-      - openmetadata-es-data:/usr/share/elasticsearch/data
+openmetadata-search:
+  image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
+  environment:
+    - discovery.type=single-node
+    - xpack.security.enabled=false
+    - ES_JAVA_OPTS=-Xms1g -Xmx1g
+  ports:
+    - "9200:9200"
+  volumes:
+    - openmetadata-es-data:/usr/share/elasticsearch/data
 
-  openmetadata-server:
-    image: openmetadata/server:1.5.8
-    depends_on:
-      - openmetadata-db
-      - openmetadata-search
-    environment:
-      OPENMETADATA_CLUSTER_NAME: local
-      SERVER_HOST_API_URL: http://openmetadata-server:8585/api
-      DB_DRIVER_CLASS: com.mysql.cj.jdbc.Driver
-      DB_SCHEME: mysql
-      DB_USE_SSL: "false"
-      DB_HOST: openmetadata-db
-      DB_PORT: "3306"
-      OM_DATABASE: openmetadata_db
-      DB_USER: openmetadata_user
-      DB_USER_PASSWORD: openmetadata_pass
-      ELASTICSEARCH_HOST: openmetadata-search
-      ELASTICSEARCH_PORT: "9200"
-      ELASTICSEARCH_SCHEME: http
-    ports:
-      - "8585:8585"
+openmetadata-server:
+  image: openmetadata/server:1.5.8
+  depends_on:
+    - openmetadata-db
+    - openmetadata-search
+  environment:
+    OPENMETADATA_CLUSTER_NAME: local
+    SERVER_HOST_API_URL: http://openmetadata-server:8585/api
+    DB_DRIVER_CLASS: com.mysql.cj.jdbc.Driver
+    DB_SCHEME: mysql
+    DB_USE_SSL: "false"
+    DB_HOST: openmetadata-db
+    DB_PORT: "3306"
+    OM_DATABASE: openmetadata_db
+    DB_USER: openmetadata_user
+    DB_USER_PASSWORD: openmetadata_pass
+    ELASTICSEARCH_HOST: openmetadata-search
+    ELASTICSEARCH_PORT: "9200"
+    ELASTICSEARCH_SCHEME: http
+  ports:
+    - "8585:8585"
 
-  openmetadata-ingestion:
-    image: openmetadata/ingestion:1.5.8
-    depends_on:
-      - openmetadata-server
-    entrypoint: ["/bin/bash", "-lc", "sleep infinity"]
-    volumes:
-      - ./platform-services/metadata/openmetadata:/opt/openmetadata/metadata
+openmetadata-ingestion:
+  image: openmetadata/ingestion:1.5.8
+  depends_on:
+    - openmetadata-server
+  entrypoint: ["/bin/bash", "-lc", "sleep infinity"]
+  volumes:
+    - ./platform-services/metadata/openmetadata:/opt/openmetadata/metadata
 ```
 
 Add volumes:
@@ -722,6 +855,21 @@ volumes:
 ### Connector Workflow Files
 
 Store workflow YAMLs under `platform-services/metadata/openmetadata/workflows/`.
+
+Shared sink/workflow block (reuse this tail in every workflow file):
+
+```yaml
+sink:
+  type: metadata-rest
+  config:
+    api_endpoint: http://openmetadata-server:8585/api
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: http://openmetadata-server:8585/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: <OPENMETADATA_JWT_TOKEN>
+```
 
 **Trino** (`trino_ingestion.yaml`)
 
@@ -744,16 +892,7 @@ source:
         includes:
           - streaming
           - demo
-sink:
-  type: metadata-rest
-  config:
-    api_endpoint: http://openmetadata-server:8585/api
-workflowConfig:
-  openMetadataServerConfig:
-    hostPort: http://openmetadata-server:8585/api
-    authProvider: openmetadata
-    securityConfig:
-      jwtToken: <OPENMETADATA_JWT_TOKEN>
+# append the shared sink/workflow block
 ```
 
 **Postgres** (`postgres_ingestion.yaml`)
@@ -780,16 +919,7 @@ source:
           - bronze
           - silver
           - gold
-sink:
-  type: metadata-rest
-  config:
-    api_endpoint: http://openmetadata-server:8585/api
-workflowConfig:
-  openMetadataServerConfig:
-    hostPort: http://openmetadata-server:8585/api
-    authProvider: openmetadata
-    securityConfig:
-      jwtToken: <OPENMETADATA_JWT_TOKEN>
+# append the shared sink/workflow block
 ```
 
 **dbt** (`dbt_ingestion.yaml`)
@@ -807,16 +937,7 @@ source:
         dbtRunResultsFilePath: /opt/openmetadata/metadata/analytics/dbt/target/openmetadata/run_results.json
       dbtUpdateDescriptions: true
       includeTags: true
-sink:
-  type: metadata-rest
-  config:
-    api_endpoint: http://openmetadata-server:8585/api
-workflowConfig:
-  openMetadataServerConfig:
-    hostPort: http://openmetadata-server:8585/api
-    authProvider: openmetadata
-    securityConfig:
-      jwtToken: <OPENMETADATA_JWT_TOKEN>
+# append the shared sink/workflow block
 ```
 
 **Airflow** (`airflow_ingestion.yaml`)
@@ -836,16 +957,7 @@ source:
     config:
       type: PipelineMetadata
       includeLineage: true
-sink:
-  type: metadata-rest
-  config:
-    api_endpoint: http://openmetadata-server:8585/api
-workflowConfig:
-  openMetadataServerConfig:
-    hostPort: http://openmetadata-server:8585/api
-    authProvider: openmetadata
-    securityConfig:
-      jwtToken: <OPENMETADATA_JWT_TOKEN>
+# append the shared sink/workflow block
 ```
 
 **Kafka** (`kafka_ingestion.yaml`)
@@ -871,28 +983,19 @@ source:
           - mdm_customer
           - mdm_product
           - mdm_date
-sink:
-  type: metadata-rest
-  config:
-    api_endpoint: http://openmetadata-server:8585/api
-workflowConfig:
-  openMetadataServerConfig:
-    hostPort: http://openmetadata-server:8585/api
-    authProvider: openmetadata
-    securityConfig:
-      jwtToken: <OPENMETADATA_JWT_TOKEN>
+# append the shared sink/workflow block
 ```
 
 ### Phased Rollout
 
-| Phase | Action | Gate |
-|---|---|---|
-| 0 — Prerequisites | `make mdm-flow-check` + `make trino-smoke` + `make dbt-run` + `make openmetadata-prepare-dbt-artifacts` | Routine A healthy, Trino working |
-| 1 — Platform bring-up | `docker compose up -d openmetadata-db openmetadata-search openmetadata-server openmetadata-ingestion` | UI reachable at `http://localhost:8585`, search backend healthy |
-| 2 — Foundational metadata | Run Trino + Postgres ingestion | `lakehouse` and `warehouse` entities visible |
-| 3 — Lineage enrichment | Run dbt + Airflow ingestion | Lineage visible landing→bronze/silver/gold; Airflow DAG `dbt_warehouse_schedule` visible |
-| 4 — Streaming metadata | Run Kafka ingestion | Core streaming topics discoverable |
-| 5 — Operationalize | Schedule hourly metadata + daily lineage refresh; define owners and tags | Ingestion schedules stable for one week; no repeated connector failures |
+| Phase                     | Action                                                                                                  | Gate                                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| 0 — Prerequisites         | `make mdm-flow-check` + `make trino-smoke` + `make dbt-run` + `make openmetadata-prepare-dbt-artifacts` | Routine A healthy, Trino working                                                         |
+| 1 — Platform bring-up     | `docker compose up -d openmetadata-db openmetadata-search openmetadata-server openmetadata-ingestion`   | UI reachable at `http://localhost:8585`, search backend healthy                          |
+| 2 — Foundational metadata | Run Trino + Postgres ingestion                                                                          | `lakehouse` and `warehouse` entities visible                                             |
+| 3 — Lineage enrichment    | Run dbt + Airflow ingestion                                                                             | Lineage visible landing→bronze/silver/gold; Airflow DAG `dbt_warehouse_schedule` visible |
+| 4 — Streaming metadata    | Run Kafka ingestion                                                                                     | Core streaming topics discoverable                                                       |
+| 5 — Operationalize        | Schedule hourly metadata + daily lineage refresh; define owners and tags                                | Ingestion schedules stable for one week; no repeated connector failures                  |
 
 ### Execution Commands
 
@@ -927,15 +1030,16 @@ metadata ingest -c /opt/openmetadata/metadata/workflows/kafka_ingestion.yaml
 
 ### Risks and Mitigations
 
-| Risk | Mitigation |
-|---|---|
-| Connector drift from local auth/network changes | Keep workflow YAMLs in Git; validate with `docker compose config` |
-| Weak lineage from naming inconsistency | Enforce naming conventions across Trino catalogs, dbt models, and Airflow tasks |
-| dbt artifact path mismatch in ingestion container | Mount `analytics/dbt` into ingestion container read-only; validate before run |
+| Risk                                              | Mitigation                                                                      |
+| ------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Connector drift from local auth/network changes   | Keep workflow YAMLs in Git; validate with `docker compose config`               |
+| Weak lineage from naming inconsistency            | Enforce naming conventions across Trino catalogs, dbt models, and Airflow tasks |
+| dbt artifact path mismatch in ingestion container | Mount `analytics/dbt` into ingestion container read-only; validate before run   |
 
 ### Success Criteria
 
-- One UI for searchable metadata across lakehouse, warehouse, pipelines, and topics
+- One UI for searchable metadata across lakehouse, warehouse, pipelines, and
+  topics
 - Working lineage from source ingestion to transformed analytics layers
 - Repeatable connector workflows under source control
 - Clear ownership and tags on critical datasets and topics

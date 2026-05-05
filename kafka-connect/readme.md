@@ -46,7 +46,7 @@ flowchart LR
   K[(Kafka)]
   MYSQL[(MDM Source MySQL)]
   PG[(Snowflake Mimic Postgres)]
-  MINIO[(MinIO)]
+  MINIO[(minio)]
 
   MYSQL --> DBZ
   DBZ --> K
@@ -62,7 +62,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  CDC[Debezium CDC events] --> CURATED[Curated MDM topics]
+  CDC[debezium-cdc events] --> CURATED[Curated MDM topics]
   ODS_TOPICS[ODS Sales Topics] --> ODS_JDBC[ODS JDBC Sink]
   ODS_TOPICS --> ODS_S3[ODS S3 Sink]
   CURATED --> MDM_JDBC[MDM JDBC Sink]

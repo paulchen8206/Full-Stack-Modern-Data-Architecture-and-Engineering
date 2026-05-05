@@ -20,10 +20,10 @@ Trino is an open-source distributed SQL query engine designed for running fast a
 ```mermaid
 flowchart LR
 	CLIENTS[SQL clients]
-	TRINO[Trino coordinator]
+	TRINO[trino coordinator]
 	CATALOG_LH[Lakehouse Catalog]
 	CATALOG_WH[Warehouse Catalog]
-	MINIO[(MinIO and Iceberg Data)]
+	MINIO[(minio + iceberg Data)]
 	PG[(Postgres Warehouse)]
 
 	CLIENTS --> TRINO
@@ -37,8 +37,8 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-	QUERY[Analytical Query] --> PARSE[Trino Planner]
-	PARSE --> READ_LH[Read Iceberg tables]
+	QUERY[Analytical Query] --> PARSE[trino Planner]
+	PARSE --> READ_LH[Read iceberg tables]
 	PARSE --> READ_WH[Read warehouse tables]
 	READ_LH --> MERGE[Distributed Execution]
 	READ_WH --> MERGE

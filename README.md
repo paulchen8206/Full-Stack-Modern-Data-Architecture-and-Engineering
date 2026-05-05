@@ -104,40 +104,60 @@ For full migration detail and workflow, see [docs/architecture.md](docs/architec
 flowchart LR
    SA["Source Apps"]
    PA["Processing Apps"]
-   KC["Kafka Connect"]
+   KC["Kafka Connect Plane (dbz/ods/mdm)"]
    PS["Platform Services"]
-   AN["Analytics dbt"]
-   QE["Trino"]
+   WH["Postgres Landing"]
+   TR["trino"]
+   LK["iceberg on minio"]
+   AN["dbt + airflow"]
    OBS["Observability"]
 
    SA --> PA
    SA --> KC
    PA --> KC
-   KC --> AN
-   PA --> QE
+   KC --> WH
+   PA --> TR
+   TR --> LK
+   WH --> AN
+   LK --> AN
    PS --> AN
-   PS --> QE
-   QE --> AN
    OBS --> SA
    OBS --> PA
    OBS --> KC
+   OBS --> TR
+   OBS --> AN
 ```
 
 ## Data Flow Diagram
 
 ```mermaid
 flowchart LR
-   RAW[Raw Sales Orders Topic] --> ODSP[ODS Processor]
-   ODSP --> ODS_TOPICS[Normalized Sales Topics]
-   ODS_TOPICS --> ODS_SINKS[ODS JDBC and S3 Sinks]
-   ODS_SINKS --> LANDING[(Landing Schema)]
-   LANDING --> DBT[dbt Medallion Models]
-   MYSQL[(MDM Source MySQL)] --> DBZ[Debezium CDC]
-   DBZ --> MDM_CURATE[MDM CDC Curate]
-   MDM_CURATE --> MDM_SINKS[MDM JDBC and S3 Sinks]
-   MDM_SINKS --> LANDING
-   ODS_TOPICS --> ICE_WRITER[Iceberg Writer]
-   ICE_WRITER --> LAKEHOUSE[(Iceberg on MinIO)]
+   PROD[producer] --> ODSP[ods-processor]
+   ODSP --> ODS_TOPICS[sales_order / sales_order_line_item / customer_sales]
+
+   ODS_TOPICS --> ODSC[ods-connect]
+   ODSC --> LANDING[(Postgres landing)]
+   ODSC --> RAW[(minio raw objects)]
+
+   MYSQL[(mdm-source MySQL)] --> DBZC[dbz-connect]
+   DBZC --> RAW_CDC[raw MDM CDC topics]
+   RAW_CDC --> CURATE[mdm-cdc-curate]
+   CURATE --> CURATED[mdm_customer / mdm_product / mdm_date]
+   CURATE --> JDBC_TOPICS[mdm_*_jdbc topics]
+   JDBC_TOPICS --> MDMC[mdm-connect]
+   CURATED --> MDMC
+   MDMC --> LANDING
+   MDMC --> RAW
+
+   MYSQL --> MDM_SYNC[mdm-rds-pg]
+   MDM_SYNC --> LANDING
+
+   ODS_TOPICS --> IW[iceberg-writer]
+   IW --> TRINO[trino]
+   TRINO --> ICE[(iceberg tables on minio)]
+
+   LANDING --> DBT[dbt medallion]
+   AIRFLOW[airflow] --> DBT
 ```
 
 ## Documentation Map

@@ -27,7 +27,7 @@ flowchart LR
 	C360[customer360]
 	PM[product_master]
 	D[date]
-	CDC[Debezium CDC]
+	CDC[debezium-cdc]
 
 	GEN --> MYSQL
 	MYSQL --> C360
@@ -43,7 +43,7 @@ flowchart LR
 	UPSERT[Periodic Upserts] --> TABLES[MDM Master Tables]
 	TABLES --> BINLOG[MySQL Binlog]
 	BINLOG --> TOPICS[CDC Kafka Topics]
-	TOPICS --> CONSUMERS[Sync and Sink Services]
+	TOPICS --> CONSUMERS[Sync + Sink Services]
 ```
 
 ## Example Table Definitions

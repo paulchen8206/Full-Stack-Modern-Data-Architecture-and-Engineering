@@ -74,12 +74,12 @@ flowchart LR
   subgraph S[Source of Truth]
     GIT[Git Repository]
     CHART[Helm Chart Templates]
-    VALUES[Environment Values: Dev, QA, and PRD]
+    VALUES[Environment Values: Dev, QA, PRD]
     APP[Argo CD Application Manifests]
   end
 
   subgraph P[Delivery Pipeline]
-    BUILD[Build and Publish Images]
+    BUILD[Build + Publish Images]
     RENDER[Helm Render]
     ARGO[Argo CD reconcile]
     APPLY[Apply Resources to Cluster]
@@ -87,8 +87,8 @@ flowchart LR
 
   subgraph T[Runtime Targets]
     DEV[gndp-dev Namespace]
-    QA[QA Namespace or Cluster]
-    PRD[PRD Namespace or Cluster]
+    QA[QA Namespace / Cluster]
+    PRD[PRD Namespace / Cluster]
   end
 
   GIT --> BUILD

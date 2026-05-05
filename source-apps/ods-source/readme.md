@@ -23,7 +23,7 @@ flowchart LR
    GEN[Order generator]
    AVRO[Avro schema serializer]
    KAFKA[(Kafka Topic: raw_sales_orders)]
-   PROC[ODS Processor]
+   PROC[ods-processor]
 
    GEN --> AVRO
    AVRO --> KAFKA

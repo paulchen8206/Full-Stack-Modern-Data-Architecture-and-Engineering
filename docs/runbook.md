@@ -287,31 +287,26 @@ Expected results:
 Open a shell-based Trino CLI or run ad hoc SQL without calling Python directly:
 
 ```bash
-make trino-shell
-make trino-show-streaming-tables
+docker compose exec trino trino --server http://localhost:8080
+docker compose exec -T trino trino --server http://localhost:8080 --execute "SHOW TABLES FROM lakehouse.streaming"
 ```
 
 Bootstrap real Iceberg tables on MinIO through Trino:
 
 ```bash
-make trino-seed-demo
-make trino-bootstrap-lakehouse
-make trino-rebuild-lakehouse
-make trino-sync-lakehouse
-make trino-sample-queries
-make iceberg-streaming-smoke
+docker compose exec -T trino trino --server http://localhost:8080 --execute "SHOW TABLES FROM lakehouse.streaming"
+docker compose logs --tail=200 iceberg-writer
 ```
 
 Trino dataset onboarding workflow (manual SQL path):
 
 ```bash
-make trino-shell
-./trino/scripts/trino-sql.sh "DESCRIBE warehouse.landing.sales_order"
-./trino/scripts/trino-sql.sh "DESCRIBE warehouse.landing.sales_order_line_item"
-./trino/scripts/trino-sql.sh "DESCRIBE warehouse.landing.customer_sales"
+docker compose exec -T trino trino --server http://localhost:8080 --execute "DESCRIBE warehouse.landing.sales_order"
+docker compose exec -T trino trino --server http://localhost:8080 --execute "DESCRIBE warehouse.landing.sales_order_line_item"
+docker compose exec -T trino trino --server http://localhost:8080 --execute "DESCRIBE warehouse.landing.customer_sales"
 ```
 
-Use `DESCRIBE` first, then align `SELECT` lists in `trino/sql/bootstrap_lakehouse.sql` and `trino/sql/incremental_sync_lakehouse.sql` to the actual landing columns before running bootstrap/sync.
+Use `DESCRIBE` first, then align your Trino `SELECT` lists and MERGE/CTAS statements to the actual landing columns before running bootstrap/sync SQL.
 
 Second Postgres catalog operations (optional):
 
@@ -319,8 +314,8 @@ Second Postgres catalog operations (optional):
 # add file trino/etc/catalog/<catalog>.properties, then reload Trino
 docker compose restart trino
 make trino-smoke
-./trino/scripts/trino-sql.sh "SHOW CATALOGS"
-./trino/scripts/trino-sql.sh "SHOW SCHEMAS FROM <catalog>"
+docker compose exec -T trino trino --server http://localhost:8080 --execute "SHOW CATALOGS"
+docker compose exec -T trino trino --server http://localhost:8080 --execute "SHOW SCHEMAS FROM <catalog>"
 ```
 
 If a temporary catalog is no longer needed, delete its `trino/etc/catalog/<catalog>.properties` file, restart Trino, and re-run `SHOW CATALOGS` to confirm removal.
@@ -331,10 +326,10 @@ Interpretation:
 - `silver.*` objects are dbt dimension and fact tables.
 - `gold.gold_customer_sales_summary` is the presentation table.
 - If landing has rows and bronze/silver/gold does not, rerun dbt before debugging upstream services.
-- If Trino is healthy but returns no Iceberg tables, run `make trino-seed-demo` or `make trino-bootstrap-lakehouse` to materialize Trino-managed Iceberg tables on MinIO.
-- If you want realtime Iceberg ingestion without the Postgres bridge, confirm the `iceberg-writer` service is running and use `make iceberg-streaming-smoke` to verify rows arrived in `lakehouse.streaming`.
+- If Trino is healthy but returns no Iceberg tables, run bootstrap SQL manually through Trino CLI to materialize Trino-managed Iceberg tables on MinIO.
+- If you want realtime Iceberg ingestion without the Postgres bridge, confirm the `iceberg-writer` service is running and query `lakehouse.streaming` through Trino to verify rows arrived.
 - The `iceberg-writer` also flushes partial topic batches on a timer, so low-volume streams should still land in Iceberg without waiting for a full batch.
-- Current validation note (2026-04-20): `make trino-bootstrap-lakehouse` passed after aligning column names with landing schemas; `make trino-sync-lakehouse` can still fail when source MERGE keys are duplicated (see failure pattern below).
+- Current validation note (2026-04-20): bootstrap SQL passed after aligning column names with landing schemas; incremental sync can still fail when source MERGE keys are duplicated (see failure pattern below).
 
 ### A4. Observe logs
 
@@ -442,12 +437,12 @@ If you use the volume reset, Postgres landing, bronze, silver, and gold data wil
 - Trino checks fail right after `docker compose restart trino` with connection reset/refused:
   Trino is still starting. Wait until `docker compose ps` shows Trino as healthy, then rerun `make trino-smoke`.
 - Trino bootstrap/sync fails with `Column '<name>' cannot be resolved`:
-  Source schema changed relative to bootstrap SQL. Run `DESCRIBE warehouse.landing.<table>` and update `trino/sql/bootstrap_lakehouse.sql` and `trino/sql/incremental_sync_lakehouse.sql` to match current columns.
-- `make trino-sync-lakehouse` fails with `One MERGE target table row matched more than one source row`:
+  Source schema changed relative to your SQL statements. Run `DESCRIBE warehouse.landing.<table>` and update the SQL to match current columns.
+- Trino incremental sync fails with `One MERGE target table row matched more than one source row`:
   One or more source MERGE keys are duplicated. Diagnose with:
 
   ```bash
-  ./trino/scripts/trino-sql.sh "SELECT 'sales_order' AS table_name, count(*) AS dup_keys FROM (SELECT orderid FROM warehouse.landing.sales_order GROUP BY orderid HAVING count(*) > 1) UNION ALL SELECT 'sales_order_line_item' AS table_name, count(*) AS dup_keys FROM (SELECT lineitemid FROM warehouse.landing.sales_order_line_item GROUP BY lineitemid HAVING count(*) > 1) UNION ALL SELECT 'customer_sales' AS table_name, count(*) AS dup_keys FROM (SELECT customerid FROM warehouse.landing.customer_sales GROUP BY customerid HAVING count(*) > 1)"
+  docker compose exec -T trino trino --server http://localhost:8080 --execute "SELECT 'sales_order' AS table_name, count(*) AS dup_keys FROM (SELECT orderid FROM warehouse.landing.sales_order GROUP BY orderid HAVING count(*) > 1) UNION ALL SELECT 'sales_order_line_item' AS table_name, count(*) AS dup_keys FROM (SELECT lineitemid FROM warehouse.landing.sales_order_line_item GROUP BY lineitemid HAVING count(*) > 1) UNION ALL SELECT 'customer_sales' AS table_name, count(*) AS dup_keys FROM (SELECT customerid FROM warehouse.landing.customer_sales GROUP BY customerid HAVING count(*) > 1)"
   ```
 
   Then deduplicate source rows before MERGE (for example, keep the latest row per key).

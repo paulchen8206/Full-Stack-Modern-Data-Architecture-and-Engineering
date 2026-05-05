@@ -32,7 +32,7 @@ Phase scope:
 
 - docker compose up -d openmetadata-server openmetadata-ingestion
 - make trino-smoke
-- trino/scripts/trino-sql.sh "SHOW CATALOGS"
+- docker compose exec -T trino trino --server http://localhost:8080 --execute "SHOW CATALOGS"
 
 ## 5. Validation
 

@@ -7,27 +7,12 @@ KIND_CLUSTER ?= gndp-dev
 K8S_NAMESPACE ?= gndp-$(K8S_ENV)
 K8S_RELEASE ?= gndp-$(K8S_ENV)
 IMAGE_TAG ?= 0.1.0
-COMPOSE_BUILD_TARGETS ?= \
-	pos-producer=./source-apps/ods-source \
-	pos-processor=./process-apps/ods-processor \
-	pos-ods-connect=./kafka-connect/ods-connect \
-	pos-dbt=./analytics/dbt \
-	pos-airflow=./platform-services/airflow \
-	pos-mdm-cdc-curate=./process-apps/mdm-cdc-curate \
-	pos-mdm-rds-pg=./process-apps/mdm-rds-pg \
-	pos-iceberg-writer=./process-apps/iceberg-writer
 DOCKER_COMPOSE ?= docker compose
 DBZ_CONNECT_STATUS_URL ?= http://localhost:8083/connectors/dbz-mysql-mdm/status
 KAFKA_CONSUMER_CONTAINER ?= kafka-3
 KAFKA_BOOTSTRAP_SERVER ?= kafka-3:19094
 KAFKA_CONSOLE_CONSUMER ?= /usr/bin/kafka-console-consumer
-TRINO_SQL_SCRIPT ?= ./trino/scripts/trino-sql.sh
 TRINO_SMOKE_URL ?= http://localhost:8086/v1/info
-TRINO_BOOTSTRAP_SQL ?= ./trino/sql/bootstrap_lakehouse.sql
-TRINO_INCREMENTAL_SQL ?= ./trino/sql/incremental_sync_lakehouse.sql
-TRINO_SAMPLE_SQL ?= ./trino/sql/sample_queries.sql
-TRINO_SEED_SQL ?= ./trino/sql/bootstrap_demo_seed.sql
-ICEBERG_SMOKE_SCRIPT ?= ./trino/scripts/check-iceberg-streaming-unified.sh
 AIRFLOW_DAG_ID ?= dbt_warehouse_schedule
 OPENMETADATA_PROFILE ?= --profile openmetadata
 OPENMETADATA_INGEST_CONTAINER ?= openmetadata-ingestion
@@ -65,25 +50,15 @@ MDM_SOURCE_IMAGE_TAG ?= 0.1.0
 SCHEMA_INIT_IMAGE_REPOSITORY ?= schema-init
 SCHEMA_INIT_IMAGE_TAG ?= latest
 
-.PHONY: compose-build compose-up compose-down compose-clean images mdm-status mdm-topics-check mdm-flow-check \
-	dbt-run airflow-logs airflow-trigger-dbt-dag ops-status verify-dbt-relations trino-shell trino-smoke \
-	dbt-logs trino-show-streaming-tables \
-	trino-seed-demo trino-bootstrap-lakehouse trino-rebuild-lakehouse trino-sync-lakehouse trino-sample-queries \
-	iceberg-streaming-smoke iceberg-streaming-smoke-dev openmetadata-up openmetadata-status \
+.PHONY: compose-up compose-down compose-clean mdm-status mdm-topics-check mdm-flow-check \
+	dbt-run airflow-logs airflow-trigger-dbt-dag ops-status verify-dbt-relations trino-smoke \
+	dbt-logs openmetadata-up openmetadata-status \
 	openmetadata-prepare-dbt-artifacts openmetadata-ingest-trino openmetadata-ingest-postgres \
 	openmetadata-ingest-dbt openmetadata-ingest-airflow openmetadata-ingest-kafka \
 	k8s-kind-bootstrap k8s-build-images helm-deps helm-template helm-up helm-down k8s-cleanup k8s-ui-port-forward \
 	k8s-argocd-apply k8s-status k8s-register-dbz k8s-register-mdm k8s-register-ods k8s-register-connectors \
 	helm-reboot-dev helm-health-dev helm-metastore-migrate-dev \
 	k8s-routine-up k8s-routine-down
-
-# Build all Docker images
-compose-build:
-	@for target in $(COMPOSE_BUILD_TARGETS); do \
-		image="$${target%%=*}"; \
-		context="$${target#*=}"; \
-		docker build -t "$${image}:$(IMAGE_TAG)" "$${context}"; \
-	done
 
 # Start all services using Docker Compose
 compose-up:
@@ -143,48 +118,9 @@ ops-status:
 verify-dbt-relations:
 	$(DOCKER_COMPOSE) exec -T snowflake-mimic psql -U analytics -d analytics -c "SELECT schemaname, count(*) AS relation_count FROM pg_catalog.pg_tables WHERE schemaname IN ('landing','bronze','silver','gold') GROUP BY schemaname ORDER BY schemaname;"
 
-# Open Trino CLI, run inline SQL, or execute SQL file via SQL_FILE
-trino-shell:
-	@if [ -n "$(SQL_FILE)" ]; then \
-		$(TRINO_SQL_SCRIPT) "$(SQL_FILE)"; \
-	else \
-		$(TRINO_SQL_SCRIPT); \
-	fi
-
 # Validate Trino coordinator endpoint
 trino-smoke:
 	curl -fsS $(TRINO_SMOKE_URL) | cat
-
-# Show lakehouse streaming tables through Trino helper
-trino-show-streaming-tables:
-	$(TRINO_SQL_SCRIPT) "SHOW TABLES FROM lakehouse.streaming"
-
-# Seed demo objects used by Trino sample queries
-trino-seed-demo:
-	$(TRINO_SQL_SCRIPT) "$(TRINO_SEED_SQL)"
-
-# Create/refresh lakehouse tables from landing datasets
-trino-bootstrap-lakehouse:
-	$(TRINO_SQL_SCRIPT) "$(TRINO_BOOTSTRAP_SQL)"
-
-# Rebuild demo + lakehouse bootstrap path from scratch
-trino-rebuild-lakehouse: trino-seed-demo trino-bootstrap-lakehouse
-
-# Incrementally sync lakehouse tables from landing datasets
-trino-sync-lakehouse:
-	$(TRINO_SQL_SCRIPT) "$(TRINO_INCREMENTAL_SQL)"
-
-# Run curated Trino sample SQL bundle
-trino-sample-queries:
-	$(TRINO_SQL_SCRIPT) "$(TRINO_SAMPLE_SQL)"
-
-# Validate direct Kafka-to-Iceberg writer flow in local compose
-iceberg-streaming-smoke:
-	$(ICEBERG_SMOKE_SCRIPT)
-
-# Validate direct Kafka-to-Iceberg writer flow against dev Kubernetes
-iceberg-streaming-smoke-dev:
-	$(ICEBERG_SMOKE_SCRIPT) --k8s --namespace gndp-dev --deployment gndp-dev-vision-trino
 
 # Start OpenMetadata stack via compose profile
 openmetadata-up:

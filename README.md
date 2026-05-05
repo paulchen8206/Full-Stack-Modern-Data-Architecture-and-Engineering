@@ -469,17 +469,10 @@ Dev environment behavior:
 - `trino` exposes a SQL query engine endpoint for MinIO-backed Iceberg-compatible data.
 - Local Compose endpoint: `http://localhost:8086`
 - Kubernetes endpoint: port-forward `svc/trino 8086:8080`
-- The repository includes a repeatable SQL runner: `python3 trino/scripts/trino_query.py --server http://localhost:8086 --file <sql-file>`
-- The repository also includes a shell helper for ad hoc SQL without calling Python directly: `make trino-show-streaming-tables`
-- `make trino-shell` opens the Trino CLI inside the Compose service, or runs a SQL file when `SQL_FILE=<path>` is provided
+- Run ad hoc SQL directly through the Trino container: `docker compose exec -T trino trino --server http://localhost:8080 --execute "SHOW CATALOGS"`
 | Make target | Action |
 | --- | --- |
-| `make trino-bootstrap-lakehouse` | Materialize real Iceberg tables from Postgres landing |
-| `make trino-rebuild-lakehouse` | Drop and recreate all demo Iceberg tables |
-| `make trino-sync-lakehouse` | Incremental refresh from Postgres landing |
-| `make trino-seed-demo` | Create demo seed tables |
-| `make iceberg-streaming-smoke` | End-to-end verification for the direct writer path |
-| `make iceberg-streaming-smoke-dev` | Kubernetes-side verification via temporary Trino port-forward |
+| `make trino-smoke` | Validate Trino coordinator endpoint |
 
 Example Trino workflow:
 

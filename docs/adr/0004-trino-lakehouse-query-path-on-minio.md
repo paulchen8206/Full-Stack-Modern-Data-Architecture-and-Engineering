@@ -25,9 +25,9 @@ Support two ingestion patterns:
 ## 4. Operational References
 
 - make trino-smoke
-- trino/scripts/trino-sql.sh "SHOW CATALOGS"
-- trino/scripts/trino-sql.sh "SHOW SCHEMAS FROM lakehouse"
-- trino/scripts/trino-sql.sh "SHOW TABLES FROM lakehouse.streaming"
+- docker compose exec -T trino trino --server http://localhost:8080 --execute "SHOW CATALOGS"
+- docker compose exec -T trino trino --server http://localhost:8080 --execute "SHOW SCHEMAS FROM lakehouse"
+- docker compose exec -T trino trino --server http://localhost:8080 --execute "SHOW TABLES FROM lakehouse.streaming"
 
 ## 5. Validation
 
@@ -59,7 +59,6 @@ Trade-offs:
 
 - [../architecture.md](../architecture.md)
 - [../../trino/etc/catalog/lakehouse.properties](../../trino/etc/catalog/lakehouse.properties)
-- [../../trino/sql](../../trino/sql)
 - [../../process-apps/iceberg-writer](../../process-apps/iceberg-writer)
 
 ## 9. Diagrams

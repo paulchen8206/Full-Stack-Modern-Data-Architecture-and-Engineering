@@ -19,14 +19,14 @@ Adopt one SQL access pattern:
 
 - query through Trino endpoint at localhost:8086
 - use DBeaver as the default interactive client
-- keep script parity through trino/scripts/trino-sql.sh
+- keep CLI parity through direct `docker compose exec trino trino --execute ...` commands
 
 ## 4. Operational References
 
 - make trino-smoke
-- trino/scripts/trino-sql.sh "SHOW CATALOGS"
-- trino/scripts/trino-sql.sh "SHOW SCHEMAS FROM lakehouse"
-- trino/scripts/trino-sql.sh "SHOW SCHEMAS FROM warehouse"
+- docker compose exec -T trino trino --server http://localhost:8080 --execute "SHOW CATALOGS"
+- docker compose exec -T trino trino --server http://localhost:8080 --execute "SHOW SCHEMAS FROM lakehouse"
+- docker compose exec -T trino trino --server http://localhost:8080 --execute "SHOW SCHEMAS FROM warehouse"
 
 ## 5. Validation
 

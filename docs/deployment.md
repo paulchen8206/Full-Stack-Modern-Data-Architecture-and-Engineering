@@ -126,7 +126,7 @@ docker compose logs --tail=200 --no-color --since=10m producer processor
 Iceberg smoke test:
 
 ```bash
-make iceberg-streaming-smoke
+make trino-smoke
 ```
 
 ### Stop and Clean
@@ -613,7 +613,7 @@ make k8s-ui-port-forward
 | Debezium not producing raw CDC topics | Check `docker compose logs --tail=200 dbz-connect`; ensure `dbz-connect-init` completed |
 | Airflow webserver fails with stale PID file | `docker compose exec airflow rm -f /opt/airflow/airflow-webserver.pid && docker compose restart airflow` |
 | Trino connection reset right after restart | Wait for Trino healthcheck to pass, then rerun `make trino-smoke` |
-| `trino-sync-lakehouse` fails with duplicate MERGE keys | Query duplicates: `SELECT orderid, count(*) FROM warehouse.landing.sales_order GROUP BY orderid HAVING count(*) > 1` |
+| Trino incremental sync fails with duplicate MERGE keys | Query duplicates: `SELECT orderid, count(*) FROM warehouse.landing.sales_order GROUP BY orderid HAVING count(*) > 1` |
 | Debezium `KafkaException: No resolvable bootstrap urls` | Schema history bootstrap servers must use `kafka-1:19092,...` not `kafka:9092` in Compose |
 
 ### Routine B

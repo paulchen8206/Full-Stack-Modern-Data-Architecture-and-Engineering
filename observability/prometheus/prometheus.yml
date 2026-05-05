@@ -21,6 +21,8 @@ scrape_configs:
     - http://dbz-connect:8083/connectors
     - http://ods-connect:8083/connectors
     - http://mdm-connect:8083/connectors
+    - https://grafana.com
+    - https://prometheus.io
     - http://grafana:3000/api/health
     - http://prometheus:9090/-/ready
     - http://conduktor:8080/

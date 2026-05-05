@@ -365,7 +365,7 @@ flowchart LR
   subgraph P[Pipeline Processing]
     K[(Kafka Cluster)]
     SR[schema-registry]
-    PROC[ods-processor (Spring Boot and Flink)]
+    PROC[ods-processor - Spring Boot and Flink]
     ODS[ods-connect Sink Tasks]
     DBZ[dbz-connect]
     MCP[mdm-cdc-curate]
@@ -381,7 +381,7 @@ flowchart LR
     TGT1[(Postgres Landing and Analytics)]
     TGT2[(MinIO Raw Objects)]
     TGT3[(Iceberg Tables on MinIO)]
-    TGT4[OpenMetadata Catalog (Optional)]
+    TGT4[OpenMetadata Catalog - Optional]
     TGT5[Grafana Dashboards]
   end
 
@@ -433,7 +433,7 @@ flowchart LR
 
   subgraph P1[Pipeline]
     K[(Kafka Cluster)]
-    F[ods-processor (Spring Boot and Flink)]
+    F[ods-processor - Spring Boot and Flink]
     SR[schema-registry]
     ODS[ods-connect]
     IW[iceberg-writer]
@@ -644,7 +644,7 @@ flowchart LR
     PROM[prometheus]
     BBX[blackbox-exporter]
     GRAF[grafana]
-    KUI[Kafka UI (Conduktor)]
+    KUI[Kafka UI - Conduktor]
   end
 
   ZK --> K1
